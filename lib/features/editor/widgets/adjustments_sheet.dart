@@ -29,23 +29,35 @@ const Color _accent = Color(0xFF2DE2E6);
 enum AdjustGroup { light, color, effects }
 
 enum AdjustParam {
+  exposure('Exposure', Icons.exposure_rounded, AdjustGroup.light),
   brightness('Brightness', Icons.wb_sunny_outlined, AdjustGroup.light),
   contrast('Contrast', Icons.contrast_rounded, AdjustGroup.light),
+  highlights('Highlights', Icons.wb_twilight_rounded, AdjustGroup.light),
+  shadows('Shadows', Icons.brightness_4_outlined, AdjustGroup.light),
+  brilliance('Brilliance', Icons.auto_awesome_outlined, AdjustGroup.light),
   saturation('Saturation', Icons.water_drop_outlined, AdjustGroup.color),
   warmth('Warmth', Icons.thermostat_rounded, AdjustGroup.color),
   hue('Hue', Icons.palette_outlined, AdjustGroup.color),
+  fade('Fade', Icons.blur_linear_rounded, AdjustGroup.color),
+  sepia('Sepia', Icons.filter_b_and_w_rounded, AdjustGroup.color),
   sharpness('Sharpen', Icons.deblur_rounded, AdjustGroup.effects),
   vignette('Vignette', Icons.vignette_rounded, AdjustGroup.effects),
-  grain('Grain', Icons.grain_rounded, AdjustGroup.effects);
+  grain('Grain', Icons.grain_rounded, AdjustGroup.effects),
+  clarity('Clarity', Icons.center_focus_strong_rounded, AdjustGroup.effects);
 
   const AdjustParam(this.label, this.icon, this.group);
   final String label;
   final IconData icon;
   final AdjustGroup group;
 
-  /// Sharpen, vignette and grain only go one way.
+  /// Unipolar parameters only go 0..100.
   double get min => switch (this) {
-        AdjustParam.sharpness || AdjustParam.vignette || AdjustParam.grain => 0,
+        AdjustParam.sharpness ||
+        AdjustParam.vignette ||
+        AdjustParam.grain ||
+        AdjustParam.fade ||
+        AdjustParam.sepia ||
+        AdjustParam.clarity => 0,
         _ => -100,
       };
 
@@ -86,46 +98,55 @@ class AdjustSettings {
       saturation: (1.0 + this[AdjustParam.saturation] / 100.0).clamp(0.0, 2.0),
       temperature: (this[AdjustParam.warmth] / 100.0).clamp(-1.0, 1.0),
       tint: (this[AdjustParam.hue] / 100.0).clamp(-1.0, 1.0),
+      exposure: (this[AdjustParam.exposure] / 100.0).clamp(-1.0, 1.0),
+      highlights: (this[AdjustParam.highlights] / 100.0).clamp(-1.0, 1.0),
+      shadows: (this[AdjustParam.shadows] / 100.0).clamp(-1.0, 1.0),
       vignette: (this[AdjustParam.vignette] / 100.0).clamp(0.0, 1.0),
+      fade: (this[AdjustParam.fade] / 100.0).clamp(0.0, 1.0),
+      sepia: (this[AdjustParam.sepia] / 100.0).clamp(0.0, 1.0),
+      brilliance: (this[AdjustParam.brilliance] / 100.0).clamp(-1.0, 1.0),
+      clarity: (this[AdjustParam.clarity] / 100.0).clamp(0.0, 1.0),
     );
   }
 
   factory AdjustSettings.fromColorGrading(ColorGradingSettings cg) {
     var s = AdjustSettings.identity;
-    if (cg.brightness != 0.0) {
-      s = s.set(AdjustParam.brightness, cg.brightness * 100.0);
-    }
-    if (cg.contrast != 1.0) {
-      s = s.set(AdjustParam.contrast, (cg.contrast - 1.0) * 100.0);
-    }
-    if (cg.saturation != 1.0) {
-      s = s.set(AdjustParam.saturation, (cg.saturation - 1.0) * 100.0);
-    }
-    if (cg.temperature != 0.0) {
-      s = s.set(AdjustParam.warmth, cg.temperature * 100.0);
-    }
-    if (cg.tint != 0.0) {
-      s = s.set(AdjustParam.hue, cg.tint * 100.0);
-    }
-    if (cg.vignette != 0.0) {
-      s = s.set(AdjustParam.vignette, cg.vignette * 100.0);
-    }
+    if (cg.brightness != 0.0) s = s.set(AdjustParam.brightness, cg.brightness * 100.0);
+    if (cg.contrast != 1.0) s = s.set(AdjustParam.contrast, (cg.contrast - 1.0) * 100.0);
+    if (cg.saturation != 1.0) s = s.set(AdjustParam.saturation, (cg.saturation - 1.0) * 100.0);
+    if (cg.temperature != 0.0) s = s.set(AdjustParam.warmth, cg.temperature * 100.0);
+    if (cg.tint != 0.0) s = s.set(AdjustParam.hue, cg.tint * 100.0);
+    if (cg.exposure != 0.0) s = s.set(AdjustParam.exposure, cg.exposure * 100.0);
+    if (cg.highlights != 0.0) s = s.set(AdjustParam.highlights, cg.highlights * 100.0);
+    if (cg.shadows != 0.0) s = s.set(AdjustParam.shadows, cg.shadows * 100.0);
+    if (cg.vignette != 0.0) s = s.set(AdjustParam.vignette, cg.vignette * 100.0);
+    if (cg.fade != 0.0) s = s.set(AdjustParam.fade, cg.fade * 100.0);
+    if (cg.sepia != 0.0) s = s.set(AdjustParam.sepia, cg.sepia * 100.0);
+    if (cg.brilliance != 0.0) s = s.set(AdjustParam.brilliance, cg.brilliance * 100.0);
+    if (cg.clarity != 0.0) s = s.set(AdjustParam.clarity, cg.clarity * 100.0);
     return s;
   }
 
   /// Approximate live preview: wrap the video in `ColorFiltered`.
-  /// (Sharpen, hue, vignette and grain are export-only.)
   ColorFilter? toColorFilter() {
     if (isIdentity) return null;
-    final double c = 1 + this[AdjustParam.contrast] / 100;
+    final double exp = this[AdjustParam.exposure] / 100 * 50;
+    final double b = this[AdjustParam.brightness] / 100 * 80 + exp;
+    final double c = 1 + (this[AdjustParam.contrast] + this[AdjustParam.brilliance] * 0.5) / 100;
     final double s = 1 + this[AdjustParam.saturation] / 100;
-    final double off =
-        128 * (1 - c) + this[AdjustParam.brightness] / 100 * 80;
+    final double off = 128 * (1 - c) + b;
     final double w = this[AdjustParam.warmth] / 100 * 40;
+    final double sep = (this[AdjustParam.sepia] / 100).clamp(0.0, 1.0);
+    final double fd = (this[AdjustParam.fade] / 100).clamp(0.0, 1.0) * 30;
+
+    final double rScale = c * (.213 + .787 * s) * (1 - 0.607 * sep) + 0.393 * sep;
+    final double gScale = c * (.715 - .715 * s) * (1 - 0.231 * sep) + 0.769 * sep;
+    final double bScale = c * (.072 - .072 * s) * (1 - 0.811 * sep) + 0.189 * sep;
+
     return ColorFilter.matrix(<double>[
-      c * (.213 + .787 * s), c * (.715 - .715 * s), c * (.072 - .072 * s), 0, off + w,
-      c * (.213 - .213 * s), c * (.715 + .285 * s), c * (.072 - .072 * s), 0, off,
-      c * (.213 - .213 * s), c * (.715 - .715 * s), c * (.072 + .928 * s), 0, off - w,
+      rScale, c * (.715 - .715 * s), c * (.072 - .072 * s), 0, off + w + fd,
+      c * (.213 - .213 * s), gScale, c * (.072 - .072 * s), 0, off + fd,
+      c * (.213 - .213 * s), c * (.715 - .715 * s), bScale, 0, off - w + fd,
       0, 0, 0, 1, 0,
     ]);
   }

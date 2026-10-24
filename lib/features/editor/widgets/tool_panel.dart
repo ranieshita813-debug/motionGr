@@ -245,9 +245,13 @@ class ToolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget bodyWidget = tool == EditorTool.speed
+        ? SpeedSheet(onClose: onClose)
+        : tool.body;
+
     final Widget body = Expanded(
       child: ClipRect(
-        child: Material(type: MaterialType.transparency, child: tool.body),
+        child: Material(type: MaterialType.transparency, child: bodyWidget),
       ),
     );
 

@@ -632,76 +632,6 @@ class _MediaPickerPageState extends State<MediaPickerPage>
         return;
       }
 
-      double progressValue = 0.0;
-      String progressMsg = 'Optimizing media…';
-      void Function(void Function())? dialogStateSetter;
-
-      if (!mounted) return;
-
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black.withValues(alpha: 0.8),
-        builder: (ctx) {
-          return StatefulBuilder(
-            builder: (context, setSt) {
-              dialogStateSetter = setSt;
-              return Dialog(
-                backgroundColor: const Color(0xFF1C1C1C),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 72,
-                        height: 72,
-                        child: CircularProgressIndicator(
-                          value: progressValue > 0 ? progressValue : null,
-                          strokeWidth: 4.5,
-                          backgroundColor: const Color(0xFF333333),
-                          color: const Color(0xFFFFD700),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      TextShimmerWave(
-                        progressMsg,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        baseColor: const Color(0xFF888888),
-                        waveColor: Colors.white,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      );
-
-      final optimizer = MediaOptimizationService();
-      final optimized = await optimizer.optimizeMedia(
-        paths,
-        onProgress: (prog) {
-          if (mounted && dialogStateSetter != null) {
-            dialogStateSetter!(() {
-              progressValue = prog.progress;
-              progressMsg = prog.message;
-            });
-          }
-        },
-      );
-
-      if (mounted) Navigator.of(context, rootNavigator: true).pop();
-
-      final Map<String, OptimizedMediaItem> optMap = {
-        for (final item in optimized) item.originalPath: item
-      };
-
       if (!mounted) return;
 
       final MediaPickerArgs? pickerArgs = _args;
@@ -711,17 +641,12 @@ class _MediaPickerPageState extends State<MediaPickerPage>
         for (final _Picked p in List<_Picked>.of(_selected)) {
           final String? path = await _resolvePath(p);
           if (path == null || path.isEmpty) continue;
-          final optItem = optMap[path];
-          Duration? customDur;
-          if (optItem?.durationMs != null && optItem!.durationMs! > 0) {
-            customDur = Duration(milliseconds: optItem.durationMs!);
-          }
 
           if (p.type == ClipType.audio) {
             editor.addAudioTrack(
               path,
               trackName: p.name,
-              duration: customDur ?? (p.duration > Duration.zero ? p.duration : null),
+              duration: p.duration > Duration.zero ? p.duration : null,
             );
           } else if (pickerArgs.isOverlay) {
             editor.addOverlayClip(path);
@@ -758,12 +683,8 @@ class _MediaPickerPageState extends State<MediaPickerPage>
         final String? path = await _resolvePath(p);
         if (path == null || path.isEmpty) continue;
 
-        final optItem = optMap[path];
         final bool isAudio = p.type == ClipType.audio;
-        Duration d = _effective(p);
-        if (optItem?.durationMs != null && optItem!.durationMs! > 0) {
-          d = Duration(milliseconds: optItem.durationMs!);
-        }
+        final Duration d = _effective(p);
 
         String name = p.name;
         if (p.entity != null) name = await p.entity!.titleAsync;

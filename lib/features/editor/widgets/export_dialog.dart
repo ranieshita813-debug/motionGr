@@ -311,6 +311,11 @@ class _ExportModalState extends State<ExportModal> {
       );
 
   Widget _bottomBar(ExportController? exportCtrl, EditorController editorCtrl) {
+    final bool isSingleFrame = selectedFormat == ExportFormat.png || selectedFormat == ExportFormat.jpg;
+    final String btnText = isSingleFrame
+        ? 'Export Frame (${selectedFormat.name.toUpperCase()})'
+        : 'Export Video';
+
     return Container(
       decoration: const BoxDecoration(
         color: _bg,
@@ -327,33 +332,53 @@ class _ExportModalState extends State<ExportModal> {
             elevation: 0,
             shape: _pill,
           ),
-          icon: const Icon(Icons.ios_share_rounded, size: 20),
-          label: const Text('Export',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+          icon: Icon(isSingleFrame ? Icons.image_rounded : Icons.ios_share_rounded, size: 20),
+          label: Text(btnText,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
           onPressed: () async {
             final hasPerm = await PermissionService.instance.requestMediaPermissions();
             if (!mounted) return;
             if (!hasPerm) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Storage permission is required to export videos.'),
+                  content: Text('Storage permission is required to export.'),
                 ),
               );
               return;
             }
-            final newSettings = ExportSettings(
-              resolution: selectedResolution,
-              fps: selectedFps,
-              quality: selectedQuality,
-              format: selectedFormat,
-              codec: selectedCodec,
-            );
             if (editorCtrl.isPlaying) editorCtrl.togglePlayback();
-            editorCtrl.updateExportSettings(newSettings);
-            if (exportCtrl != null) {
-              exportCtrl.startExport(editorCtrl.project, newSettings);
+
+            if (isSingleFrame) {
+              final framePath = await editorCtrl.exportSingleFrame(selectedFormat.name);
+              if (!mounted) return;
+              if (framePath != null) {
+                if (exportCtrl != null) {
+                  exportCtrl.setOutputPath(framePath);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Frame exported to $framePath')),
+                  );
+                  Navigator.of(context).pop();
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Could not export current frame.')),
+                );
+              }
             } else {
-              editorCtrl.startExport();
+              final newSettings = ExportSettings(
+                resolution: selectedResolution,
+                fps: selectedFps,
+                quality: selectedQuality,
+                format: selectedFormat,
+                codec: selectedCodec,
+              );
+              editorCtrl.updateExportSettings(newSettings);
+              if (exportCtrl != null) {
+                exportCtrl.startExport(editorCtrl.project, newSettings);
+              } else {
+                editorCtrl.startExport();
+              }
             }
           },
         ),
