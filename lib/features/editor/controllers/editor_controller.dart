@@ -82,6 +82,11 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifyProjectUpdated() {
+    _autosave();
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------------
   // Face Tracking Pipeline & Actions
   // ---------------------------------------------------------------------------
@@ -789,6 +794,12 @@ class EditorController extends ChangeNotifier {
 
     final Duration start = playhead;
     final Duration end = playhead + const Duration(seconds: 5);
+    final existingOverlays = _project.clips
+        .where((c) => c.clipType == ClipType.video || c.clipType == ClipType.image)
+        .where((c) => c.layerIndex > 0)
+        .length;
+    final offsetY = existingOverlays * 25.0;
+
     final clip = TimelineClip(
       id: 'overlay_${DateTime.now().millisecondsSinceEpoch}',
       label: path.split(RegExp(r'[\\/]')).last,
@@ -796,6 +807,7 @@ class EditorController extends ChangeNotifier {
       end: end,
       clipType: isVideo ? ClipType.video : ClipType.image,
       layerIndex: _freeOverlayLayer(1, start, end),
+      positionY: offsetY,
       sourcePath: path,
     );
 
@@ -1068,6 +1080,11 @@ class EditorController extends ChangeNotifier {
     _saveState();
     final Duration start = playhead;
     final Duration end = playhead + const Duration(seconds: 4);
+    final existingTextCount = _project.clips
+        .where((c) => c.clipType == ClipType.text)
+        .length;
+    final offsetY = existingTextCount * 35.0;
+
     final clip = TimelineClip(
       id: 'text_${DateTime.now().millisecondsSinceEpoch}',
       label: text,
@@ -1075,6 +1092,7 @@ class EditorController extends ChangeNotifier {
       end: end,
       clipType: ClipType.text,
       layerIndex: _freeOverlayLayer(2, start, end),
+      positionY: offsetY,
       fontFamily: fontFamily,
       textAnimationStyle: animationStyle,
       effect: VideoEffect.vibrant,
@@ -1914,6 +1932,23 @@ class EditorController extends ChangeNotifier {
   void updateExportSettings(ExportSettings settings) {
     _exportSettings = settings;
     notifyListeners();
+  }
+
+  Future<String?> exportSingleFrame(String format) async {
+    final clip = activeVideoClip ?? (clips.isNotEmpty ? clips.first : null);
+    if (clip == null || clip.sourcePath == null || clip.sourcePath!.isEmpty) {
+      return null;
+    }
+    final relativeTimeMs = (playhead - clip.start + clip.trimIn).inMilliseconds.clamp(0, clip.duration.inMilliseconds);
+    final bytes = await ExportService().frameAt(clip.sourcePath!, relativeTimeMs, maxHeight: 1080, quality: 100);
+    if (bytes == null || bytes.isEmpty) return null;
+
+    final tempDir = await getTemporaryDirectory();
+    final isPng = format.toLowerCase() == 'png';
+    final ext = isPng ? 'png' : 'jpg';
+    final file = File('${tempDir.path}/frame_${DateTime.now().millisecondsSinceEpoch}.$ext');
+    await file.writeAsBytes(bytes);
+    return file.path;
   }
 
   Future<String?> startExport({Function? onComplete}) async {

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart';
+import 'package:flutter_video_editor/core/services/media_optimization_service.dart';
+import 'package:flutter_video_editor/core/widgets/loading_wave.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'package:flutter_video_editor/features/editor/widgets/editor_toolbar.dart';
@@ -35,6 +37,7 @@ class _EditorPageState extends State<EditorPage> {
 
   final ValueNotifier<bool> _multiOn = ValueNotifier<bool>(false);
   final ValueNotifier<Set<String>> _multi = ValueNotifier<Set<String>>(<String>{});
+  final Set<String> _optimizedPaths = <String>{};
 
   void _open(EditorTool t) {
     tapFeedback();
@@ -136,6 +139,144 @@ class _EditorPageState extends State<EditorPage> {
   void initState() {
     super.initState();
     canvasRatioNotifier.addListener(_resetSplit);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndOptimizeMedia();
+    });
+  }
+
+  Future<void> _checkAndOptimizeMedia() async {
+    if (!mounted) return;
+    final editor = context.read<EditorController>();
+    final unoptimizedClips = editor.project.clips.where((c) {
+      final path = c.sourcePath;
+      return path != null && path.isNotEmpty && !_optimizedPaths.contains(path);
+    }).toList();
+
+    if (unoptimizedClips.isEmpty) return;
+
+    final pathsToOptimize = unoptimizedClips
+        .map((c) => c.sourcePath!)
+        .toSet()
+        .toList();
+
+    _optimizedPaths.addAll(pathsToOptimize);
+
+    double progressValue = 0.0;
+    String progressMsg = 'Optimizing media…';
+    void Function(void Function())? dialogStateSetter;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.8),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSt) {
+            dialogStateSetter = setSt;
+            return Dialog(
+              backgroundColor: const Color(0xFF1C1C1C),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF282828),
+                        shape: BoxShape.circle,
+                      ),
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(
+                          value: progressValue > 0 ? progressValue : null,
+                          strokeWidth: 4.0,
+                          strokeCap: StrokeCap.round,
+                          backgroundColor: const Color(0xFF3B3B3B),
+                          color: const Color(0xFFFFD700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        value: progressValue > 0 ? progressValue : null,
+                        minHeight: 6,
+                        backgroundColor: const Color(0xFF383838),
+                        color: const Color(0xFFFFD700),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextShimmerWave(
+                      progressMsg,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      baseColor: const Color(0xFF888888),
+                      waveColor: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    try {
+      final optimizer = MediaOptimizationService();
+      final optimized = await optimizer.optimizeMedia(
+        pathsToOptimize,
+        onProgress: (prog) {
+          if (mounted && dialogStateSetter != null) {
+            dialogStateSetter!(() {
+              progressValue = prog.progress;
+              progressMsg = prog.message;
+            });
+          }
+        },
+      );
+
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
+      bool updated = false;
+      for (final optItem in optimized) {
+        if (optItem.durationMs != null && optItem.durationMs! > 0) {
+          final newDur = Duration(milliseconds: optItem.durationMs!);
+          for (int i = 0; i < editor.project.clips.length; i++) {
+            final clip = editor.project.clips[i];
+            if (clip.sourcePath == optItem.originalPath) {
+              if ((clip.duration - newDur).abs() > const Duration(milliseconds: 200)) {
+                editor.project.clips[i] = clip.copyWith(
+                  end: clip.start + newDur,
+                  waveform: optItem.waveform,
+                );
+                updated = true;
+              } else if (optItem.waveform != null) {
+                editor.project.clips[i] = clip.copyWith(waveform: optItem.waveform);
+                updated = true;
+              }
+            }
+          }
+        }
+      }
+      if (updated) {
+        editor.notifyProjectUpdated();
+      }
+    } catch (_) {
+      if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+    }
   }
 
   void _resetSplit() {
@@ -232,6 +373,7 @@ class _EditorPageState extends State<EditorPage> {
                       '/media_picker',
                       arguments: const MediaPickerArgs(appendToCurrent: true, isOverlay: false),
                     );
+                    _checkAndOptimizeMedia();
                   },
                   onAddOverlay: () async {
                     final nav = Navigator.of(context);
@@ -239,6 +381,7 @@ class _EditorPageState extends State<EditorPage> {
                       '/media_picker',
                       arguments: const MediaPickerArgs(appendToCurrent: true, isOverlay: true),
                     );
+                    _checkAndOptimizeMedia();
                   },
                 );
 

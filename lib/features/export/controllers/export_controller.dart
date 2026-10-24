@@ -121,6 +121,14 @@ class ExportController extends ChangeNotifier {
     return _exportService.waveform(path, buckets);
   }
 
+  void setOutputPath(String path) {
+    _status = ExportStatus.done;
+    _progress = 1.0;
+    _stage = 'Completed';
+    _outputPath = path;
+    notifyListeners();
+  }
+
   void resetStatus() {
     _status = ExportStatus.idle;
     _progress = 0.0;

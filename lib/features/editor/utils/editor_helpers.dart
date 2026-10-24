@@ -170,18 +170,19 @@ WaveformDecoder? waveformDecoder;
 class ThumbCache {
   static final Map<String, Uint8List> _mem = <String, Uint8List>{};
   static final Map<String, Future<Uint8List?>> _inflight = <String, Future<Uint8List?>>{};
-  static const int _maxEntries = 500;
+  static const int _maxEntries = 1000;
 
   static Future<Uint8List?> get(String path, int timeMs, int maxW) {
     final gen = thumbGenerator;
     if (gen == null) return Future<Uint8List?>.value();
-    final String key = '$path|$timeMs|$maxW';
+    final int quantizedMs = ((timeMs / 200).round() * 200).clamp(0, 86400000);
+    final String key = '$path|$quantizedMs|$maxW';
     final Uint8List? hit = _mem[key];
     if (hit != null) return Future<Uint8List?>.value(hit);
     Future<Uint8List?>? f = _inflight[key];
     f ??= () async {
       try {
-        final Uint8List? b = await gen(path, timeMs, maxW);
+        final Uint8List? b = await gen(path, quantizedMs, maxW);
         if (b != null && b.isNotEmpty) {
           if (_mem.length >= _maxEntries) _mem.remove(_mem.keys.first);
           _mem[key] = b;
@@ -200,17 +201,39 @@ class ThumbCache {
 
 final Map<String, Future<List<double>>> waveCache = <String, Future<List<double>>>{};
 
-Future<List<double>> waveFuture(String path, int bars) =>
-    waveCache.putIfAbsent('$path|$bars', () async {
+Future<List<double>> waveFuture(String path, [int requestedBars = 120]) =>
+    waveCache.putIfAbsent(path, () async {
       final dec = waveformDecoder;
       if (dec != null) {
         try {
-          final List<double> r = await dec(path, bars);
+          final List<double> r = await dec(path, 120);
           if (r.isNotEmpty) return r;
         } catch (_) {}
       }
-      return fallbackWave(path, bars);
+      return fallbackWave(path, 120);
     });
+
+List<double> resampleWaveform(List<double> source, int targetBars) {
+  if (source.isEmpty || targetBars <= 0) return List<double>.filled(targetBars, 0.4);
+  if (source.length == targetBars) return source;
+
+  final List<double> result = List<double>.filled(targetBars, 0.4);
+  final double step = (source.length - 1) / (targetBars - 1 > 0 ? targetBars - 1 : 1);
+
+  for (int i = 0; i < targetBars; i++) {
+    final double srcIdx = i * step;
+    final int low = srcIdx.floor();
+    final int high = srcIdx.ceil().clamp(0, source.length - 1);
+    final double frac = srcIdx - low;
+
+    if (low == high) {
+      result[i] = source[low];
+    } else {
+      result[i] = source[low] * (1.0 - frac) + source[high] * frac;
+    }
+  }
+  return result;
+}
 
 Future<List<double>> fallbackWave(String path, int bars) async {
   const double flat = 0.4;

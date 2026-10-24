@@ -30,8 +30,8 @@ const double _selBorder = 3.0;
 const double _selFillet = 6.0;
 
 /// Main-track clip: light enough to stay visible when unselected.
-const Color _videoClipBg = Color(0xFF3B4852);
-const Color _videoWaveBg = Color(0xFF34444F);
+const Color _videoClipBg = Color(0xFF50616E);
+const Color _videoWaveBg = Color(0xFF455562);
 const Color _videoWaveColor = Color(0xFF2FD9EA);
 
 /// Pixels per second at zoom 1.0 (CapCut-like: 1s is roughly 48px).
@@ -516,7 +516,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     }
 
     final List<List<_ClipSnapshot>> groups = <List<_ClipSnapshot>>[
-      for (final l in layers.reversed)
+      for (final l in layers)
         otherOverlays.where((c) => c.layer == l).toList(),
     ];
     final Map<String, int> totals = <String, int>{};
@@ -549,7 +549,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
       seen[base] = n;
       final int total = totals[base]!;
       overlayLanes.add(_Lane(_textH, _ClipKind.text, g,
-          name: total > 1 ? '$base ${total - n + 1}' : base));
+          name: total > 1 ? '$base $n' : base));
     }
 
     // Blank lanes: a kind that has no clips yet gets a tappable placeholder
@@ -1764,8 +1764,8 @@ class _FilmstripState extends State<_Filmstrip> {
   List<Future<Uint8List?>> _futures = const <Future<Uint8List?>>[];
   int _n = 1;
 
-  // One thumbnail per ~44px.
-  int _count(double w) => (w / 44).ceil().clamp(1, 24).toInt();
+  // Cap thumbnail generation count to 8 max per clip segment for smooth performance.
+  int _count(double w) => (w / 60).ceil().clamp(1, 8).toInt();
 
   bool get _isImage => isImagePath(widget.path);
 
@@ -1843,13 +1843,13 @@ class _FilmPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF4A5963));
+    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF526370));
     final double fw = math.max(14, size.height * 0.85);
     int i = 0;
     for (double x = 0; x < size.width; x += fw) {
       canvas.drawRect(
         Rect.fromLTWH(x, 0, fw - 1, size.height),
-        Paint()..color = (i++ % 2 == 0) ? const Color(0xFF55656F) : const Color(0xFF5E6F7A),
+        Paint()..color = (i++ % 2 == 0) ? const Color(0xFF5B6E7C) : const Color(0xFF657887),
       );
     }
   }
@@ -1875,25 +1875,23 @@ class _WaveformLoader extends StatefulWidget {
 class _WaveformLoaderState extends State<_WaveformLoader> {
   Future<List<double>>? _future;
   String? _path;
-  int _bars = 0;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final int raw = (c.maxWidth / 4).floor();
-        final int bars = ((raw / 32).ceil() * 32).clamp(32, 1200).toInt();
-        if (_future == null || _path != widget.path || _bars != bars) {
+        final int targetBars = (c.maxWidth / 4).floor().clamp(16, 800).toInt();
+        if (_future == null || _path != widget.path) {
           _path = widget.path;
-          _bars = bars;
-          _future = waveFuture(widget.path, bars);
+          _future = waveFuture(widget.path, 120);
         }
         return ColoredBox(
           color: widget.background,
           child: FutureBuilder<List<double>>(
             future: _future,
             builder: (_, s) {
-              final amps = s.data ?? List<double>.filled(bars, 0.4);
+              final rawAmps = s.data ?? List<double>.filled(120, 0.4);
+              final amps = resampleWaveform(rawAmps, targetBars);
               return FilledAreaWaveform(
                 amplitudes: amps,
                 height: c.maxHeight,

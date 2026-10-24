@@ -268,30 +268,23 @@ class _SpeedSheetState extends State<SpeedSheet> {
     final bool embedded = widget.onClose != null;
 
     final List<Widget> content = <Widget>[
-      if (!embedded) _grabber(),
-      _header(),
+      if (!embedded) ...<Widget>[
+        _grabber(),
+        _header(),
+      ],
       _modeSwitch(),
       _hero(),
       _curve ? _curveView() : _normalView(),
       _heatStrip(),
       _options(),
-      const SizedBox(height: 16),
+      SizedBox(height: embedded ? 6 : 16),
     ];
 
-    // Embedded in a panel: content scrolls, footer stays pinned.
     if (embedded) {
       return Column(
-        children: <Widget>[
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: content,
-              ),
-            ),
-          ),
-          _footer(c),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: content,
       );
     }
 
@@ -510,7 +503,7 @@ class _SpeedSheetState extends State<SpeedSheet> {
       _fmtSpeed(shown),
       style: _tabular.copyWith(
         color: hot ? _accent : _text,
-        fontSize: 44,
+        fontSize: 32,
         height: 1.1,
         fontWeight: FontWeight.w600,
       ),
@@ -521,17 +514,16 @@ class _SpeedSheetState extends State<SpeedSheet> {
             children: <Widget>[
               const Text('AVERAGE',
                   style: TextStyle(
-                      color: _muted, fontSize: 11, letterSpacing: 0.8)),
+                      color: _muted, fontSize: 10, letterSpacing: 0.8)),
               number,
             ],
           )
         : Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              _roundBtn(Icons.remove_rounded, 'Slower', 40,
+              _roundBtn(Icons.remove_rounded, 'Slower', 32,
                   _s.speed <= kMinSpeed ? null : () => _setSpeed(_s.speed - 0.1)),
-              const SizedBox(width: 18),
-              // Drag the value to scrub (log scale), double-tap to return to 1x.
+              const SizedBox(width: 12),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onDoubleTap: () {
@@ -542,10 +534,10 @@ class _SpeedSheetState extends State<SpeedSheet> {
                     (_toT(_s.speed) + d.delta.dx * 0.004)
                         .clamp(0.0, 1.0)
                         .toDouble())),
-                child: SizedBox(width: 120, child: Center(child: number)),
+                child: SizedBox(width: 90, child: Center(child: number)),
               ),
-              const SizedBox(width: 18),
-              _roundBtn(Icons.add_rounded, 'Faster', 40,
+              const SizedBox(width: 12),
+              _roundBtn(Icons.add_rounded, 'Faster', 32,
                   _s.speed >= kMaxSpeed ? null : () => _setSpeed(_s.speed + 0.1)),
             ],
           );
@@ -555,14 +547,14 @@ class _SpeedSheetState extends State<SpeedSheet> {
         : '';
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
       child: Column(
         children: <Widget>[
           main,
-          const SizedBox(height: 6),
+          const SizedBox(height: 2),
           Text.rich(
             TextSpan(
-              style: _tabular.copyWith(color: _muted, fontSize: 12.5),
+              style: _tabular.copyWith(color: _muted, fontSize: 11),
               children: <InlineSpan>[
                 TextSpan(text: '${_fmtTime(_srcSeconds)}  →  '),
                 TextSpan(
@@ -641,7 +633,7 @@ class _SpeedSheetState extends State<SpeedSheet> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: LayoutBuilder(builder: (context, box) {
-            final Size size = Size(box.maxWidth, 150);
+            final Size size = Size(box.maxWidth, 110);
             Offset toPx(SpeedPoint p) =>
                 Offset(p.x * size.width, size.height * (1 - _toT(p.speed)));
             int? nearest(Offset o) {
@@ -812,25 +804,25 @@ class _SpeedSheetState extends State<SpeedSheet> {
             : _s.speed,
     ];
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           const Row(
             children: <Widget>[
               Text('Result over time',
-                  style: TextStyle(color: _muted, fontSize: 11)),
+                  style: TextStyle(color: _muted, fontSize: 10)),
               Spacer(),
-              Text('slower', style: TextStyle(color: _slow, fontSize: 11)),
-              Text(' · ', style: TextStyle(color: _muted, fontSize: 11)),
-              Text('faster', style: TextStyle(color: _fast, fontSize: 11)),
+              Text('slower', style: TextStyle(color: _slow, fontSize: 10)),
+              Text(' · ', style: TextStyle(color: _muted, fontSize: 10)),
+              Text('faster', style: TextStyle(color: _fast, fontSize: 10)),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: SizedBox(
-              height: 8,
+              height: 6,
               child: CustomPaint(painter: _StripPainter(values)),
             ),
           ),
@@ -841,9 +833,9 @@ class _SpeedSheetState extends State<SpeedSheet> {
 
   Widget _options() {
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 6),
       child: SizedBox(
-        height: 34,
+        height: 30,
         child: ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 16),
