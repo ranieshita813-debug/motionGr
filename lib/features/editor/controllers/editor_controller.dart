@@ -82,6 +82,11 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifyProjectUpdated() {
+    _autosave();
+    notifyListeners();
+  }
+
   // ---------------------------------------------------------------------------
   // Face Tracking Pipeline & Actions
   // ---------------------------------------------------------------------------

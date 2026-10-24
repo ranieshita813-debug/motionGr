@@ -270,7 +270,7 @@ class _EditorPageState extends State<EditorPage> {
         }
       }
       if (updated) {
-        editor.notifyListeners();
+        editor.notifyProjectUpdated();
       }
     } catch (_) {
       if (mounted && Navigator.of(context, rootNavigator: true).canPop()) {
