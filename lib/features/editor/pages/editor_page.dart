@@ -174,7 +174,10 @@ class _EditorPageState extends State<EditorPage> {
           builder: (context, setSt) {
             dialogStateSetter = setSt;
             return Dialog(
-              backgroundColor: const Color(0xFF1C1C1C),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
@@ -186,7 +189,7 @@ class _EditorPageState extends State<EditorPage> {
                       height: 72,
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF282828),
+                        color: Colors.transparent,
                         shape: BoxShape.circle,
                       ),
                       child: SizedBox(
@@ -202,23 +205,13 @@ class _EditorPageState extends State<EditorPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: progressValue > 0 ? progressValue : null,
-                        minHeight: 6,
-                        backgroundColor: const Color(0xFF383838),
-                        color: const Color(0xFFFFD700),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextShimmerWave(
-                      progressMsg,
-                      style: const TextStyle(
+                    const TextShimmerWave(
+                      'Optimizing',
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
-                      baseColor: const Color(0xFF888888),
+                      baseColor: Color(0xFF888888),
                       waveColor: Colors.white,
                     ),
                   ],

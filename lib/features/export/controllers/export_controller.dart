@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart' hide ExportSettings;
 import 'package:flutter_video_editor/features/export/models/export_settings.dart';
@@ -107,6 +109,75 @@ class ExportController extends ChangeNotifier {
     _stage = 'Cancelled';
     notifyListeners();
     await _exportService.cancelExport();
+  }
+
+  Future<String?> exportSingleFrame(Project project, Duration playhead, ExportFormat format) async {
+    _status = ExportStatus.preparing;
+    _progress = 0.2;
+    _stage = 'Capturing frame image...';
+    _outputPath = null;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _status = ExportStatus.exporting;
+      _progress = 0.5;
+      _stage = 'Rendering frame (${format.name.toUpperCase()})...';
+      notifyListeners();
+
+      TimelineClip? activeClip;
+      for (final clip in project.clips) {
+        if ((clip.clipType == ClipType.video || clip.clipType == ClipType.image) &&
+            playhead >= clip.start &&
+            playhead <= clip.end) {
+          activeClip = clip;
+          break;
+        }
+      }
+      activeClip ??= project.clips.firstWhere(
+        (c) => c.clipType == ClipType.video || c.clipType == ClipType.image,
+        orElse: () => project.clips.isNotEmpty ? project.clips.first : throw Exception('No clips in project.'),
+      );
+
+      if (activeClip.sourcePath == null || activeClip.sourcePath!.isEmpty) {
+        throw Exception('No media source found for current frame export.');
+      }
+
+      final relativeTimeMs = (playhead - activeClip.start + activeClip.trimIn)
+          .inMilliseconds
+          .clamp(0, activeClip.duration.inMilliseconds);
+
+      final bytes = await _exportService.frameAt(
+        activeClip.sourcePath!,
+        relativeTimeMs,
+        maxHeight: 1080,
+        quality: 100,
+      );
+
+      if (bytes == null || bytes.isEmpty) {
+        throw Exception('Failed to capture frame image bytes.');
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final isPng = format == ExportFormat.png;
+      final ext = isPng ? 'png' : 'jpg';
+      final file = File('${tempDir.path}/frame_${DateTime.now().millisecondsSinceEpoch}.$ext');
+      await file.writeAsBytes(bytes);
+
+      _status = ExportStatus.done;
+      _progress = 1.0;
+      _stage = 'Completed';
+      _outputPath = file.path;
+      notifyListeners();
+      return file.path;
+    } catch (e) {
+      if (_status != ExportStatus.cancelled) {
+        _status = ExportStatus.failed;
+        _errorMessage = e.toString();
+        notifyListeners();
+      }
+      return null;
+    }
   }
 
   Future<Map<String, dynamic>> probe(String path) {
