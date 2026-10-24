@@ -162,7 +162,6 @@ class _EditorPageState extends State<EditorPage> {
     _optimizedPaths.addAll(pathsToOptimize);
 
     double progressValue = 0.0;
-    String progressMsg = 'Optimizing media…';
     void Function(void Function())? dialogStateSetter;
 
     showDialog<void>(
@@ -231,7 +230,6 @@ class _EditorPageState extends State<EditorPage> {
           if (mounted && dialogStateSetter != null) {
             dialogStateSetter!(() {
               progressValue = prog.progress;
-              progressMsg = prog.message;
             });
           }
         },
