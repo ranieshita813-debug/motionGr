@@ -349,21 +349,25 @@ class _ExportModalState extends State<ExportModal> {
             if (editorCtrl.isPlaying) editorCtrl.togglePlayback();
 
             if (isSingleFrame) {
-              final framePath = await editorCtrl.exportSingleFrame(selectedFormat.name);
-              if (!mounted) return;
-              if (framePath != null) {
-                if (exportCtrl != null) {
-                  exportCtrl.setOutputPath(framePath);
-                } else {
+              if (exportCtrl != null) {
+                await exportCtrl.exportSingleFrame(
+                  editorCtrl.project,
+                  editorCtrl.playhead,
+                  selectedFormat,
+                );
+              } else {
+                final framePath = await editorCtrl.exportSingleFrame(selectedFormat.name);
+                if (!mounted) return;
+                if (framePath != null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Frame exported to $framePath')),
                   );
                   Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Could not export current frame.')),
+                  );
                 }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Could not export current frame.')),
-                );
               }
             } else {
               final newSettings = ExportSettings(

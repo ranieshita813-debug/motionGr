@@ -444,7 +444,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     final captions = clips.where((c) => c.type == ClipType.caption).toList()
       ..sort((a, b) => a.startMs.compareTo(b.startMs));
 
-    final otherOverlays = clips.where((c) => _isOverlay(c) && c.type != ClipType.caption).toList();
+    final otherOverlays = clips.where((c) => _isOverlay(c) && c.type != ClipType.caption && c.layer > 0).toList();
     final layers = otherOverlays.map<int>((c) => c.layer).toSet().toList()..sort();
 
     // Collect distinct effect snapshots for Chroma Key, Adjustment, and Filter/Shader Effects
@@ -452,8 +452,61 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     final List<_ClipSnapshot> adjustmentClips = <_ClipSnapshot>[];
     final List<_ClipSnapshot> effectClips = <_ClipSnapshot>[];
 
+    final Set<String> processedAdjClipIds = <String>{};
+    final Set<String> processedFxClipIds = <String>{};
+    final Set<String> processedCkClipIds = <String>{};
+
     for (final c in clips) {
-      if (c.hasChromaKey) {
+      if (c.label == 'Adjustment' || c.id.endsWith('_adj') || c.layer == -2) {
+        adjustmentClips.add(_ClipSnapshot(
+          id: c.id,
+          startMs: c.startMs,
+          endMs: c.endMs,
+          trimInMs: c.trimInMs,
+          label: 'Adjustment',
+          type: ClipType.overlay,
+          layer: -2,
+          locked: c.locked,
+          visible: c.visible,
+          path: null,
+          keyframes: const [],
+        ));
+        processedAdjClipIds.add(c.id);
+      } else if (c.label == 'Filter' || c.label == 'Effect' || c.id.endsWith('_fx') || c.layer == -3) {
+        effectClips.add(_ClipSnapshot(
+          id: c.id,
+          startMs: c.startMs,
+          endMs: c.endMs,
+          trimInMs: c.trimInMs,
+          label: c.label.isNotEmpty ? c.label : 'Filter',
+          type: ClipType.overlay,
+          layer: -3,
+          locked: c.locked,
+          visible: c.visible,
+          path: null,
+          keyframes: const [],
+        ));
+        processedFxClipIds.add(c.id);
+      } else if (c.label == 'Chroma Key' || c.id.endsWith('_ck') || c.layer == -1) {
+        chromaKeyClips.add(_ClipSnapshot(
+          id: c.id,
+          startMs: c.startMs,
+          endMs: c.endMs,
+          trimInMs: c.trimInMs,
+          label: 'Chroma Key',
+          type: ClipType.overlay,
+          layer: -1,
+          locked: c.locked,
+          visible: c.visible,
+          path: null,
+          keyframes: const [],
+        ));
+        processedCkClipIds.add(c.id);
+      }
+    }
+
+    for (final c in clips) {
+      if (c.hasChromaKey && !processedCkClipIds.contains('${c.id}_ck') && !processedCkClipIds.contains(c.id)) {
         chromaKeyClips.add(_ClipSnapshot(
           id: '${c.id}_ck',
           startMs: c.startMs,
@@ -468,7 +521,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
           keyframes: const [],
         ));
       }
-      if (c.hasColorGrading) {
+      if (c.hasColorGrading && !processedAdjClipIds.contains('${c.id}_adj') && !processedAdjClipIds.contains(c.id)) {
         adjustmentClips.add(_ClipSnapshot(
           id: '${c.id}_adj',
           startMs: c.startMs,
@@ -483,7 +536,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
           keyframes: const [],
         ));
       }
-      if (c.hasEffect || c.shaderEffectNames.isNotEmpty) {
+      if ((c.hasEffect || c.shaderEffectNames.isNotEmpty) && !processedFxClipIds.contains('${c.id}_fx') && !processedFxClipIds.contains(c.id)) {
         final String fxLabel = c.shaderEffectNames.isNotEmpty ? c.shaderEffectNames.first : 'Filter';
         effectClips.add(_ClipSnapshot(
           id: '${c.id}_fx',

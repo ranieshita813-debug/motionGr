@@ -654,6 +654,9 @@ class EditorController extends ChangeNotifier {
   double get strokeWidth => _strokeWidth;
 
   String _resolveTargetClipId(String id) {
+    if (_project.clips.any((c) => c.id == id)) {
+      return id;
+    }
     if (id.endsWith('_adj') || id.endsWith('_ck') || id.endsWith('_fx')) {
       return id.substring(0, id.lastIndexOf('_'));
     }
@@ -1474,21 +1477,53 @@ class EditorController extends ChangeNotifier {
   void applyEffect(VideoEffect effect) {
     if (_selectedClipId == null) return;
 
-    final index = _project.clips.indexWhere(
-      (TimelineClip clip) => clip.id == _selectedClipId,
-    );
-    if (index == -1) return;
+    final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
+    if (index != -1) {
+      final selected = _project.clips[index];
+      if (selected.clipType == ClipType.caption) {
+        _saveState();
+        for (int i = 0; i < _project.clips.length; i++) {
+          if (_project.clips[i].clipType == ClipType.caption) {
+            _project.clips[i] = _project.clips[i].copyWith(effect: effect);
+          }
+        }
+        _autosave();
+        notifyListeners();
+        return;
+      }
+      if (selected.label == 'Filter' || selected.label == 'Effect' || selected.id.endsWith('_fx') || selected.layerIndex == -3) {
+        _saveState();
+        _project.clips[index] = selected.copyWith(effect: effect);
+        _autosave();
+        notifyListeners();
+        return;
+      }
+    }
+
+    final targetClip = selectedClip;
+    if (targetClip == null) return;
 
     _saveState();
-    final current = _project.clips[index];
-    if (current.clipType == ClipType.caption) {
-      for (int i = 0; i < _project.clips.length; i++) {
-        if (_project.clips[i].clipType == ClipType.caption) {
-          _project.clips[i] = _project.clips[i].copyWith(effect: effect);
-        }
-      }
+    final existingFxIndex = _project.clips.indexWhere(
+      (c) => (c.label == 'Filter' || c.label == 'Effect' || c.id == '${targetClip.id}_fx') &&
+             c.start == targetClip.start && c.end == targetClip.end,
+    );
+
+    if (existingFxIndex != -1) {
+      _project.clips[existingFxIndex] = _project.clips[existingFxIndex].copyWith(effect: effect);
+      _selectedClipId = _project.clips[existingFxIndex].id;
     } else {
-      _project.clips[index] = current.copyWith(effect: effect);
+      final fxClip = TimelineClip(
+        id: 'fx_${DateTime.now().millisecondsSinceEpoch}',
+        label: 'Effect',
+        start: targetClip.start,
+        end: targetClip.end,
+        clipType: ClipType.overlay,
+        layerIndex: -3,
+        effect: effect,
+      );
+      _project.clips.add(fxClip);
+      _selectedClipId = fxClip.id;
     }
     _autosave();
     notifyListeners();
@@ -1530,14 +1565,46 @@ class EditorController extends ChangeNotifier {
   void updateColorGrading(ColorGradingSettings colorGrading) {
     if (_selectedClipId == null) return;
 
-    final index = _project.clips.indexWhere(
-      (TimelineClip clip) => clip.id == _selectedClipId,
-    );
-    if (index == -1) return;
+    final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
+    if (index != -1) {
+      final selected = _project.clips[index];
+      if (selected.label == 'Adjustment' || selected.id.endsWith('_adj') || selected.layerIndex == -2) {
+        _saveStateCoalesced('grade:$_selectedClipId');
+        _project.clips[index] = selected.copyWith(colorGrading: colorGrading);
+        _autosave();
+        notifyListeners();
+        return;
+      }
+    }
 
-    _saveStateCoalesced('grade:$_selectedClipId');
-    _project.clips[index] =
-        _project.clips[index].copyWith(colorGrading: colorGrading);
+    final targetClip = selectedClip;
+    if (targetClip == null) return;
+
+    _saveStateCoalesced('grade:${targetClip.id}');
+
+    final existingAdjIndex = _project.clips.indexWhere(
+      (c) => (c.label == 'Adjustment' || c.id == '${targetClip.id}_adj') &&
+             c.start == targetClip.start && c.end == targetClip.end,
+    );
+
+    if (existingAdjIndex != -1) {
+      _project.clips[existingAdjIndex] = _project.clips[existingAdjIndex].copyWith(
+        colorGrading: colorGrading,
+      );
+      _selectedClipId = _project.clips[existingAdjIndex].id;
+    } else {
+      final adjClip = TimelineClip(
+        id: 'adj_${DateTime.now().millisecondsSinceEpoch}',
+        label: 'Adjustment',
+        start: targetClip.start,
+        end: targetClip.end,
+        clipType: ClipType.overlay,
+        layerIndex: -2,
+        colorGrading: colorGrading,
+      );
+      _project.clips.add(adjClip);
+      _selectedClipId = adjClip.id;
+    }
     _autosave();
     notifyListeners();
   }
