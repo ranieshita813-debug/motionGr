@@ -7,6 +7,7 @@
 // Read it back anywhere with:  node.physicsJson()
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_video_editor/core/models/svg_model.dart';
 
 const _accent = Color(0xFF2DE2D0);
@@ -22,8 +23,8 @@ String _fmt(double v) {
 
 // ───────────────────────── MODEL ─────────────────────────
 
-class _Preset {
-  const _Preset(this.name, this.density,
+class PhysPreset {
+  const PhysPreset(this.name, this.density,
       {this.friction = 0.5, this.bounce = 0.3, this.viscosity = 1, this.tension = 0.072, this.stiffness = 0.5});
   final String name;
   final double density, friction, bounce, viscosity, tension, stiffness;
@@ -31,47 +32,47 @@ class _Preset {
 
 enum PhysMaterial {
   solid('solid', 'Solid', Icons.crop_square, [
-    _Preset('Wood', 700, friction: .5, bounce: .3),
-    _Preset('Steel', 7850, friction: .6, bounce: .2),
-    _Preset('Stone', 2700, friction: .7, bounce: .1),
-    _Preset('Glass', 2500, friction: .4, bounce: .1),
-    _Preset('Rubber', 1100, friction: .9, bounce: .8),
-    _Preset('Foam', 50, friction: .6, bounce: .2),
+    PhysPreset('Wood', 700, friction: .5, bounce: .3),
+    PhysPreset('Steel', 7850, friction: .6, bounce: .2),
+    PhysPreset('Stone', 2700, friction: .7, bounce: .1),
+    PhysPreset('Glass', 2500, friction: .4, bounce: .1),
+    PhysPreset('Rubber', 1100, friction: .9, bounce: .8),
+    PhysPreset('Foam', 50, friction: .6, bounce: .2),
   ]),
   rigid('rigid', 'Rigid body', Icons.sports_basketball_outlined, [
-    _Preset('Wood', 700, friction: .5, bounce: .3),
-    _Preset('Steel', 7850, friction: .6, bounce: .2),
-    _Preset('Rubber', 1100, friction: .9, bounce: .8),
-    _Preset('Glass', 2500, friction: .4, bounce: .1),
-    _Preset('Foam', 50, friction: .6, bounce: .2),
+    PhysPreset('Wood', 700, friction: .5, bounce: .3),
+    PhysPreset('Steel', 7850, friction: .6, bounce: .2),
+    PhysPreset('Rubber', 1100, friction: .9, bounce: .8),
+    PhysPreset('Glass', 2500, friction: .4, bounce: .1),
+    PhysPreset('Foam', 50, friction: .6, bounce: .2),
   ]),
   soft('soft', 'Soft body', Icons.bubble_chart_outlined, [
-    _Preset('Jelly', 1050, bounce: .6, stiffness: .25),
-    _Preset('Rubber', 1100, bounce: .8, stiffness: .6),
-    _Preset('Sponge', 80, bounce: .3, stiffness: .35),
+    PhysPreset('Jelly', 1050, bounce: .6, stiffness: .25),
+    PhysPreset('Rubber', 1100, bounce: .8, stiffness: .6),
+    PhysPreset('Sponge', 80, bounce: .3, stiffness: .35),
   ]),
   liquid('liquid', 'Liquid', Icons.water_drop_outlined, [
-    _Preset('Water', 1000, viscosity: 1, tension: .072, bounce: 0),
-    _Preset('Oil', 900, viscosity: 60, tension: .032, bounce: 0),
-    _Preset('Honey', 1400, viscosity: 10000, tension: .07, bounce: 0),
-    _Preset('Lava', 2600, viscosity: 100000, tension: .4, bounce: 0),
+    PhysPreset('Water', 1000, viscosity: 1, tension: .072, bounce: 0),
+    PhysPreset('Oil', 900, viscosity: 60, tension: .032, bounce: 0),
+    PhysPreset('Honey', 1400, viscosity: 10000, tension: .07, bounce: 0),
+    PhysPreset('Lava', 2600, viscosity: 100000, tension: .4, bounce: 0),
   ]),
   gas('gas', 'Gas / smoke', Icons.cloud_outlined, [
-    _Preset('Air', 1.2, bounce: 0),
-    _Preset('Smoke', 1.1, bounce: 0),
-    _Preset('Steam', .6, bounce: 0),
-    _Preset('Helium', .18, bounce: 0),
+    PhysPreset('Air', 1.2, bounce: 0),
+    PhysPreset('Smoke', 1.1, bounce: 0),
+    PhysPreset('Steam', .6, bounce: 0),
+    PhysPreset('Helium', .18, bounce: 0),
   ]),
   cloth('cloth', 'Cloth', Icons.checkroom_outlined, [
-    _Preset('Cotton', 1500, stiffness: .5),
-    _Preset('Silk', 1340, stiffness: .2),
-    _Preset('Leather', 900, stiffness: .8),
+    PhysPreset('Cotton', 1500, stiffness: .5),
+    PhysPreset('Silk', 1340, stiffness: .2),
+    PhysPreset('Leather', 900, stiffness: .8),
   ]);
 
   const PhysMaterial(this.id, this.label, this.icon, this.presets);
   final String id, label;
   final IconData icon;
-  final List<_Preset> presets;
+  final List<PhysPreset> presets;
 
   static PhysMaterial? byId(String? id) {
     for (final m in values) {
@@ -144,7 +145,7 @@ class SvgAttributesPanel extends StatelessWidget {
         if (m == PhysMaterial.solid) node.setPhys('static', 'true');
       });
 
-  void _applyPreset(_Preset p) {
+  void _applyPreset(PhysPreset p) {
     node.setPhys('density', p.density);
     node.setPhys('friction', p.friction);
     node.setPhys('bounce', p.bounce);
@@ -329,7 +330,7 @@ class SvgAttributesPanel extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Switch(
           value: v == 'true',
-          activeColor: _accent,
+          activeThumbColor: _accent,
           onChanged: (b) => edit(() => node.attrs[k] = '$b'),
         ),
       );
@@ -457,7 +458,7 @@ class SvgAttributesPanel extends StatelessWidget {
           Expanded(child: Text(label, style: _lbl)),
           Switch(
             value: node.physFlag(key, def),
-            activeColor: _accent,
+            activeThumbColor: _accent,
             onChanged: (b) => edit(() => node.setPhys(key, '$b')),
           ),
         ]),
@@ -541,7 +542,7 @@ class _AddAttrDialogState extends State<_AddAttrDialog> {
         if (_type == 2)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            activeColor: _accent,
+            activeThumbColor: _accent,
             title: const Text('Value', style: _lbl),
             value: _flag,
             onChanged: (b) => setState(() => _flag = b),
@@ -563,6 +564,113 @@ class _AddAttrDialogState extends State<_AddAttrDialog> {
           child: const Text('Add'),
         ),
       ],
+    );
+  }
+}
+
+// ───────────────────────── SVG EDITOR PAGE ─────────────────────────
+
+class SvgEditorPage extends StatefulWidget {
+  const SvgEditorPage({
+    super.key,
+    required this.source,
+    required this.title,
+  });
+
+  final String source;
+  final String title;
+
+  @override
+  State<SvgEditorPage> createState() => _SvgEditorPageState();
+}
+
+class _SvgEditorPageState extends State<SvgEditorPage> {
+  late SvgDoc _doc;
+  final int _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    try {
+      _doc = SvgDoc.parse(widget.source, allowEmpty: true);
+    } catch (_) {
+      _doc = SvgDoc(const Rect.fromLTWH(0, 0, 200, 200), '', []);
+    }
+  }
+
+  void _edit(VoidCallback fn) {
+    setState(() {
+      fn();
+    });
+  }
+
+  void _live(VoidCallback fn) {
+    setState(() {
+      fn();
+    });
+  }
+
+  void _snap() {}
+
+  @override
+  Widget build(BuildContext context) {
+    final SvgNode? node = _doc.nodes.isNotEmpty && _selectedIndex < _doc.nodes.length
+        ? _doc.nodes[_selectedIndex]
+        : null;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF161616),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF161616),
+        foregroundColor: Colors.white,
+        title: Text(widget.title, style: const TextStyle(fontSize: 16, fontFamily: 'Ubuntu')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _doc.toSvg()),
+            child: const Text('Save', style: TextStyle(color: _accent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: Container(
+                  width: 240,
+                  height: 240,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _field,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: SvgPicture.string(
+                    _doc.toSvg(),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+            if (node != null)
+              SizedBox(
+                height: 320,
+                child: SvgAttributesPanel(
+                  node: node,
+                  edit: _edit,
+                  live: _live,
+                  snap: _snap,
+                ),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No editable elements in this graphic.',
+                    style: _lbl, textAlign: TextAlign.center),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

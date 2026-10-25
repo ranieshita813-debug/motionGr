@@ -1,6 +1,7 @@
 // lib/features/export/models/advanced_export_settings.dart
 import 'dart:io' show Platform;
 import 'dart:math' as math;
+import 'package:flutter_video_editor/core/models/project_model.dart';
 
 // -----------------------------------------------------------------------------
 // Enums
@@ -518,3 +519,104 @@ final List<ExportPreset> kExportPresets = <ExportPreset>[
       ..fps = 15;
   }),
 ];
+
+// -----------------------------------------------------------------------------
+// Legacy / Basic Export Settings
+// -----------------------------------------------------------------------------
+
+class ExportSettings {
+  const ExportSettings({
+    this.width = 1920,
+    this.height = 1080,
+    this.fps = 30,
+    this.bitrateMbps = 16.0,
+    this.format = ExportFormat.mp4,
+    this.codec = 'h264',
+    this.aspectRatioValue,
+    this.resolution = ExportResolution.res1080p,
+    this.quality = ExportQuality.high,
+    this.customBitrateMbps,
+  });
+
+  final int width;
+  final int height;
+  final int fps;
+  final double bitrateMbps;
+  final dynamic format;
+  final String codec;
+  final double? aspectRatioValue;
+  final ExportResolution resolution;
+  final ExportQuality quality;
+  final double? customBitrateMbps;
+
+  double get effectiveBitrate => customBitrateMbps ?? bitrateMbps;
+
+  ExportSettings copyWith({
+    int? width,
+    int? height,
+    int? fps,
+    double? bitrateMbps,
+    dynamic format,
+    String? codec,
+    double? aspectRatioValue,
+    ExportResolution? resolution,
+    ExportQuality? quality,
+    double? customBitrateMbps,
+  }) {
+    return ExportSettings(
+      width: width ?? this.width,
+      height: height ?? this.height,
+      fps: fps ?? this.fps,
+      bitrateMbps: bitrateMbps ?? this.bitrateMbps,
+      format: format ?? this.format,
+      codec: codec ?? this.codec,
+      aspectRatioValue: aspectRatioValue ?? this.aspectRatioValue,
+      resolution: resolution ?? this.resolution,
+      quality: quality ?? this.quality,
+      customBitrateMbps: customBitrateMbps ?? this.customBitrateMbps,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final formatStr = format is ExportFormat
+        ? (format as ExportFormat).name
+        : format.toString();
+    final effectiveWidth = (resolution != ExportResolution.res1080p && width == 1920)
+        ? resolution.width
+        : width;
+    final effectiveHeight = (resolution != ExportResolution.res1080p && height == 1080)
+        ? resolution.height
+        : height;
+    return <String, dynamic>{
+      'width': effectiveWidth,
+      'height': effectiveHeight,
+      'fps': fps,
+      'bitrateMbps': customBitrateMbps ?? bitrateMbps,
+      'format': formatStr,
+      'codec': codec,
+      if (aspectRatioValue != null) 'aspectRatioValue': aspectRatioValue,
+      'resolution': resolution.name,
+      'quality': quality.name,
+    };
+  }
+
+  factory ExportSettings.fromJson(Map<String, dynamic> json) {
+    return ExportSettings(
+      width: json['width'] as int? ?? 1920,
+      height: json['height'] as int? ?? 1080,
+      fps: json['fps'] as int? ?? 30,
+      bitrateMbps: (json['bitrateMbps'] as num?)?.toDouble() ?? 16.0,
+      format: json['format'] as String? ?? 'mp4',
+      codec: json['codec'] as String? ?? 'h264',
+      aspectRatioValue: (json['aspectRatioValue'] as num?)?.toDouble(),
+      resolution: ExportResolution.values.firstWhere(
+        (e) => e.name == json['resolution'],
+        orElse: () => ExportResolution.res1080p,
+      ),
+      quality: ExportQuality.values.firstWhere(
+        (e) => e.name == json['quality'],
+        orElse: () => ExportQuality.high,
+      ),
+    );
+  }
+}

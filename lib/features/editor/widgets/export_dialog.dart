@@ -11,7 +11,6 @@ import 'package:flutter_video_editor/core/services/permission_service.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/export/controllers/export_controller.dart';
 import 'package:flutter_video_editor/features/export/models/export_settings.dart';
-import 'package:flutter_video_editor/features/export/models/advanced_export_settings.dart';
 
 // -----------------------------------------------------------------------------
 // Light theme tokens
