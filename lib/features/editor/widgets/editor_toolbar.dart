@@ -104,8 +104,8 @@ class EditorToolbar extends StatelessWidget {
     TimelineClip? clip,
     String? selectedClipId,
   ) {
-    if (selectedClipId != null) {
-      if (selectedClipId.endsWith('_adj')) {
+    if (clip != null) {
+      if (clip.label == 'Adjustment' || (selectedClipId != null && selectedClipId.endsWith('_adj')) || clip.layerIndex == -2) {
         return [
           EditorToolbarItem(
             id: 'split',
@@ -127,7 +127,7 @@ class EditorToolbar extends StatelessWidget {
           ),
         ];
       }
-      if (selectedClipId.endsWith('_ck')) {
+      if (clip.label == 'Chroma Key' || (selectedClipId != null && selectedClipId.endsWith('_ck')) || clip.layerIndex == -1) {
         return [
           EditorToolbarItem(
             id: 'split',
@@ -149,7 +149,7 @@ class EditorToolbar extends StatelessWidget {
           ),
         ];
       }
-      if (selectedClipId.endsWith('_fx')) {
+      if (clip.label == 'Filter' || clip.label == 'Effect' || (selectedClipId != null && selectedClipId.endsWith('_fx')) || clip.layerIndex == -3) {
         return [
           EditorToolbarItem(
             id: 'split',

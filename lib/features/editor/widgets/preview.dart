@@ -12,11 +12,13 @@ import 'package:video_player/video_player.dart';
 
 import 'package:flutter_video_editor/core/models/face_tracking_model.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
+import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
 import 'package:flutter_video_editor/core/widgets/loading_wave.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'package:flutter_video_editor/features/editor/widgets/export_dialog.dart';
 import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
+import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/chroma_key_preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
 
@@ -467,37 +469,82 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       child = ChromaKeyPreview(chroma: clip.chromaKey, child: child);
     }
 
-    final cg = clip?.colorGrading;
-    if (cg != null) {
-      final double b = cg.brightness;
-      final double cont = cg.contrast;
-      final double s = cg.saturation;
-      final double temp = cg.temperature;
-      final double tint = cg.tint;
-      if (b != 0.0 || cont != 1.0 || s != 1.0 || temp != 0.0 || tint != 0.0) {
-        const double lr = 0.2126, lg = 0.7152, lb = 0.0722;
-        final double sr = (1 - s) * lr, sg = (1 - s) * lg, sb = (1 - s) * lb;
-        final double off = (0.5 * (1 - cont) + b) * 255;
-        final double redShift = temp * 30.0;
-        final double blueShift = -temp * 30.0;
-        final double greenShift = tint * 30.0;
-        final List<double> matrix = <double>[
-          cont * (sr + s), cont * sg, cont * sb, 0, off + redShift,
-          cont * sr, cont * (sg + s), cont * sb, 0, off + greenShift,
-          cont * sr, cont * sg, cont * (sb + s), 0, off + blueShift,
-          0, 0, 0, 1, 0,
-        ];
-        child = ColorFiltered(colorFilter: ColorFilter.matrix(matrix), child: child);
+    ColorGradingSettings activeCg = clip?.colorGrading ?? const ColorGradingSettings();
+    for (final c in _e.clips) {
+      if (c.isVisible &&
+          (c.label == 'Adjustment' || c.id.endsWith('_adj') || c.layerIndex == -2) &&
+          _e.playhead >= c.start &&
+          _e.playhead <= c.end) {
+        activeCg = c.colorGrading;
+        break;
       }
     }
 
-    final fxPreset = clip?.effect ?? VideoEffect.none;
-    if (fxPreset != VideoEffect.none && clip != null) {
-      child = _applyVideoEffectPreset(child, fxPreset, _e.playhead, clip);
+    if (activeCg.brightness != 0.0 ||
+        activeCg.contrast != 1.0 ||
+        activeCg.saturation != 1.0 ||
+        activeCg.temperature != 0.0 ||
+        activeCg.exposure != 0.0 ||
+        activeCg.vignette != 0.0 ||
+        activeCg.fade != 0.0 ||
+        activeCg.sepia != 0.0 ||
+        activeCg.brilliance != 0.0 ||
+        activeCg.clarity != 0.0) {
+      final adjustSettings = AdjustSettings.fromColorGrading(activeCg);
+      final filter = adjustSettings.toColorFilter();
+      if (filter != null) {
+        child = ColorFiltered(colorFilter: filter, child: child);
+      }
+      if (activeCg.vignette > 0.0) {
+        final double vig = activeCg.vignette.clamp(0.0, 1.0);
+        child = Stack(
+          fit: StackFit.expand,
+          children: [
+            child,
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: vig * 0.85),
+                    ],
+                    stops: const [0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+      if (activeCg.clarity > 0.0) {
+        child = FxShaders.applyVideo(
+          child: child,
+          effectId: 'crisp_sharpen',
+          params: <String, double>{'amount': activeCg.clarity.clamp(0.0, 1.0)},
+          time: _e.playhead,
+        );
+      }
     }
 
-    final shaderEffects = clip?.shaderEffects ?? const [];
-    for (final fx in shaderEffects) {
+    VideoEffect activeFx = clip?.effect ?? VideoEffect.none;
+    List<ShaderEffectClip> activeShaderEffects = clip?.shaderEffects ?? const [];
+    for (final c in _e.clips) {
+      if (c.isVisible &&
+          (c.label == 'Filter' || c.label == 'Effect' || c.id.endsWith('_fx') || c.layerIndex == -3) &&
+          _e.playhead >= c.start &&
+          _e.playhead <= c.end) {
+        if (c.effect != VideoEffect.none) activeFx = c.effect;
+        if (c.shaderEffects.isNotEmpty) activeShaderEffects = c.shaderEffects;
+        break;
+      }
+    }
+
+    if (activeFx != VideoEffect.none && clip != null) {
+      child = _applyVideoEffectPreset(child, activeFx, _e.playhead, clip);
+    }
+
+    for (final fx in activeShaderEffects) {
       if (fx.isEnabled && clip != null) {
         final relTime = _e.playhead - clip.start;
         final activeParams = fx.getInterpolatedParameters(relTime);
@@ -1468,25 +1515,40 @@ class _OverlayClipState extends State<_OverlayClip> {
     final Duration playhead = editor.playhead;
 
     final cg = clip.colorGrading;
-    final double b = cg.brightness;
-    final double cont = cg.contrast;
-    final double s = cg.saturation;
-    final double temp = cg.temperature;
-    final double tint = cg.tint;
-    if (b != 0.0 || cont != 1.0 || s != 1.0 || temp != 0.0 || tint != 0.0) {
-      const double lr = 0.2126, lg = 0.7152, lb = 0.0722;
-      final double sr = (1 - s) * lr, sg = (1 - s) * lg, sb = (1 - s) * lb;
-      final double off = (0.5 * (1 - cont) + b) * 255;
-      final double redShift = temp * 30.0;
-      final double blueShift = -temp * 30.0;
-      final double greenShift = tint * 30.0;
-      final List<double> matrix = <double>[
-        cont * (sr + s), cont * sg, cont * sb, 0, off + redShift,
-        cont * sr, cont * (sg + s), cont * sb, 0, off + greenShift,
-        cont * sr, cont * sg, cont * (sb + s), 0, off + blueShift,
-        0, 0, 0, 1, 0,
-      ];
-      child = ColorFiltered(colorFilter: ColorFilter.matrix(matrix), child: child);
+    final adjustSettings = AdjustSettings.fromColorGrading(cg);
+    final filter = adjustSettings.toColorFilter();
+    if (filter != null) {
+      child = ColorFiltered(colorFilter: filter, child: child);
+    }
+    if (cg.vignette > 0.0) {
+      final double vig = cg.vignette.clamp(0.0, 1.0);
+      child = Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: vig * 0.85),
+                  ],
+                  stops: const [0.5, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (cg.clarity > 0.0) {
+      child = FxShaders.applyVideo(
+        child: child,
+        effectId: 'crisp_sharpen',
+        params: <String, double>{'amount': cg.clarity.clamp(0.0, 1.0)},
+        time: playhead,
+      );
     }
 
     final fxPreset = clip.effect;
