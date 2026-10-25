@@ -8,6 +8,7 @@ import 'package:flutter_video_editor/features/editor/widgets/preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_panel.dart';
 import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/elements_sheet.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -128,6 +129,32 @@ void main() {
 
       // Verify "Reset all" and "Hold to compare" actions exist inside AdjustSheet
       expect(find.byIcon(Icons.compare_rounded), findsOneWidget);
+    });
+
+    testWidgets('ToolPanel with EditorTool.elements renders without duplicate headers', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChangeNotifierProvider<EditorController>.value(
+              value: editor,
+              child: ToolPanel(
+                tool: EditorTool.elements,
+                onClose: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // ElementsSheet should be present
+      expect(find.byType(ElementsSheet), findsOneWidget);
+
+      // Verify that "Elements" text appears exactly twice (ToolPanel header and ToolPanel footer)
+      expect(find.text('Elements'), findsNWidgets(2));
+
+      // Verify no duplicate close arrow icon (Icons.keyboard_arrow_down_rounded) from old internal header
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
     });
   });
 }
