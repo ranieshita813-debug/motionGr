@@ -81,6 +81,6 @@ void main() {
     await tester.tap(exportButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Resolution'), findsOneWidget);
+    expect(find.text('Export settings'), findsOneWidget);
   });
 }

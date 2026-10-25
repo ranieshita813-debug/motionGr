@@ -564,7 +564,7 @@ class _ElementTileState extends State<_ElementTile> {
                   duration: const Duration(milliseconds: 150),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
+                      color: Colors.black.withValues(alpha: 0.55),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.check_circle_rounded, color: _accent, size: 28),
