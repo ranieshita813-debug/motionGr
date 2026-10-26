@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_video_editor/core/logger/app_logger.dart';
@@ -128,6 +129,148 @@ class ExportService {
       code: 'WAVEFORM_FAILED',
       message: 'Native waveform channel returned empty data for $path',
     );
+  }
+
+  Future<Int32List?> applyColorGrading({
+    required Int32List pixels,
+    required int width,
+    required int height,
+    double brightness = 0.0,
+    double contrast = 1.0,
+    double saturation = 1.0,
+    double temperature = 0.0,
+    double tint = 0.0,
+    double exposure = 0.0,
+    double vignette = 0.0,
+  }) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Int32List>('applyColorGrading', {
+        'pixels': pixels,
+        'width': width,
+        'height': height,
+        'brightness': brightness,
+        'contrast': contrast,
+        'saturation': saturation,
+        'temperature': temperature,
+        'tint': tint,
+        'exposure': exposure,
+        'vignette': vignette,
+      });
+      return result;
+    } catch (_) {
+      return pixels;
+    }
+  }
+
+  Future<Int32List?> applyChromaKey({
+    required Int32List pixels,
+    required int width,
+    required int height,
+    double keyR = 0.0,
+    double keyG = 1.0,
+    double keyB = 0.0,
+    double similarity = 0.4,
+    double smoothness = 0.1,
+  }) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Int32List>('applyChromaKey', {
+        'pixels': pixels,
+        'width': width,
+        'height': height,
+        'keyR': keyR,
+        'keyG': keyG,
+        'keyB': keyB,
+        'similarity': similarity,
+        'smoothness': smoothness,
+      });
+      return result;
+    } catch (_) {
+      return pixels;
+    }
+  }
+
+  Future<Int32List?> applyFastBoxBlur({
+    required Int32List pixels,
+    required int width,
+    required int height,
+    int radius = 5,
+  }) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Int32List>('applyFastBoxBlur', {
+        'pixels': pixels,
+        'width': width,
+        'height': height,
+        'radius': radius,
+      });
+      return result;
+    } catch (_) {
+      return pixels;
+    }
+  }
+
+  Future<Int32List?> blendOverlays({
+    required Int32List basePixels,
+    required Int32List overlayPixels,
+    required int width,
+    required int height,
+  }) async {
+    try {
+      final result = await _methodChannel.invokeMethod<Int32List>('blendOverlays', {
+        'basePixels': basePixels,
+        'overlayPixels': overlayPixels,
+        'width': width,
+        'height': height,
+      });
+      return result;
+    } catch (_) {
+      return basePixels;
+    }
+  }
+
+  Future<List<double>> detectFaces({
+    required Int32List pixels,
+    required int width,
+    required int height,
+  }) async {
+    try {
+      final result = await _methodChannel.invokeMethod<List<dynamic>>('detectFaces', {
+        'pixels': pixels,
+        'width': width,
+        'height': height,
+      });
+      if (result != null) {
+        return result.map((e) => (e as num).toDouble()).toList();
+      }
+    } catch (_) {}
+    return <double>[];
+  }
+
+  Future<List<double>> trackObjects({
+    required Int32List pixels,
+    required int width,
+    required int height,
+  }) async {
+    try {
+      final result = await _methodChannel.invokeMethod<List<dynamic>>('trackObjects', {
+        'pixels': pixels,
+        'width': width,
+        'height': height,
+      });
+      if (result != null) {
+        return result.map((e) => (e as num).toDouble()).toList();
+      }
+    } catch (_) {}
+    return <double>[];
+  }
+
+  Future<Map<String, dynamic>> capabilities() async {
+    try {
+      final result = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>('capabilities');
+      if (result != null) {
+        return Map<String, dynamic>.from(result);
+      }
+    } catch (_) {}
+    return <String, dynamic>{};
   }
 
   Future<String> exportTimeline(Map<String, dynamic> timelineJson) async {

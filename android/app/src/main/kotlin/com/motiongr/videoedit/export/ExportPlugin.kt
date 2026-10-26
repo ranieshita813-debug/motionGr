@@ -63,6 +63,9 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         @Volatile
         private var nativeLoaded = false
 
+        @Volatile
+        private var instance: ExportPlugin? = null
+
         private const val MIN_FREE_BYTES = 150L * 1024 * 1024
         private const val MAX_CACHE_BYTES = 200L * 1024 * 1024
         private const val PROGRESS_INTERVAL_MS = 200L
@@ -73,6 +76,48 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
                 true
             } catch (_: UnsatisfiedLinkError) {
                 false // pure Kotlin fallback is used
+            }
+        }
+
+        fun isNativeLoaded(): Boolean = nativeLoaded
+
+        fun applyNativeColorGrading(
+            pixels: IntArray,
+            w: Int,
+            h: Int,
+            brightness: Float,
+            contrast: Float,
+            saturation: Float,
+            temperature: Float,
+            tint: Float,
+            exposure: Float,
+            vignette: Float
+        ): Boolean {
+            if (!nativeLoaded) return false
+            return try {
+                instance?.nativeApplyColorGradingExt(
+                    pixels, w, h, brightness, contrast, saturation, temperature, tint, exposure, vignette
+                )
+                true
+            } catch (_: Throwable) {
+                nativeLoaded = false
+                false
+            }
+        }
+
+        fun applyNativeBoxBlur(
+            pixels: IntArray,
+            w: Int,
+            h: Int,
+            radius: Int
+        ): Boolean {
+            if (!nativeLoaded) return false
+            return try {
+                instance?.nativeFastBoxBlur(pixels, w, h, radius)
+                true
+            } catch (_: Throwable) {
+                nativeLoaded = false
+                false
             }
         }
     }
@@ -99,6 +144,17 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         vignette: Float
     )
 
+    private external fun nativeApplyChromaKey(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        keyR: Float,
+        keyG: Float,
+        keyB: Float,
+        similarity: Float,
+        smoothness: Float
+    )
+
     private external fun nativeBlendOverlays(
         basePixels: IntArray,
         overlayPixels: IntArray,
@@ -106,12 +162,52 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         height: Int
     )
 
+    private external fun nativeExtractWaveform(
+        frameBrightness: IntArray,
+        count: Int
+    ): DoubleArray?
+
     private external fun nativeFastBoxBlur(
         pixels: IntArray,
         width: Int,
         height: Int,
         radius: Int
     )
+
+    private external fun nativeRenderText(
+        text: String,
+        fontPath: String,
+        fontSize: Float,
+        textColor: Int,
+        outPixels: IntArray,
+        width: Int,
+        height: Int
+    )
+
+    private external fun nativeDetectFaces(
+        pixels: IntArray,
+        width: Int,
+        height: Int
+    ): FloatArray?
+
+    private external fun nativeTrackObjects(
+        pixels: IntArray,
+        width: Int,
+        height: Int
+    ): FloatArray?
+
+    private external fun nativeMixAudio(
+        primaryPcm: ShortArray,
+        secondaryPcm: ShortArray,
+        sampleCount: Int,
+        volume: Float
+    )
+
+    private external fun nativeDetectBeats(
+        pcmData: ShortArray,
+        sampleCount: Int,
+        sampleRate: Int
+    ): LongArray?
 
     private lateinit var channel: MethodChannel
     private lateinit var eventChannel: EventChannel
@@ -147,6 +243,7 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     // ------------------------------------------------------------------------------------------
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        instance = this
         attached = true
         context = binding.applicationContext
         // "Cancel" button in the notification
@@ -158,6 +255,7 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        instance = null
         attached = false
         ExportForegroundService.cancelHandler = null
         context?.let { ExportForegroundService.stop(it) }
@@ -241,9 +339,115 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
                 val brightness = call.float("brightness", 0f)
                 val contrast = call.float("contrast", 1f)
                 val saturation = call.float("saturation", 1f)
+                val temperature = call.float("temperature", 0f)
+                val tint = call.float("tint", 0f)
+                val exposure = call.float("exposure", 0f)
+                val vignette = call.float("vignette", 0f)
                 runAsync(result) {
-                    gradePixels(pixels, width, height, brightness, contrast, saturation)
+                    gradePixels(pixels, width, height, brightness, contrast, saturation, temperature, tint, exposure, vignette)
                     pixels
+                }
+            }
+
+            "applyChromaKey" -> {
+                val pixels = call.argument<IntArray>("pixels")
+                val width = call.int("width", 0)
+                val height = call.int("height", 0)
+                if (pixels == null || width <= 0 || height <= 0 || pixels.size < width * height) {
+                    return invalid(result, "Invalid pixel data")
+                }
+                val keyR = call.float("keyR", 0f)
+                val keyG = call.float("keyG", 1f)
+                val keyB = call.float("keyB", 0f)
+                val similarity = call.float("similarity", 0.4f)
+                val smoothness = call.float("smoothness", 0.1f)
+                runAsync(result) {
+                    if (nativeLoaded) {
+                        try {
+                            nativeApplyChromaKey(pixels, width, height, keyR, keyG, keyB, similarity, smoothness)
+                        } catch (_: UnsatisfiedLinkError) {
+                            nativeLoaded = false
+                        }
+                    }
+                    pixels
+                }
+            }
+
+            "applyFastBoxBlur" -> {
+                val pixels = call.argument<IntArray>("pixels")
+                val width = call.int("width", 0)
+                val height = call.int("height", 0)
+                val radius = call.int("radius", 5)
+                if (pixels == null || width <= 0 || height <= 0 || pixels.size < width * height) {
+                    return invalid(result, "Invalid pixel data")
+                }
+                runAsync(result) {
+                    if (nativeLoaded) {
+                        try {
+                            nativeFastBoxBlur(pixels, width, height, radius)
+                        } catch (_: UnsatisfiedLinkError) {
+                            nativeLoaded = false
+                        }
+                    }
+                    pixels
+                }
+            }
+
+            "blendOverlays" -> {
+                val basePixels = call.argument<IntArray>("basePixels")
+                val overlayPixels = call.argument<IntArray>("overlayPixels")
+                val width = call.int("width", 0)
+                val height = call.int("height", 0)
+                if (basePixels == null || overlayPixels == null || width <= 0 || height <= 0) {
+                    return invalid(result, "Invalid pixel data")
+                }
+                runAsync(result) {
+                    if (nativeLoaded) {
+                        try {
+                            nativeBlendOverlays(basePixels, overlayPixels, width, height)
+                        } catch (_: UnsatisfiedLinkError) {
+                            nativeLoaded = false
+                        }
+                    }
+                    basePixels
+                }
+            }
+
+            "detectFaces" -> {
+                val pixels = call.argument<IntArray>("pixels")
+                val width = call.int("width", 0)
+                val height = call.int("height", 0)
+                if (pixels == null || width <= 0 || height <= 0) {
+                    return invalid(result, "Invalid pixel data")
+                }
+                runAsync(result) {
+                    if (nativeLoaded) {
+                        try {
+                            nativeDetectFaces(pixels, width, height)?.toList() ?: emptyList<Float>()
+                        } catch (_: UnsatisfiedLinkError) {
+                            nativeLoaded = false
+                            emptyList<Float>()
+                        }
+                    } else emptyList<Float>()
+                }
+            }
+
+            "trackObjects" -> {
+                val pixels = call.argument<IntArray>("pixels")
+                val width = call.int("width", 0)
+                val height = call.int("height", 0)
+                if (pixels == null || width <= 0 || height <= 0) {
+                    return invalid(result, "Invalid pixel data")
+                }
+                runAsync(result) {
+                    if (nativeLoaded) {
+                        try {
+                            nativeTrackObjects(pixels, width, height)?.toList() ?: emptyList<Float>()
+                        } catch (_: UnsatisfiedLinkError) {
+                            nativeLoaded = false
+                            emptyList<Float>()
+                        }
+                    } else emptyList<Float>()
                 }
             }
 
@@ -762,10 +966,23 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     // Color grading (native with safe Kotlin fallback)
     // ------------------------------------------------------------------------------------------
 
-    private fun gradePixels(p: IntArray, w: Int, h: Int, brightness: Float, contrast: Float, saturation: Float) {
+    private fun gradePixels(
+        p: IntArray,
+        w: Int,
+        h: Int,
+        brightness: Float = 0f,
+        contrast: Float = 1f,
+        saturation: Float = 1f,
+        temperature: Float = 0f,
+        tint: Float = 0f,
+        exposure: Float = 0f,
+        vignette: Float = 0f
+    ) {
         if (nativeLoaded) {
             try {
-                nativeApplyColorGrading(p, w, h, brightness, contrast, saturation)
+                nativeApplyColorGradingExt(
+                    p, w, h, brightness, contrast, saturation, temperature, tint, exposure, vignette
+                )
                 return
             } catch (_: UnsatisfiedLinkError) {
                 nativeLoaded = false
