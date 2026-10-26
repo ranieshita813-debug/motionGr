@@ -434,7 +434,45 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     return 'Text';
   }
 
-  List<_Lane> _lanes(List<_ClipSnapshot> clips) {
+  // ---- Effect / Adjustment / Chroma Key visibility -------------------------
+
+  /// Effect clip id -> id of the clip it belongs to.
+  String _fxBase(String id) {
+    if (id.endsWith('_adj') || id.endsWith('_ck') || id.endsWith('_fx')) {
+      return id.substring(0, id.lastIndexOf('_'));
+    }
+    return id;
+  }
+
+  /// Adjustment / Filter / Chroma Key tracks are shown only while the effect
+  /// itself, or the clip it is applied to, is selected.
+  bool _showFx(String id, String? selectedId) =>
+      selectedId != null && _fxBase(id) == _fxBase(selectedId);
+
+  /// Faint name shown at the start of a track. Effect tracks have no label.
+  String _laneLabel(_Lane l) {
+    if (l.name == 'Chroma Key' ||
+        l.name == 'Adjustment' ||
+        l.name == 'Filter / Effect') {
+      return '';
+    }
+    if (l.isPlaceholder) {
+      switch (l.addKind) {
+        case _AddKind.text:
+          return 'Text';
+        case _AddKind.sticker:
+          return 'Sticker';
+        case _AddKind.audio:
+          return 'Audio';
+        case _AddKind.media:
+        case _AddKind.none:
+          return 'Video';
+      }
+    }
+    return l.name;
+  }
+
+  List<_Lane> _lanes(List<_ClipSnapshot> clips, String? selectedId) {
     final main = clips.where((c) => c.isMain).toList()
       ..sort((a, b) => a.startMs.compareTo(b.startMs));
     final audio = clips.where((c) => c.type == ClipType.audio).toList()
@@ -458,55 +496,64 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
     for (final c in clips) {
       if (c.label == 'Adjustment' || c.id.endsWith('_adj') || c.layer == -2) {
-        adjustmentClips.add(_ClipSnapshot(
-          id: c.id,
-          startMs: c.startMs,
-          endMs: c.endMs,
-          trimInMs: c.trimInMs,
-          label: 'Adjustment',
-          type: ClipType.overlay,
-          layer: -2,
-          locked: c.locked,
-          visible: c.visible,
-          path: null,
-          keyframes: const [],
-        ));
+        if (_showFx(c.id, selectedId)) {
+          adjustmentClips.add(_ClipSnapshot(
+            id: c.id,
+            startMs: c.startMs,
+            endMs: c.endMs,
+            trimInMs: c.trimInMs,
+            label: 'Adjustment',
+            type: ClipType.overlay,
+            layer: -2,
+            locked: c.locked,
+            visible: c.visible,
+            path: null,
+            keyframes: const [],
+          ));
+        }
         processedAdjClipIds.add(c.id);
       } else if (c.label == 'Filter' || c.label == 'Effect' || c.id.endsWith('_fx') || c.layer == -3) {
-        effectClips.add(_ClipSnapshot(
-          id: c.id,
-          startMs: c.startMs,
-          endMs: c.endMs,
-          trimInMs: c.trimInMs,
-          label: c.label.isNotEmpty ? c.label : 'Filter',
-          type: ClipType.overlay,
-          layer: -3,
-          locked: c.locked,
-          visible: c.visible,
-          path: null,
-          keyframes: const [],
-        ));
+        if (_showFx(c.id, selectedId)) {
+          effectClips.add(_ClipSnapshot(
+            id: c.id,
+            startMs: c.startMs,
+            endMs: c.endMs,
+            trimInMs: c.trimInMs,
+            label: c.label.isNotEmpty ? c.label : 'Filter',
+            type: ClipType.overlay,
+            layer: -3,
+            locked: c.locked,
+            visible: c.visible,
+            path: null,
+            keyframes: const [],
+          ));
+        }
         processedFxClipIds.add(c.id);
       } else if (c.label == 'Chroma Key' || c.id.endsWith('_ck') || c.layer == -1) {
-        chromaKeyClips.add(_ClipSnapshot(
-          id: c.id,
-          startMs: c.startMs,
-          endMs: c.endMs,
-          trimInMs: c.trimInMs,
-          label: 'Chroma Key',
-          type: ClipType.overlay,
-          layer: -1,
-          locked: c.locked,
-          visible: c.visible,
-          path: null,
-          keyframes: const [],
-        ));
+        if (_showFx(c.id, selectedId)) {
+          chromaKeyClips.add(_ClipSnapshot(
+            id: c.id,
+            startMs: c.startMs,
+            endMs: c.endMs,
+            trimInMs: c.trimInMs,
+            label: 'Chroma Key',
+            type: ClipType.overlay,
+            layer: -1,
+            locked: c.locked,
+            visible: c.visible,
+            path: null,
+            keyframes: const [],
+          ));
+        }
         processedCkClipIds.add(c.id);
       }
     }
 
     for (final c in clips) {
-      if (c.hasChromaKey && !processedCkClipIds.contains('${c.id}_ck') && !processedCkClipIds.contains(c.id)) {
+      if (c.hasChromaKey &&
+          _showFx('${c.id}_ck', selectedId) &&
+          !processedCkClipIds.contains('${c.id}_ck') &&
+          !processedCkClipIds.contains(c.id)) {
         chromaKeyClips.add(_ClipSnapshot(
           id: '${c.id}_ck',
           startMs: c.startMs,
@@ -521,7 +568,10 @@ class _TimelineWidgetState extends State<TimelineWidget> {
           keyframes: const [],
         ));
       }
-      if (c.hasColorGrading && !processedAdjClipIds.contains('${c.id}_adj') && !processedAdjClipIds.contains(c.id)) {
+      if (c.hasColorGrading &&
+          _showFx('${c.id}_adj', selectedId) &&
+          !processedAdjClipIds.contains('${c.id}_adj') &&
+          !processedAdjClipIds.contains(c.id)) {
         adjustmentClips.add(_ClipSnapshot(
           id: '${c.id}_adj',
           startMs: c.startMs,
@@ -536,7 +586,10 @@ class _TimelineWidgetState extends State<TimelineWidget> {
           keyframes: const [],
         ));
       }
-      if ((c.hasEffect || c.shaderEffectNames.isNotEmpty) && !processedFxClipIds.contains('${c.id}_fx') && !processedFxClipIds.contains(c.id)) {
+      if ((c.hasEffect || c.shaderEffectNames.isNotEmpty) &&
+          _showFx('${c.id}_fx', selectedId) &&
+          !processedFxClipIds.contains('${c.id}_fx') &&
+          !processedFxClipIds.contains(c.id)) {
         final String fxLabel = c.shaderEffectNames.isNotEmpty ? c.shaderEffectNames.first : 'Filter';
         effectClips.add(_ClipSnapshot(
           id: '${c.id}_fx',
@@ -585,7 +638,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
       overlayLanes.add(_Lane(_textH, _ClipKind.text, captions, name: 'Caption'));
     }
 
-    // Dedicated Effect / Adjustment / Chroma Key tracks
+    // Dedicated Effect / Adjustment / Chroma Key tracks (selection only)
     if (chromaKeyClips.isNotEmpty) {
       overlayLanes.add(_Lane(_textH, _ClipKind.text, chromaKeyClips, name: 'Chroma Key'));
     }
@@ -815,7 +868,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
               final double half = c.maxWidth * playheadFracToken;
               final double total = math.max(model.totalMs / 1000.0, 1.0);
               final double pps = _basePps * model.zoom;
-              final List<_Lane> lanes = _lanes(model.clips);
+              final List<_Lane> lanes = _lanes(model.clips, model.selectedId);
               final List<_ConnectionLine> connections = <_ConnectionLine>[];
               final List<double> laneTopYs = <double>[];
               double currentY = _rulerH + _rulerGap;
@@ -1141,6 +1194,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     final List<_ClipSnapshot> list = l.clips;
     final bool isVideo = l.kind == _ClipKind.video;
     final double total = math.max(m.totalMs / 1000.0, 1.0);
+    final String laneName = _laneLabel(l);
     return Padding(
       padding: EdgeInsets.only(bottom: _gap),
       child: SizedBox(
@@ -1149,6 +1203,31 @@ class _TimelineWidgetState extends State<TimelineWidget> {
         child: Stack(
           clipBehavior: Clip.none,
           children: <Widget>[
+            // Faint track name, just left of the 0:00 start of the lane.
+            // Effect tracks have no label.
+            if (laneName.isNotEmpty)
+              Positioned(
+                left: 0,
+                width: math.max(0.0, half - 8),
+                top: 0,
+                height: l.clipH,
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      laneName,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.28),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             if (l.isPlaceholder)
               _placeholder(l, pps, half, total)
             else
@@ -1523,64 +1602,99 @@ class _ClipBlockState extends State<_ClipBlock> {
     }
   }
 
+  /// Keyframes sit on the clip, along its top edge, joined by one continuous
+  /// line from the first to the last keyframe. Shown only while the clip is
+  /// selected.
   Widget _buildKeyframeOverlay(_ClipSnapshot clip, double clipW) {
-    if (clip.keyframes.isEmpty) return const SizedBox.shrink();
+    if (!widget.selected || clip.keyframes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     const double hit = 24;
+    const double lineY = 11; // distance from the clip top (below gold border)
     final int durMs = clip.endMs - clip.startMs;
     final bool canEdit = !clip.locked && !widget.multiOn.value;
+
+    final List<_KfSnap> kfs = clip.keyframes
+        .where((k) => k.ms >= 0 && k.ms <= durMs)
+        .toList()
+      ..sort((a, b) => a.ms.compareTo(b.ms));
+    if (kfs.isEmpty) return const SizedBox.shrink();
+
+    // Keep diamonds off the trim handles at both ends.
+    final double edge = _handleW(clipW) + 6;
+    double xOf(int ms) => ((ms / 1000.0) * widget.pps)
+        .clamp(edge, math.max(edge, clipW - edge))
+        .toDouble();
+
+    final double x0 = xOf(kfs.first.ms);
+    final double x1 = xOf(kfs.last.ms);
 
     return Positioned.fill(
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
-          for (final kf in clip.keyframes)
-            if (kf.ms >= 0 && kf.ms <= durMs)
-              Positioned(
-                key: ValueKey<String>('kf_${kf.id}'),
-                left: ((kf.ms / 1000.0) * widget.pps)
-                        .clamp(12.0, math.max(12.0, clipW - 12.0))
-                        .toDouble() -
-                    hit / 2,
-                bottom: 0,
-                width: hit,
-                height: hit,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    tapFeedback();
-                    seekPlayhead(widget.editor, (clip.startMs + kf.ms) / 1000.0);
-                  },
-                  onLongPress: canEdit
-                      ? () {
-                          tapFeedback();
-                          widget.editor.removeKeyframe(kf.id);
-                        }
-                      : null,
-                  onHorizontalDragStart:
-                      canEdit ? (_) => _kfRawMs = kf.ms.toDouble() : null,
-                  onHorizontalDragUpdate: canEdit
-                      ? (d) {
-                          _kfRawMs += d.delta.dx / widget.pps * 1000.0;
-                          _moveKeyframe(
-                              kf.id, _kfRawMs.round().clamp(0, durMs).toInt());
-                        }
-                      : null,
-                  child: Center(
-                    child: Transform.rotate(
-                      angle: math.pi / 4,
-                      child: Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.black, width: 1.5),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+          // One continuous line from the first to the last keyframe.
+          if (kfs.length > 1)
+            Positioned(
+              left: x0,
+              width: x1 - x0,
+              top: lineY - 1.5,
+              height: 3,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(1.5),
+                    border: Border.all(color: Colors.black54, width: 0.5),
+                  ),
+                ),
+              ),
+            ),
+          for (final kf in kfs)
+            Positioned(
+              key: ValueKey<String>('kf_${kf.id}'),
+              left: xOf(kf.ms) - hit / 2,
+              top: lineY - hit / 2,
+              width: hit,
+              height: hit,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  tapFeedback();
+                  seekPlayhead(widget.editor, (clip.startMs + kf.ms) / 1000.0);
+                },
+                onLongPress: canEdit
+                    ? () {
+                        tapFeedback();
+                        widget.editor.removeKeyframe(kf.id);
+                      }
+                    : null,
+                onHorizontalDragStart:
+                    canEdit ? (_) => _kfRawMs = kf.ms.toDouble() : null,
+                onHorizontalDragUpdate: canEdit
+                    ? (d) {
+                        _kfRawMs += d.delta.dx / widget.pps * 1000.0;
+                        _moveKeyframe(
+                            kf.id, _kfRawMs.round().clamp(0, durMs).toInt());
+                      }
+                    : null,
+                child: Center(
+                  child: Transform.rotate(
+                    angle: math.pi / 4,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.black, width: 1.5),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
                 ),
               ),
+            ),
         ],
       ),
     );
