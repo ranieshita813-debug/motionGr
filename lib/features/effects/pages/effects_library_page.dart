@@ -9,6 +9,7 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_search_header.
 import 'package:flutter_video_editor/features/effects/services/effect_download_service.dart';
 import 'package:flutter_video_editor/features/effects/services/shader_effect_service.dart';
 import 'package:flutter_video_editor/features/effects/widgets/effect_card.dart';
+import 'package:flutter_video_editor/features/effects/services/custom_effect_import_service.dart';
 import 'package:flutter_video_editor/features/effects/widgets/effect_parameter_panel.dart';
 import 'package:flutter_video_editor/features/effects/widgets/effect_preview_widget.dart';
 
@@ -249,6 +250,36 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
               ),
             ),
           ),
+          IconButton(
+            tooltip: 'Import custom effect package',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: const PhosphorIcon(
+              PhosphorIconsRegular.folderSimplePlus,
+              color: EditorTokens.text,
+              size: 18,
+            ),
+            onPressed: () async {
+              try {
+                final imported = await CustomEffectImportService.instance.pickAndImportPackage();
+                if (!mounted) return;
+                if (imported != null) {
+                  setState(() {
+                    _selectEffect(imported);
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Imported custom effect: ${imported.name}')),
+                  );
+                }
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Could not import effect package: $e')),
+                );
+              }
+            },
+          ),
+          const SizedBox(width: 12),
           IconButton(
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

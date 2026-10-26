@@ -1,21 +1,18 @@
 #include <jni.h>
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 extern "C" {
 
-JNIEXPORT void JNICALL
-Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeApplyColorGrading(
-        JNIEnv *env,
-        jobject thiz,
-        jintArray pixels,
+// Color Grading implementation
+static void applyColorGradingCore(
+        jint *pixelData,
         jint width,
         jint height,
         jfloat brightness,
         jfloat contrast,
         jfloat saturation) {
-
-    jint *pixelData = env->GetIntArrayElements(pixels, nullptr);
     if (!pixelData) return;
 
     int totalPixels = width * height;
@@ -51,29 +48,33 @@ Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeApplyColorGrad
 
         pixelData[i] = (a << 24) | (finalR << 16) | (finalG << 8) | finalB;
     }
+}
 
+JNIEXPORT void JNICALL
+Java_com_motiongr_videoedit_export_ExportPlugin_nativeApplyColorGrading(
+        JNIEnv *env, jobject thiz, jintArray pixels, jint width, jint height,
+        jfloat brightness, jfloat contrast, jfloat saturation) {
+    jint *pixelData = env->GetIntArrayElements(pixels, nullptr);
+    if (!pixelData) return;
+    applyColorGradingCore(pixelData, width, height, brightness, contrast, saturation);
     env->ReleaseIntArrayElements(pixels, pixelData, 0);
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeApplyColorGradingExt(
-        JNIEnv *env,
-        jobject thiz,
-        jintArray pixels,
-        jint width,
-        jint height,
-        jfloat brightness,
-        jfloat contrast,
-        jfloat saturation,
-        jfloat temperature,
-        jfloat tint,
-        jfloat exposure,
-        jfloat vignette) {
+Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeApplyColorGrading(
+        JNIEnv *env, jobject thiz, jintArray pixels, jint width, jint height,
+        jfloat brightness, jfloat contrast, jfloat saturation) {
+    Java_com_motiongr_videoedit_export_ExportPlugin_nativeApplyColorGrading(
+            env, thiz, pixels, width, height, brightness, contrast, saturation);
+}
 
-    jint *pixelData = env->GetIntArrayElements(pixels, nullptr);
+// Extended Color Grading implementation
+static void applyColorGradingExtCore(
+        jint *pixelData, jint width, jint height,
+        jfloat brightness, jfloat contrast, jfloat saturation,
+        jfloat temperature, jfloat tint, jfloat exposure, jfloat vignette) {
     if (!pixelData) return;
 
-    int totalPixels = width * height;
     float centerX = width / 2.0f;
     float centerY = height / 2.0f;
     float maxDist = std::sqrt(centerX * centerX + centerY * centerY);
@@ -133,23 +134,33 @@ Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeApplyColorGrad
             pixelData[idx] = (a << 24) | (finalR << 16) | (finalG << 8) | finalB;
         }
     }
+}
 
+JNIEXPORT void JNICALL
+Java_com_motiongr_videoedit_export_ExportPlugin_nativeApplyColorGradingExt(
+        JNIEnv *env, jobject thiz, jintArray pixels, jint width, jint height,
+        jfloat brightness, jfloat contrast, jfloat saturation,
+        jfloat temperature, jfloat tint, jfloat exposure, jfloat vignette) {
+    jint *pixelData = env->GetIntArrayElements(pixels, nullptr);
+    if (!pixelData) return;
+    applyColorGradingExtCore(pixelData, width, height, brightness, contrast, saturation,
+                            temperature, tint, exposure, vignette);
     env->ReleaseIntArrayElements(pixels, pixelData, 0);
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeBlendOverlays(
-        JNIEnv *env,
-        jobject thiz,
-        jintArray basePixels,
-        jintArray overlayPixels,
-        jint width,
-        jint height) {
+Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeApplyColorGradingExt(
+        JNIEnv *env, jobject thiz, jintArray pixels, jint width, jint height,
+        jfloat brightness, jfloat contrast, jfloat saturation,
+        jfloat temperature, jfloat tint, jfloat exposure, jfloat vignette) {
+    Java_com_motiongr_videoedit_export_ExportPlugin_nativeApplyColorGradingExt(
+            env, thiz, pixels, width, height, brightness, contrast, saturation,
+            temperature, tint, exposure, vignette);
+}
 
-    jint *baseData = env->GetIntArrayElements(basePixels, nullptr);
-    jint *overlayData = env->GetIntArrayElements(overlayPixels, nullptr);
+// Blend Overlays
+static void blendOverlaysCore(jint *baseData, jint *overlayData, jint width, jint height) {
     if (!baseData || !overlayData) return;
-
     int totalPixels = width * height;
 
     for (int i = 0; i < totalPixels; ++i) {
@@ -179,18 +190,31 @@ Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeBlendOverlays(
 
         baseData[i] = (baseA << 24) | (outR << 16) | (outG << 8) | outB;
     }
-
-    env->ReleaseIntArrayElements(overlayPixels, overlayData, 0);
-    env->ReleaseIntArrayElements(basePixels, baseData, 0);
 }
 
-JNIEXPORT jdoubleArray JNICALL
-Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeExtractWaveform(
-        JNIEnv *env,
-        jobject thiz,
-        jintArray frameBrightness,
-        jint count) {
+JNIEXPORT void JNICALL
+Java_com_motiongr_videoedit_export_ExportPlugin_nativeBlendOverlays(
+        JNIEnv *env, jobject thiz, jintArray basePixels, jintArray overlayPixels, jint width, jint height) {
+    jint *baseData = env->GetIntArrayElements(basePixels, nullptr);
+    jint *overlayData = env->GetIntArrayElements(overlayPixels, nullptr);
+    if (baseData && overlayData) {
+        blendOverlaysCore(baseData, overlayData, width, height);
+    }
+    if (overlayData) env->ReleaseIntArrayElements(overlayPixels, overlayData, 0);
+    if (baseData) env->ReleaseIntArrayElements(basePixels, baseData, 0);
+}
 
+JNIEXPORT void JNICALL
+Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeBlendOverlays(
+        JNIEnv *env, jobject thiz, jintArray basePixels, jintArray overlayPixels, jint width, jint height) {
+    Java_com_motiongr_videoedit_export_ExportPlugin_nativeBlendOverlays(
+            env, thiz, basePixels, overlayPixels, width, height);
+}
+
+// Waveform extraction
+JNIEXPORT jdoubleArray JNICALL
+Java_com_motiongr_videoedit_export_ExportPlugin_nativeExtractWaveform(
+        JNIEnv *env, jobject thiz, jintArray frameBrightness, jint count) {
     jint *data = env->GetIntArrayElements(frameBrightness, nullptr);
     jdoubleArray result = env->NewDoubleArray(count);
     if (!data || !result) return nullptr;
@@ -206,6 +230,82 @@ Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeExtractWavefor
     env->ReleaseIntArrayElements(frameBrightness, data, 0);
 
     return result;
+}
+
+JNIEXPORT jdoubleArray JNICALL
+Java_com_example_flutter_1video_1editor_export_ExportPlugin_nativeExtractWaveform(
+        JNIEnv *env, jobject thiz, jintArray frameBrightness, jint count) {
+    return Java_com_motiongr_videoedit_export_ExportPlugin_nativeExtractWaveform(env, thiz, frameBrightness, count);
+}
+
+// High-performance native Fast Box Blur for software frame rendering
+JNIEXPORT void JNICALL
+Java_com_motiongr_videoedit_export_ExportPlugin_nativeFastBoxBlur(
+        JNIEnv *env, jobject thiz, jintArray pixels, jint width, jint height, jint radius) {
+    if (radius <= 0) return;
+    jint *pixelData = env->GetIntArrayElements(pixels, nullptr);
+    if (!pixelData) return;
+
+    int totalPixels = width * height;
+    std::vector<jint> temp(totalPixels);
+
+    int r = radius;
+
+    // Horizontal pass
+    for (int y = 0; y < height; ++y) {
+        int rsum = 0, gsum = 0, bsum = 0, asum = 0;
+        for (int i = -r; i <= r; ++i) {
+            int px = pixelData[y * width + std::min(width - 1, std::max(0, i))];
+            asum += (px >> 24) & 0xFF;
+            rsum += (px >> 16) & 0xFF;
+            gsum += (px >> 8) & 0xFF;
+            bsum += px & 0xFF;
+        }
+        for (int x = 0; x < width; ++x) {
+            int count = (2 * r + 1);
+            temp[y * width + x] = ((asum / count) << 24) |
+                                  ((rsum / count) << 16) |
+                                  ((gsum / count) << 8) |
+                                  (bsum / count);
+
+            int p1 = pixelData[y * width + std::min(width - 1, std::max(0, x - r))];
+            int p2 = pixelData[y * width + std::min(width - 1, std::max(0, x + r + 1))];
+
+            asum += ((p2 >> 24) & 0xFF) - ((p1 >> 24) & 0xFF);
+            rsum += ((p2 >> 16) & 0xFF) - ((p1 >> 16) & 0xFF);
+            gsum += ((p2 >> 8) & 0xFF) - ((p1 >> 8) & 0xFF);
+            bsum += (p2 & 0xFF) - (p1 & 0xFF);
+        }
+    }
+
+    // Vertical pass
+    for (int x = 0; x < width; ++x) {
+        int rsum = 0, gsum = 0, bsum = 0, asum = 0;
+        for (int i = -r; i <= r; ++i) {
+            int px = temp[std::min(height - 1, std::max(0, i)) * width + x];
+            asum += (px >> 24) & 0xFF;
+            rsum += (px >> 16) & 0xFF;
+            gsum += (px >> 8) & 0xFF;
+            bsum += px & 0xFF;
+        }
+        for (int y = 0; y < height; ++y) {
+            int count = (2 * r + 1);
+            pixelData[y * width + x] = ((asum / count) << 24) |
+                                       ((rsum / count) << 16) |
+                                       ((gsum / count) << 8) |
+                                       (bsum / count);
+
+            int p1 = temp[std::min(height - 1, std::max(0, y - r)) * width + x];
+            int p2 = temp[std::min(height - 1, std::max(0, y + r + 1)) * width + x];
+
+            asum += ((p2 >> 24) & 0xFF) - ((p1 >> 24) & 0xFF);
+            rsum += ((p2 >> 16) & 0xFF) - ((p1 >> 16) & 0xFF);
+            gsum += ((p2 >> 8) & 0xFF) - ((p1 >> 8) & 0xFF);
+            bsum += (p2 & 0xFF) - (p1 & 0xFF);
+        }
+    }
+
+    env->ReleaseIntArrayElements(pixels, pixelData, 0);
 }
 
 } // extern "C"

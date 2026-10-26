@@ -2002,20 +2002,56 @@ class EditorController extends ChangeNotifier {
   }
 
   Future<String?> exportSingleFrame(String format) async {
-    final clip = activeVideoClip ?? (clips.isNotEmpty ? clips.first : null);
-    if (clip == null || clip.sourcePath == null || clip.sourcePath!.isEmpty) {
+    final fmtStr = format.toLowerCase().trim();
+    final isPng = fmtStr == 'png';
+    final ext = isPng ? 'png' : 'jpg';
+
+    _isExporting = true;
+    _exportProgress = 0.2;
+    _exportStatus = ExportStatus.exporting;
+    notifyListeners();
+
+    try {
+      final clip = activeVideoClip ?? (clips.isNotEmpty ? clips.first : null);
+      if (clip == null || clip.sourcePath == null || clip.sourcePath!.isEmpty) {
+        _isExporting = false;
+        _exportStatus = ExportStatus.failed;
+        notifyListeners();
+        return null;
+      }
+
+      final relativeTimeMs = (playhead - clip.start + clip.trimIn).inMilliseconds.clamp(0, clip.duration.inMilliseconds);
+      final bytes = await ExportService().frameAt(
+        clip.sourcePath!,
+        relativeTimeMs,
+        maxHeight: 1080,
+        quality: isPng ? 100 : 92,
+      );
+
+      if (bytes == null || bytes.isEmpty) {
+        _isExporting = false;
+        _exportStatus = ExportStatus.failed;
+        notifyListeners();
+        return null;
+      }
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/frame_${DateTime.now().millisecondsSinceEpoch}.$ext');
+      await file.writeAsBytes(bytes);
+
+      _isExporting = false;
+      _exportProgress = 1.0;
+      _exportStatus = ExportStatus.done;
+      notifyListeners();
+
+      return file.path;
+    } catch (e, stack) {
+      AppLogger.error('Single frame export failed ($ext)', tag: 'EditorController', error: e, stackTrace: stack);
+      _isExporting = false;
+      _exportStatus = ExportStatus.failed;
+      notifyListeners();
       return null;
     }
-    final relativeTimeMs = (playhead - clip.start + clip.trimIn).inMilliseconds.clamp(0, clip.duration.inMilliseconds);
-    final bytes = await ExportService().frameAt(clip.sourcePath!, relativeTimeMs, maxHeight: 1080, quality: 100);
-    if (bytes == null || bytes.isEmpty) return null;
-
-    final tempDir = await getTemporaryDirectory();
-    final isPng = format.toLowerCase() == 'png';
-    final ext = isPng ? 'png' : 'jpg';
-    final file = File('${tempDir.path}/frame_${DateTime.now().millisecondsSinceEpoch}.$ext');
-    await file.writeAsBytes(bytes);
-    return file.path;
   }
 
   Future<String?> startExport({Function? onComplete}) async {

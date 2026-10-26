@@ -86,6 +86,33 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         saturation: Float
     )
 
+    private external fun nativeApplyColorGradingExt(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        brightness: Float,
+        contrast: Float,
+        saturation: Float,
+        temperature: Float,
+        tint: Float,
+        exposure: Float,
+        vignette: Float
+    )
+
+    private external fun nativeBlendOverlays(
+        basePixels: IntArray,
+        overlayPixels: IntArray,
+        width: Int,
+        height: Int
+    )
+
+    private external fun nativeFastBoxBlur(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+        radius: Int
+    )
+
     private lateinit var channel: MethodChannel
     private lateinit var eventChannel: EventChannel
     private var context: Context? = null

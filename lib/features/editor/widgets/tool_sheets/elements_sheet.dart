@@ -182,7 +182,7 @@ class _ElementsSheetState extends State<ElementsSheet> {
     final editor = context.read<EditorController>();
     final out = await Navigator.of(context).push<String>(MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => const SvgEditorPage(
+        builder: (_) => const SvgEditorPro(
             source: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"></svg>',
             title: 'New graphic')));
     if (!mounted || out == null) return;
@@ -196,7 +196,7 @@ class _ElementsSheetState extends State<ElementsSheet> {
   Future<void> _edit(_Asset a) async {
     final editor = context.read<EditorController>();
     final out = await Navigator.of(context).push<String>(MaterialPageRoute(
-        fullscreenDialog: true, builder: (_) => SvgEditorPage(source: a.svg, title: a.name)));
+        fullscreenDialog: true, builder: (_) => SvgEditorPro(source: a.svg, title: a.name)));
     if (!mounted || out == null) return;
     setState(() {
       _mine.insert(0, _Asset('${a.name} (edited)', out));
