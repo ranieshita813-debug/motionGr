@@ -27,9 +27,9 @@ void GLESRenderer::resize(int32_t width, int32_t height) {
 
 void GLESRenderer::blendOverlays(uint32_t* basePixels, const uint32_t* overlayPixels, int32_t width, int32_t height) {
     if (!basePixels || !overlayPixels) return;
-    int32_t totalPixels = width * height;
+    size_t totalPixels = static_cast<size_t>(width) * static_cast<size_t>(height);
 
-    for (int32_t i = 0; i < totalPixels; ++i) {
+    for (size_t i = 0; i < totalPixels; ++i) {
         uint32_t overColor = overlayPixels[i];
         uint32_t overA = (overColor >> 24) & 0xFF;
         if (overA == 0) continue;
@@ -60,7 +60,8 @@ void GLESRenderer::blendOverlays(uint32_t* basePixels, const uint32_t* overlayPi
 
 void GLESRenderer::renderFrame(const std::vector<RenderLayer>& layers, uint32_t* outputBuffer) {
     if (!outputBuffer) return;
-    std::fill(outputBuffer, outputBuffer + (m_width * m_height), 0xFF000000);
+    size_t totalPixels = static_cast<size_t>(m_width) * static_cast<size_t>(m_height);
+    std::fill(outputBuffer, outputBuffer + totalPixels, 0xFF000000);
 
     for (const auto& layer : layers) {
         if (layer.pixels) {

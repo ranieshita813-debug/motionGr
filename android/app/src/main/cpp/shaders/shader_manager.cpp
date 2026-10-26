@@ -19,7 +19,7 @@ void ShaderManager::applyColorGrading(
 
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
-            int idx = y * width + x;
+            size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
             uint32_t color = pixelData[idx];
             uint32_t a = (color >> 24) & 0xFF;
             uint32_t r = (color >> 16) & 0xFF;
@@ -63,9 +63,9 @@ void ShaderManager::applyChromaKey(
         uint32_t* pixelData, int32_t width, int32_t height,
         const ChromaKeyParams& params) {
     if (!pixelData) return;
-    int32_t totalPixels = width * height;
+    size_t totalPixels = static_cast<size_t>(width) * static_cast<size_t>(height);
 
-    for (int32_t i = 0; i < totalPixels; ++i) {
+    for (size_t i = 0; i < totalPixels; ++i) {
         uint32_t color = pixelData[i];
         float r = ((color >> 16) & 0xFF) / 255.0f;
         float g = ((color >> 8) & 0xFF) / 255.0f;
@@ -89,7 +89,7 @@ void ShaderManager::applyChromaKey(
 void ShaderManager::applyFastBoxBlur(
         uint32_t* pixelData, int32_t width, int32_t height, int32_t radius) {
     if (radius <= 0 || !pixelData) return;
-    int totalPixels = width * height;
+    size_t totalPixels = static_cast<size_t>(width) * static_cast<size_t>(height);
     std::vector<uint32_t> temp(totalPixels);
 
     int r = radius;

@@ -42,7 +42,8 @@ bool VideoDecoder::decodeNextFrame(VideoFrame& outFrame) {
     outFrame.width = m_width;
     outFrame.height = m_height;
     outFrame.ptsUs += static_cast<int64_t>(1000000.0 / m_fps);
-    outFrame.pixelData.resize(m_width * m_height * 4, 255);
+    size_t requiredSize = static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 4ULL;
+    outFrame.pixelData.resize(requiredSize, 255);
     return true;
 }
 
