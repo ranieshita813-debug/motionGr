@@ -224,7 +224,10 @@ class _ElementsSheetState extends State<ElementsSheet> {
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const SizedBox(height: 8),
-          _handle(),
+          Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 12),
           SizedBox(
               width: 72,
@@ -272,44 +275,13 @@ class _ElementsSheetState extends State<ElementsSheet> {
     }
     final filtered = assets.where((a) => a.name.toLowerCase().contains(q)).toList();
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.92,
-      expand: false,
-      builder: (context, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: _sheet,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-        ),
-        child: Column(children: [
-          const SizedBox(height: 8),
-          _handle(),
-          _header(),
-          _searchBar(),
-          _tabs(),
-          if (_tab == 0) _chips(),
-          Expanded(child: _grid(filtered, scroll)),
-        ]),
-      ),
-    );
+    return Column(children: [
+      _searchBar(),
+      _tabs(),
+      if (_tab == 0) _chips(),
+      Expanded(child: _grid(filtered)),
+    ]);
   }
-
-  Widget _handle() => Container(
-      width: 36, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)));
-
-  Widget _header() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 8, 4),
-        child: Row(children: [
-          const Text('Elements',
-              style: TextStyle(color: _textHi, fontSize: 17, fontWeight: FontWeight.w700, fontFamily: _font)),
-          const Spacer(),
-          IconButton(
-              tooltip: 'Close',
-              onPressed: () => Navigator.maybePop(context),
-              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _textHi, size: 28)),
-        ]),
-      );
 
   Widget _searchBar() => Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -413,11 +385,10 @@ class _ElementsSheetState extends State<ElementsSheet> {
         ),
       );
 
-  Widget _grid(List<_Asset> items, ScrollController scroll) {
+  Widget _grid(List<_Asset> items) {
     final showActions = _tab == 1;
     // My tab: first row = quick-action tiles (Import / Paste / Draw)
     return CustomScrollView(
-      controller: scroll,
       slivers: [
         if (showActions)
           SliverToBoxAdapter(
