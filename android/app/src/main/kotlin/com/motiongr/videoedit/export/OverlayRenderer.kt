@@ -507,6 +507,25 @@ object OverlayRenderer {
         val h = bitmap.height
         if (w <= 0 || h <= 0) return bitmap
 
+        if (ExportPlugin.isNativeLoaded()) {
+            val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+            val pixels = IntArray(w * h)
+            output.getPixels(pixels, 0, w, 0, 0, w, h)
+            if (ExportPlugin.applyNativeColorGrading(
+                    pixels, w, h,
+                    cg.brightness.toFloat(),
+                    cg.contrast.toFloat(),
+                    cg.saturation.toFloat(),
+                    cg.temperature.toFloat(),
+                    cg.tint.toFloat(),
+                    cg.exposure.toFloat(),
+                    cg.vignette.toFloat()
+                )) {
+                output.setPixels(pixels, 0, w, 0, 0, w, h)
+                return output
+            }
+        }
+
         val output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
 
@@ -566,6 +585,16 @@ object OverlayRenderer {
         val w = bitmap.width
         val h = bitmap.height
         if (w <= 0 || h <= 0) return bitmap
+
+        if (ExportPlugin.isNativeLoaded()) {
+            val output = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+            val pixels = IntArray(w * h)
+            output.getPixels(pixels, 0, w, 0, 0, w, h)
+            if (ExportPlugin.applyNativeBoxBlur(pixels, w, h, r)) {
+                output.setPixels(pixels, 0, w, 0, 0, w, h)
+                return output
+            }
+        }
 
         val scaled = Bitmap.createScaledBitmap(
             bitmap,
