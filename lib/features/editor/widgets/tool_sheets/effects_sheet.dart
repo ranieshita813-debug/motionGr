@@ -7,6 +7,7 @@ import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 import 'package:flutter_video_editor/features/effects/pages/effects_library_page.dart';
+import 'package:flutter_video_editor/features/effects/services/custom_effect_import_service.dart';
 import 'package:flutter_video_editor/features/effects/widgets/effect_timeline_chip.dart';
 
 const _font = 'Ubuntu Sans';
@@ -45,6 +46,24 @@ class _EffectsSheetState extends State<EffectsSheet> {
 
     if (result != null && clip != null && !appliedViaCallback) {
       editor.addShaderEffectToSelectedClip(result);
+    }
+  }
+
+  Future<void> _importCustomEffectPackage(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final imported = await CustomEffectImportService.instance.pickAndImportPackage();
+      if (!mounted) return;
+      if (imported != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text('Imported custom effect package: ${imported.name}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not import effect package: $e')),
+      );
     }
   }
 
@@ -190,6 +209,12 @@ class _EffectsSheetState extends State<EffectsSheet> {
                   icon: const PhosphorIcon(PhosphorIconsRegular.storefront,
                       color: EditorTokens.text, size: 20),
                   onPressed: () => _openEffectsLibrary(context, editor),
+                ),
+                IconButton(
+                  tooltip: 'Import custom effect package',
+                  icon: const PhosphorIcon(PhosphorIconsRegular.folderSimplePlus,
+                      color: EditorTokens.text, size: 20),
+                  onPressed: () => _importCustomEffectPackage(context),
                 ),
                 Container(width: 1, height: 16, color: EditorTokens.border),
                 Expanded(
