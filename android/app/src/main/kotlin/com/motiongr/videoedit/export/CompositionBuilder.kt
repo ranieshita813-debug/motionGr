@@ -179,7 +179,7 @@ object CompositionBuilder {
         return null
     }
 
-    private fun toUri(path: String): Uri {
+    private fun toUri(context: Context, path: String): Uri {
         if (isContentUri(path) || path.startsWith("http://") || path.startsWith("https://")) {
             return Uri.parse(path)
         }
@@ -430,7 +430,7 @@ object CompositionBuilder {
             if (volume <= 0.0) continue
             val pitch = clip.audioProperties.pitch
 
-            val builder = MediaItem.Builder().setUri(toUri(src))
+            val builder = MediaItem.Builder().setUri(toUri(context, src))
             if (clip.sourceOutMs > clip.sourceInMs) {
                 builder.setClippingConfiguration(clipping(clip))
             }
@@ -578,7 +578,7 @@ object CompositionBuilder {
             val uri = if (isCard) {
                 Uri.fromFile(blackFrame(context, width, height))
             } else {
-                toUri(src!!)
+                toUri(context, src!!)
             }
 
             val mediaItemBuilder = MediaItem.Builder().setUri(uri)
