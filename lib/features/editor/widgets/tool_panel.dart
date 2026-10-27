@@ -128,30 +128,35 @@ enum EditorTool {
                       showAiGenerateSheet(
                         ctx,
                         onGenerate: (AiGenerationRequest request) async {
-                          String generatedFilePath;
                           try {
-                            generatedFilePath = await aiService.generateMedia(request);
-                          } catch (_) {
-                            generatedFilePath = request.referenceImagePath ?? 'assets/placeholder.png';
+                            final String generatedFilePath = await aiService.generateMedia(request);
+                            final String id = 'ai_${DateTime.now().millisecondsSinceEpoch}';
+                            final bool isVideo = request.type == AiMediaType.video;
+                            final int durationSec = request.durationSeconds ?? (isVideo ? 5 : 4);
+                            final Duration duration = Duration(seconds: durationSec);
+                            final Duration start = editor.getEndOfExistingMediaClips();
+
+                            final TimelineClip newClip = TimelineClip(
+                              id: id,
+                              label: isVideo ? 'AI Video (${request.modelId})' : 'AI Image (${request.modelId})',
+                              start: start,
+                              end: start + duration,
+                              clipType: isVideo ? ClipType.video : ClipType.image,
+                              sourcePath: generatedFilePath,
+                            );
+
+                            editor.addClip(newClip);
+                            editor.selectClip(newClip.id);
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text('AI generation failed: ${e.toString().replaceAll("Exception: ", "")}'),
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
                           }
-
-                          final String id = 'ai_${DateTime.now().millisecondsSinceEpoch}';
-                          final bool isVideo = request.type == AiMediaType.video;
-                          final int durationSec = request.durationSeconds ?? (isVideo ? 5 : 4);
-                          final Duration duration = Duration(seconds: durationSec);
-                          final Duration start = editor.getEndOfExistingMediaClips();
-
-                          final TimelineClip newClip = TimelineClip(
-                            id: id,
-                            label: isVideo ? 'AI Video (${request.modelId})' : 'AI Image (${request.modelId})',
-                            start: start,
-                            end: start + duration,
-                            clipType: isVideo ? ClipType.video : ClipType.image,
-                            sourcePath: generatedFilePath,
-                          );
-
-                          editor.addClip(newClip);
-                          editor.selectClip(newClip.id);
                         },
                       );
                     },

@@ -1046,8 +1046,10 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                     final TrackingBox? box = _trackingBox(tracking);
 
                                     final activeOverlays = e.clips.where((c) {
-                                      return c.isVisible &&
+                                      return !c.isModifier &&
+                                          c.isVisible &&
                                           c.clipType != ClipType.audio &&
+                                          c.clipType != ClipType.overlay &&
                                           (c.layerIndex > 0 ||
                                               (c.clipType != ClipType.video &&
                                                   c.clipType != ClipType.image)) &&

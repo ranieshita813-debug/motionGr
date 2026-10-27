@@ -30,29 +30,17 @@ class EffectPreviewWidget extends StatelessWidget {
 
     final Widget previewBase = child ??
         Container(
-          color: EditorTokens.elevated,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                'assets/placeholder.png',
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: const Color(0xFF1E2028),
-                  child: const Center(
-                    child: Text(
-                      'PREVIEW FRAME',
-                      style: TextStyle(
-                        color: EditorTokens.faint,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Ubuntu',
-                      ),
-                    ),
-                  ),
-                ),
+          color: const Color(0xFF1E2028),
+          child: const Center(
+            child: Text(
+              'PREVIEW FRAME',
+              style: TextStyle(
+                color: EditorTokens.faint,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Ubuntu',
               ),
-            ],
+            ),
           ),
         );
 

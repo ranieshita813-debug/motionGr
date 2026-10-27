@@ -160,11 +160,34 @@ object CompositionBuilder {
         return File(path.removePrefix("file://")).exists()
     }
 
-    private fun toUri(path: String): Uri {
+    private fun copyAssetToTempFile(ctx: Context, path: String): File? {
+        val ap = toAssetPath(path)
+        val rawP = rawAssetPath(path)
+        for (candidate in listOf(ap, rawP)) {
+            try {
+                ctx.assets.open(candidate).use { inputStream ->
+                    val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)
+                    if (!tempFile.exists() || tempFile.length() == 0L) {
+                        FileOutputStream(tempFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                    return tempFile
+                }
+            } catch (_: Exception) {}
+        }
+        return null
+    }
+
+    private fun toUri(ctx: Context, path: String): Uri {
         if (isContentUri(path) || path.startsWith("http://") || path.startsWith("https://")) {
             return Uri.parse(path)
         }
         if (isAssetPath(path)) {
+            val tempFile = copyAssetToTempFile(ctx, path)
+            if (tempFile != null && tempFile.exists()) {
+                return Uri.fromFile(tempFile)
+            }
             return Uri.parse("asset:///${toAssetPath(path)}")
         }
         return Uri.fromFile(File(path.removePrefix("file://")))
@@ -407,7 +430,7 @@ object CompositionBuilder {
             if (volume <= 0.0) continue
             val pitch = clip.audioProperties.pitch
 
-            val builder = MediaItem.Builder().setUri(toUri(src))
+            val builder = MediaItem.Builder().setUri(toUri(context, src))
             if (clip.sourceOutMs > clip.sourceInMs) {
                 builder.setClippingConfiguration(clipping(clip))
             }
@@ -555,7 +578,7 @@ object CompositionBuilder {
             val uri = if (isCard) {
                 Uri.fromFile(blackFrame(context, width, height))
             } else {
-                toUri(src!!)
+                toUri(context, src!!)
             }
 
             val mediaItemBuilder = MediaItem.Builder().setUri(uri)

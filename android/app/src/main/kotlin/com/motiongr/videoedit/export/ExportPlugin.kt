@@ -539,6 +539,25 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         }
     }
 
+    private fun copyAssetToTempFile(ctx: Context, path: String): File? {
+        val ap = toAssetPath(path)
+        val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
+        for (candidate in listOf(ap, rawP)) {
+            try {
+                ctx.assets.open(candidate).use { inputStream ->
+                    val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)
+                    if (!tempFile.exists() || tempFile.length() == 0L) {
+                        java.io.FileOutputStream(tempFile).use { outputStream ->
+                            inputStream.copyTo(outputStream)
+                        }
+                    }
+                    return tempFile
+                }
+            } catch (_: Exception) {}
+        }
+        return null
+    }
+
     private fun MediaMetadataRetriever.source(path: String) {
         requireSource(path)
         val ctx = context
@@ -551,10 +570,18 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
                 return
             } catch (_: Exception) {
                 val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
-                val afd = ctx.assets.openFd(rawP)
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
-                return
+                try {
+                    val afd = ctx.assets.openFd(rawP)
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                    return
+                } catch (_: Exception) {
+                    val tempFile = copyAssetToTempFile(ctx, path)
+                    if (tempFile != null && tempFile.exists()) {
+                        setDataSource(tempFile.absolutePath)
+                        return
+                    }
+                }
             }
         }
         if (isUri(path)) setDataSource(ctx, Uri.parse(path)) else setDataSource(path)
@@ -572,10 +599,18 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
                 return
             } catch (_: Exception) {
                 val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
-                val afd = ctx.assets.openFd(rawP)
-                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
-                return
+                try {
+                    val afd = ctx.assets.openFd(rawP)
+                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                    afd.close()
+                    return
+                } catch (_: Exception) {
+                    val tempFile = copyAssetToTempFile(ctx, path)
+                    if (tempFile != null && tempFile.exists()) {
+                        setDataSource(tempFile.absolutePath)
+                        return
+                    }
+                }
             }
         }
         if (isUri(path)) setDataSource(ctx, Uri.parse(path), null) else setDataSource(path)
