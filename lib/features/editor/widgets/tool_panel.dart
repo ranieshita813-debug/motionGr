@@ -148,12 +148,14 @@ enum EditorTool {
                             editor.addClip(newClip);
                             editor.selectClip(newClip.id);
                           } catch (e) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('AI generation failed: ${e.toString().replaceAll("Exception: ", "")}'),
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(
+                                  content: Text('AI generation failed: ${e.toString().replaceAll("Exception: ", "")}'),
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                            }
                           }
                         },
                       );
