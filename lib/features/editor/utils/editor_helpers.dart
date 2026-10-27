@@ -201,17 +201,19 @@ class ThumbCache {
 
 final Map<String, Future<List<double>>> waveCache = <String, Future<List<double>>>{};
 
-Future<List<double>> waveFuture(String path, [int requestedBars = 120]) =>
-    waveCache.putIfAbsent(path, () async {
-      final dec = waveformDecoder;
-      if (dec != null) {
-        try {
-          final List<double> r = await dec(path, 120);
-          if (r.isNotEmpty) return r;
-        } catch (_) {}
-      }
-      return fallbackWave(path, 120);
-    });
+Future<List<double>> waveFuture(String path, [int requestedBars = 120]) {
+  final String key = '$path|$requestedBars';
+  return waveCache.putIfAbsent(key, () async {
+    final dec = waveformDecoder;
+    if (dec != null) {
+      try {
+        final List<double> r = await dec(path, requestedBars);
+        if (r.isNotEmpty) return r;
+      } catch (_) {}
+    }
+    return fallbackWave(path, requestedBars);
+  });
+}
 
 List<double> resampleWaveform(List<double> source, int targetBars) {
   if (source.isEmpty || targetBars <= 0) return List<double>.filled(targetBars, 0.4);

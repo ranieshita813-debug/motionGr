@@ -51,6 +51,7 @@ class EditorToolbar extends StatelessWidget {
       ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
+        cacheExtent: 1000,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
@@ -118,6 +119,12 @@ class EditorToolbar extends StatelessWidget {
             title: 'Adjust',
             icon: PhosphorIconsRegular.sliders,
             onTap: () => onSelectToolSheet('adjust'),
+          ),
+          EditorToolbarItem(
+            id: 'color_grading',
+            title: 'Color Grade',
+            icon: PhosphorIconsRegular.palette,
+            onTap: () => onSelectToolSheet('color_grading'),
           ),
           EditorToolbarItem(
             id: 'delete',
@@ -213,6 +220,12 @@ class EditorToolbar extends StatelessWidget {
           onTap: () => onSelectToolSheet('adjust'),
         ),
         EditorToolbarItem(
+          id: 'color_grading',
+          title: 'Color Grade',
+          icon: PhosphorIconsRegular.palette,
+          onTap: () => onSelectToolSheet('color_grading'),
+        ),
+        EditorToolbarItem(
           id: 'effects',
           title: 'Effects',
           icon: PhosphorIconsRegular.magicWand,
@@ -305,6 +318,12 @@ class EditorToolbar extends StatelessWidget {
             title: 'Adjust',
             icon: PhosphorIconsRegular.sliders,
             onTap: () => onSelectToolSheet('adjust'),
+          ),
+          EditorToolbarItem(
+            id: 'color_grading',
+            title: 'Color Grade',
+            icon: PhosphorIconsRegular.palette,
+            onTap: () => onSelectToolSheet('color_grading'),
           ),
           EditorToolbarItem(
             id: 'filters',

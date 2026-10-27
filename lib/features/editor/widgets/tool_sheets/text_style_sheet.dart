@@ -172,6 +172,66 @@ class FontLibrary extends ChangeNotifier {
     return f;
   }
 
+  /// Opens the system directory picker to import all .ttf / .otf fonts from a folder.
+  Future<List<ImportedFont>> importFolderFromDevice({
+    required Set<String> takenNames,
+  }) async {
+    await init();
+    final String? dirPath = await FilePicker.platform.getDirectoryPath();
+    if (dirPath == null) return <ImportedFont>[];
+
+    final Directory dir = Directory(dirPath);
+    if (!await dir.exists()) return <ImportedFont>[];
+
+    final List<File> fontFiles = <File>[];
+    await for (final FileSystemEntity entity in dir.list(recursive: true, followLinks: false)) {
+      if (entity is File) {
+        final String ext = p.extension(entity.path).toLowerCase();
+        if (ext == '.ttf' || ext == '.otf') {
+          fontFiles.add(entity);
+        }
+      }
+    }
+
+    final List<ImportedFont> importedList = <ImportedFont>[];
+    for (final File file in fontFiles) {
+      final String src = file.path;
+      final String ext = p.extension(src).toLowerCase();
+      String base = p
+          .basenameWithoutExtension(src)
+          .replaceAll(RegExp(r'[^A-Za-z0-9 _-]'), '_')
+          .trim();
+      if (base.isEmpty) base = 'Imported font';
+
+      String name = base;
+      int n = 2;
+      while (takenNames.contains(name) || has(name)) {
+        name = '$base ($n)';
+        n++;
+      }
+
+      final Directory d = await _dir();
+      final String dest = p.join(d.path, '${name.replaceAll(' ', '_')}$ext');
+      try {
+        await file.copy(dest);
+        await _register(name, dest);
+        final ImportedFont f = ImportedFont(name: name, path: dest);
+        _fonts.add(f);
+        importedList.add(f);
+      } catch (e) {
+        final File destFile = File(dest);
+        if (await destFile.exists()) await destFile.delete();
+        debugPrint('Skipping invalid font file $src: $e');
+      }
+    }
+
+    if (importedList.isNotEmpty) {
+      await _save();
+      notifyListeners();
+    }
+    return importedList;
+  }
+
   /// Removes the file and the list entry. The engine can't unregister a
   /// family until the app restarts, so clips already using it keep rendering
   /// for this session.
@@ -346,12 +406,37 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
         takenNames: editor.availableFonts.toSet(),
       );
       if (f == null || !mounted) return;
+      editor.uploadCustomFont(f.name);
       editor.updateSelectedClipFont(f.name);
       setState(() => _filter = _FontFilter.imported);
     } on FormatException catch (e) {
       _toast(e.message);
     } catch (_) {
       _toast("Couldn't import that font. Try another file");
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  Future<void> _importFolder(EditorController editor) async {
+    if (_importing) return;
+    setState(() => _importing = true);
+    try {
+      final List<ImportedFont> fonts = await _library.importFolderFromDevice(
+        takenNames: editor.availableFonts.toSet(),
+      );
+      if (fonts.isEmpty || !mounted) {
+        _toast('No valid .ttf or .otf fonts found in folder');
+        return;
+      }
+      for (final f in fonts) {
+        editor.uploadCustomFont(f.name);
+      }
+      editor.updateSelectedClipFont(fonts.first.name);
+      setState(() => _filter = _FontFilter.imported);
+      _toast('Imported ${fonts.length} font${fonts.length > 1 ? 's' : ''} from folder');
+    } catch (_) {
+      _toast("Couldn't import fonts from folder. Try another directory");
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -585,17 +670,35 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
           ),
           if (imp) ...[
             const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: _importing ? null : () => _import(editor),
-              icon: const Icon(PhosphorIconsRegular.uploadSimple, size: 18),
-              label: const Text('Import font'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _accent,
-                side: const BorderSide(color: _accent),
-                backgroundColor: _card,
-                minimumSize: const Size(0, 40),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _importing ? null : () => _import(editor),
+                  icon: const Icon(PhosphorIconsRegular.filePlus, size: 18),
+                  label: const Text('Import file'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _accent,
+                    side: const BorderSide(color: _accent),
+                    backgroundColor: _card,
+                    minimumSize: const Size(0, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: _importing ? null : () => _importFolder(editor),
+                  icon: const Icon(PhosphorIconsRegular.folderPlus, size: 18),
+                  label: const Text('Import folder'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _accent,
+                    side: const BorderSide(color: _accent),
+                    backgroundColor: _card,
+                    minimumSize: const Size(0, 40),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -607,38 +710,54 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
   Widget _importTile(EditorController editor, double w) {
     return Semantics(
       button: true,
-      label: 'Import font from device',
-      child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          _import(editor);
-        },
-        child: CustomPaint(
-          painter: _DashedRRectPainter(color: _track, radius: 8),
-          child: SizedBox(
-            width: w,
-            height: 68,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_importing)
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
-                  )
-                else
-                  const Icon(PhosphorIconsRegular.filePlus, size: 22, color: _accent),
-                const SizedBox(height: 6),
-                const Text('Import',
-                    style: TextStyle(
-                        color: _accent,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Ubuntu')),
-              ],
+      label: 'Import font file or folder from device',
+      child: Container(
+        width: w,
+        height: 68,
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _line),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            InkWell(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _import(editor);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(PhosphorIconsRegular.filePlus, size: 14, color: _accent),
+                    SizedBox(width: 4),
+                    Text('File', style: TextStyle(color: _accent, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu')),
+                  ],
+                ),
+              ),
             ),
-          ),
+            const Divider(height: 1, thickness: 0.5, color: _line),
+            InkWell(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _importFolder(editor);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(PhosphorIconsRegular.folderPlus, size: 14, color: _accent),
+                    SizedBox(width: 4),
+                    Text('Folder', style: TextStyle(color: _accent, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu')),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

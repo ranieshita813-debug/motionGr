@@ -54,27 +54,47 @@ object OverlayRenderer {
         clipBitmapCache.clear()
     }
 
+    private fun loadInputStream(context: Context, path: String): java.io.InputStream? {
+        val p = path.removePrefix("/").removePrefix("file:///")
+        val isAsset = p.startsWith("assets/") || p.startsWith("asset/") ||
+                p.startsWith("flutter_assets/") || p.startsWith("android_asset/") ||
+                path.startsWith("asset://") || path.startsWith("assets://") ||
+                path.startsWith("file:///android_asset/")
+
+        return when {
+            path.startsWith("content://") ->
+                context.contentResolver.openInputStream(Uri.parse(path))
+
+            isAsset -> {
+                val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("assets://").removePrefix("file:///android_asset/").removePrefix("/")
+                val stripped = rawP.removePrefix("flutter_assets/")
+                val candidatePaths = listOf(
+                    normalizeAssetPath(path),
+                    rawP,
+                    stripped,
+                    "flutter_assets/assets/$stripped"
+                )
+                for (candidate in candidatePaths) {
+                    try {
+                        return context.assets.open(candidate)
+                    } catch (_: Exception) {}
+                }
+                null
+            }
+
+            else -> {
+                val file = File(path.removePrefix("file://"))
+                if (file.exists()) file.inputStream() else null
+            }
+        }
+    }
+
     /**
      * বিটম্যাপ লোড করে নির্দিষ্ট সাইজে রিসাইজ করে
      */
     fun loadBitmap(context: Context, path: String, width: Int, height: Int): Bitmap? {
         return try {
-            val inputStream = when {
-                // কন্টেন্ট URI (গ্যালারি/ক্যামেরা)
-                path.startsWith("content://") ->
-                    context.contentResolver.openInputStream(Uri.parse(path))
-
-                // অ্যাসেট পাথ (ফ্লাটার অ্যাসেট)
-                path.startsWith("asset://") || path.startsWith("assets://") ||
-                        path.startsWith("asset/") || path.startsWith("assets/") ||
-                        path.startsWith("file:///android_asset/") -> {
-                    val assetPath = normalizeAssetPath(path)
-                    context.assets.open(assetPath)
-                }
-
-                // ফাইল সিস্টেম পাথ
-                else -> File(path.removePrefix("file://")).inputStream()
-            }
+            val inputStream = loadInputStream(context, path)
 
             inputStream?.use { stream ->
                 val options = BitmapFactory.Options().apply {

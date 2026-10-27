@@ -496,62 +496,55 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
     for (final c in clips) {
       if (c.label == 'Adjustment' || c.id.endsWith('_adj') || c.layer == -2) {
-        if (_showFx(c.id, selectedId)) {
-          adjustmentClips.add(_ClipSnapshot(
-            id: c.id,
-            startMs: c.startMs,
-            endMs: c.endMs,
-            trimInMs: c.trimInMs,
-            label: 'Adjustment',
-            type: ClipType.overlay,
-            layer: -2,
-            locked: c.locked,
-            visible: c.visible,
-            path: null,
-            keyframes: const [],
-          ));
-        }
+        adjustmentClips.add(_ClipSnapshot(
+          id: c.id,
+          startMs: c.startMs,
+          endMs: c.endMs,
+          trimInMs: c.trimInMs,
+          label: 'Adjustment',
+          type: ClipType.overlay,
+          layer: -2,
+          locked: c.locked,
+          visible: c.visible,
+          path: null,
+          keyframes: const [],
+        ));
         processedAdjClipIds.add(c.id);
       } else if (c.label == 'Filter' || c.label == 'Effect' || c.id.endsWith('_fx') || c.layer == -3) {
-        if (_showFx(c.id, selectedId)) {
-          effectClips.add(_ClipSnapshot(
-            id: c.id,
-            startMs: c.startMs,
-            endMs: c.endMs,
-            trimInMs: c.trimInMs,
-            label: c.label.isNotEmpty ? c.label : 'Filter',
-            type: ClipType.overlay,
-            layer: -3,
-            locked: c.locked,
-            visible: c.visible,
-            path: null,
-            keyframes: const [],
-          ));
-        }
+        effectClips.add(_ClipSnapshot(
+          id: c.id,
+          startMs: c.startMs,
+          endMs: c.endMs,
+          trimInMs: c.trimInMs,
+          label: c.label.isNotEmpty ? c.label : 'Filter',
+          type: ClipType.overlay,
+          layer: -3,
+          locked: c.locked,
+          visible: c.visible,
+          path: null,
+          keyframes: const [],
+        ));
         processedFxClipIds.add(c.id);
       } else if (c.label == 'Chroma Key' || c.id.endsWith('_ck') || c.layer == -1) {
-        if (_showFx(c.id, selectedId)) {
-          chromaKeyClips.add(_ClipSnapshot(
-            id: c.id,
-            startMs: c.startMs,
-            endMs: c.endMs,
-            trimInMs: c.trimInMs,
-            label: 'Chroma Key',
-            type: ClipType.overlay,
-            layer: -1,
-            locked: c.locked,
-            visible: c.visible,
-            path: null,
-            keyframes: const [],
-          ));
-        }
+        chromaKeyClips.add(_ClipSnapshot(
+          id: c.id,
+          startMs: c.startMs,
+          endMs: c.endMs,
+          trimInMs: c.trimInMs,
+          label: 'Chroma Key',
+          type: ClipType.overlay,
+          layer: -1,
+          locked: c.locked,
+          visible: c.visible,
+          path: null,
+          keyframes: const [],
+        ));
         processedCkClipIds.add(c.id);
       }
     }
 
     for (final c in clips) {
       if (c.hasChromaKey &&
-          _showFx('${c.id}_ck', selectedId) &&
           !processedCkClipIds.contains('${c.id}_ck') &&
           !processedCkClipIds.contains(c.id)) {
         chromaKeyClips.add(_ClipSnapshot(
@@ -569,7 +562,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
         ));
       }
       if (c.hasColorGrading &&
-          _showFx('${c.id}_adj', selectedId) &&
           !processedAdjClipIds.contains('${c.id}_adj') &&
           !processedAdjClipIds.contains(c.id)) {
         adjustmentClips.add(_ClipSnapshot(
@@ -587,7 +579,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
         ));
       }
       if ((c.hasEffect || c.shaderEffectNames.isNotEmpty) &&
-          _showFx('${c.id}_fx', selectedId) &&
           !processedFxClipIds.contains('${c.id}_fx') &&
           !processedFxClipIds.contains(c.id)) {
         final String fxLabel = c.shaderEffectNames.isNotEmpty ? c.shaderEffectNames.first : 'Filter';
@@ -2042,22 +2033,24 @@ class _WaveformLoader extends StatefulWidget {
 class _WaveformLoaderState extends State<_WaveformLoader> {
   Future<List<double>>? _future;
   String? _path;
+  int? _requestedBars;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, c) {
-        final int targetBars = (c.maxWidth / 4).floor().clamp(16, 800).toInt();
-        if (_future == null || _path != widget.path) {
+        final int targetBars = (c.maxWidth / 4).floor().clamp(100, 1200).toInt();
+        if (_future == null || _path != widget.path || _requestedBars != targetBars) {
           _path = widget.path;
-          _future = waveFuture(widget.path, 120);
+          _requestedBars = targetBars;
+          _future = waveFuture(widget.path, targetBars);
         }
         return ColoredBox(
           color: widget.background,
           child: FutureBuilder<List<double>>(
             future: _future,
             builder: (_, s) {
-              final rawAmps = s.data ?? List<double>.filled(120, 0.4);
+              final rawAmps = s.data ?? List<double>.filled(targetBars, 0.4);
               final amps = resampleWaveform(rawAmps, targetBars);
               return FilledAreaWaveform(
                 amplitudes: amps,
