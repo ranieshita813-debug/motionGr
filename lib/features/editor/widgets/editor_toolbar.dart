@@ -51,7 +51,6 @@ class EditorToolbar extends StatelessWidget {
       ),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        cacheExtent: 1000,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),

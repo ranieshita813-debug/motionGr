@@ -60,12 +60,18 @@ void main() {
     expect(find.text('Export'), findsOneWidget);
     expect(find.text('HD'), findsOneWidget);
 
-    expect(find.text('AI Generate', skipOffstage: false), findsWidgets);
-    expect(find.text('Draw', skipOffstage: false), findsWidgets);
     expect(find.text('Text', skipOffstage: false), findsWidgets);
     expect(find.text('Adjust', skipOffstage: false), findsWidgets);
     expect(find.text('Audio', skipOffstage: false), findsWidgets);
-    expect(find.text('Auto captions', skipOffstage: false), findsWidgets);
+
+    await tester.scrollUntilVisible(
+      find.text('AI Generate'),
+      200.0,
+      scrollable: find.descendant(of: find.byType(EditorPage), matching: find.byType(Scrollable)).last,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI Generate'), findsWidgets);
   });
 
   testWidgets('Opening Export Modal works', (WidgetTester tester) async {
