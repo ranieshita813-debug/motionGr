@@ -436,19 +436,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
   // ---- Effect / Adjustment / Chroma Key visibility -------------------------
 
-  /// Effect clip id -> id of the clip it belongs to.
-  String _fxBase(String id) {
-    if (id.endsWith('_adj') || id.endsWith('_ck') || id.endsWith('_fx')) {
-      return id.substring(0, id.lastIndexOf('_'));
-    }
-    return id;
-  }
-
-  /// Adjustment / Filter / Chroma Key tracks are shown only while the effect
-  /// itself, or the clip it is applied to, is selected.
-  bool _showFx(String id, String? selectedId) =>
-      selectedId != null && _fxBase(id) == _fxBase(selectedId);
-
   /// Faint name shown at the start of a track. Effect tracks have no label.
   String _laneLabel(_Lane l) {
     if (l.name == 'Chroma Key' ||

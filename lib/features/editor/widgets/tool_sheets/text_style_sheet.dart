@@ -727,11 +727,11 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                 HapticFeedback.selectionClick();
                 _import(editor);
               },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2, horizontal: 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(PhosphorIconsRegular.filePlus, size: 14, color: _accent),
                     SizedBox(width: 4),
                     Text('File', style: TextStyle(color: _accent, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu')),
@@ -745,11 +745,11 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                 HapticFeedback.selectionClick();
                 _importFolder(editor);
               },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2, horizontal: 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
+                  children: [
                     Icon(PhosphorIconsRegular.folderPlus, size: 14, color: _accent),
                     SizedBox(width: 4),
                     Text('Folder', style: TextStyle(color: _accent, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu')),
@@ -1296,37 +1296,6 @@ extension on Widget {
   Widget withTopPadding(double v) => Padding(padding: EdgeInsets.only(top: v), child: this);
 }
 
-/// Dashed rounded-rect outline for the Import tile.
-class _DashedRRectPainter extends CustomPainter {
-  _DashedRRectPainter({required this.color, required this.radius});
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Path path = Path()
-      ..addRRect(RRect.fromRectAndRadius(
-        Offset.zero & size,
-        Radius.circular(radius),
-      ));
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-    const double dash = 5, gap = 4;
-    for (final metric in path.computeMetrics()) {
-      double d = 0;
-      while (d < metric.length) {
-        canvas.drawPath(metric.extractPath(d, d + dash), paint);
-        d += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedRRectPainter old) =>
-      old.color != color || old.radius != radius;
-}
 
 // ---- Premiere-style parameter row ---------------------------------------------
 
