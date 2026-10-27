@@ -741,7 +741,9 @@ class EditorController extends ChangeNotifier {
   // Layer helpers
   // ---------------------------------------------------------------------------
   bool _isOverlay(TimelineClip c) =>
+      !c.isModifier &&
       c.clipType != ClipType.audio &&
+      c.clipType != ClipType.overlay &&
       (c.layerIndex > 0 ||
           (c.clipType != ClipType.video && c.clipType != ClipType.image));
 

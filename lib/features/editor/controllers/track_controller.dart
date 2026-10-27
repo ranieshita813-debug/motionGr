@@ -2,7 +2,9 @@ import 'package:flutter_video_editor/core/models/project_model.dart';
 
 class TrackController {
   bool isOverlay(TimelineClip c) =>
+      !c.isModifier &&
       c.clipType != ClipType.audio &&
+      c.clipType != ClipType.overlay &&
       (c.layerIndex > 0 ||
           (c.clipType != ClipType.video && c.clipType != ClipType.image));
 

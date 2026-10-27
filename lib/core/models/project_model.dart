@@ -1124,6 +1124,16 @@ class TimelineClip {
 
   Duration get duration => end - start;
 
+  bool get isModifier =>
+      layerIndex < 0 ||
+      id.endsWith('_adj') ||
+      id.endsWith('_fx') ||
+      id.endsWith('_ck') ||
+      label == 'Adjustment' ||
+      label == 'Filter' ||
+      label == 'Effect' ||
+      label == 'Chroma Key';
+
   TimelineClip copyWith({
     String? id,
     String? label,
@@ -1397,7 +1407,7 @@ class Project {
               'Bebas Neue',
               'Caveat'
             ],
-        thumbnail = thumbnail ?? 'assets/placeholder.png',
+        thumbnail = thumbnail ?? '',
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -1498,7 +1508,7 @@ class Project {
               .toList() ??
           <CaptionCue>[],
       customFonts: (json['customFonts'] as List<dynamic>?)?.cast<String>(),
-      thumbnail: json['thumbnail'] as String? ?? 'assets/placeholder.png',
+      thumbnail: json['thumbnail'] as String? ?? '',
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) : null,
     );
