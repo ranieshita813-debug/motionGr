@@ -160,13 +160,13 @@ object CompositionBuilder {
         return File(path.removePrefix("file://")).exists()
     }
 
-    private fun copyAssetToTempFile(context: Context, path: String): File? {
+    private fun copyAssetToTempFile(ctx: Context, path: String): File? {
         val ap = toAssetPath(path)
         val rawP = rawAssetPath(path)
         for (candidate in listOf(ap, rawP)) {
             try {
-                context.assets.open(candidate).use { inputStream ->
-                    val tempFile = File(context.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)
+                ctx.assets.open(candidate).use { inputStream ->
+                    val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)
                     if (!tempFile.exists() || tempFile.length() == 0L) {
                         FileOutputStream(tempFile).use { outputStream ->
                             inputStream.copyTo(outputStream)
@@ -179,12 +179,12 @@ object CompositionBuilder {
         return null
     }
 
-    private fun toUri(context: Context, path: String): Uri {
+    private fun toUri(ctx: Context, path: String): Uri {
         if (isContentUri(path) || path.startsWith("http://") || path.startsWith("https://")) {
             return Uri.parse(path)
         }
         if (isAssetPath(path)) {
-            val tempFile = copyAssetToTempFile(context, path)
+            val tempFile = copyAssetToTempFile(ctx, path)
             if (tempFile != null && tempFile.exists()) {
                 return Uri.fromFile(tempFile)
             }
