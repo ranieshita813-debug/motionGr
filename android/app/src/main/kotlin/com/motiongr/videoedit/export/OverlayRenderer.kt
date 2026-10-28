@@ -160,7 +160,7 @@ object OverlayRenderer {
         textAlignStr: String = "center",
         scaleMultiplier: Float = 1.0f
     ): Bitmap {
-        val u = width / 375f
+        val u = width / 360f
         val textSizeCalculated = fontSizeSp * scaleMultiplier * u
 
         val typeface = loadTypeface(context, fontFamily)
@@ -519,7 +519,9 @@ object OverlayRenderer {
         cg: ColorGradingSpec
     ): Bitmap {
         if (cg.brightness == 0.0 && cg.contrast == 1.0 && cg.saturation == 1.0 &&
-            cg.temperature == 0.0 && cg.exposure == 0.0 && cg.vignette == 0.0) {
+            cg.temperature == 0.0 && cg.exposure == 0.0 && cg.vignette == 0.0 &&
+            cg.highlights == 0.0 && cg.shadows == 0.0 && cg.fade == 0.0 &&
+            cg.sepia == 0.0 && cg.brilliance == 0.0 && cg.clarity == 0.0) {
             return bitmap
         }
 
@@ -552,7 +554,8 @@ object OverlayRenderer {
         val cm = ColorMatrix()
         cm.setSaturation(cg.saturation.toFloat().coerceIn(0f, 2f))
 
-        val contrastScale = cg.contrast.toFloat().coerceIn(0.5f, 2f)
+        val effectiveContrast = cg.contrast + cg.clarity * 0.3
+        val contrastScale = effectiveContrast.toFloat().coerceIn(0.5f, 2f)
         val contrastTranslate = (-0.5f * contrastScale + 0.5f) * 255f
         val contrastCm = ColorMatrix(floatArrayOf(
             contrastScale, 0f, 0f, 0f, contrastTranslate,
@@ -562,14 +565,17 @@ object OverlayRenderer {
         ))
         cm.postConcat(contrastCm)
 
+        val effectiveBrightness = cg.brightness + cg.brilliance * 0.3
         val gain = 2.0.pow(cg.exposure).toFloat()
-        val tempR = (gain * (1.0f + 0.25f * cg.temperature.toFloat())).coerceAtLeast(0f)
-        val tempB = (gain * (1.0f - 0.25f * cg.temperature.toFloat())).coerceAtLeast(0f)
-        val bOffset = (cg.brightness * 255.0).toFloat().coerceIn(-128f, 128f)
+        val fadeFactor = (1.0f - 0.15f * cg.fade.toFloat()).coerceIn(0f, 1f)
+        val tempR = (gain * (1.0f + 0.25f * cg.temperature.toFloat() + 0.2f * cg.sepia.toFloat()) * fadeFactor).coerceAtLeast(0f)
+        val tempG = (gain * (1.0f - 0.25f * cg.tint.toFloat()) * fadeFactor).coerceAtLeast(0f)
+        val tempB = (gain * (1.0f - 0.25f * cg.temperature.toFloat() - 0.2f * cg.sepia.toFloat()) * fadeFactor).coerceAtLeast(0f)
+        val bOffset = (effectiveBrightness * 255.0).toFloat().coerceIn(-128f, 128f)
 
         val colorScaleCm = ColorMatrix(floatArrayOf(
             tempR, 0f, 0f, 0f, bOffset,
-            0f, gain, 0f, 0f, bOffset,
+            0f, tempG, 0f, 0f, bOffset,
             0f, 0f, tempB, 0f, bOffset,
             0f, 0f, 0f, 1f, 0f
         ))
@@ -859,7 +865,7 @@ object OverlayRenderer {
         height: Int,
         timelineMs: Long
     ) {
-        val u = width / 375f
+        val u = width / 360f
 
         val cacheKey = if (clip.clipType != "video") {
             "${clip.id}_${clip.clipType}_${clip.label}_${clip.scale}_${width}x${height}"
@@ -1089,7 +1095,10 @@ object OverlayRenderer {
 
         if (clip.colorGrading.brightness != 0.0 || clip.colorGrading.contrast != 1.0 ||
             clip.colorGrading.saturation != 1.0 || clip.colorGrading.temperature != 0.0 ||
-            clip.colorGrading.exposure != 0.0 || clip.colorGrading.vignette != 0.0) {
+            clip.colorGrading.exposure != 0.0 || clip.colorGrading.vignette != 0.0 ||
+            clip.colorGrading.highlights != 0.0 || clip.colorGrading.shadows != 0.0 ||
+            clip.colorGrading.fade != 0.0 || clip.colorGrading.sepia != 0.0 ||
+            clip.colorGrading.brilliance != 0.0 || clip.colorGrading.clarity != 0.0) {
             val graded = applyColorGrading(processedBmp, clip.colorGrading)
             if (graded != processedBmp && !processedBmp.isRecycled) {
                 processedBmp.recycle()
@@ -1124,11 +1133,25 @@ object OverlayRenderer {
         val posY = getInterpolatedKeyframeValue(clip, "positionY", relTimeMs, clip.positionY)
         val rot = getInterpolatedKeyframeValue(clip, "rotation", relTimeMs, clip.rotation)
         val opacity = getInterpolatedKeyframeValue(clip, "opacity", relTimeMs, clip.opacity)
+        val scaleKf = getInterpolatedKeyframeValue(clip, "scale", relTimeMs, clip.scale)
 
         canvas.save()
         val matrix = Matrix()
-        matrix.postRotate(rot.toFloat())
-        matrix.postTranslate((posX * u).toFloat(), (posY * u).toFloat())
+        val bmpW = processedBmp.width.toFloat()
+        val bmpH = processedBmp.height.toFloat()
+
+        if (clip.scale > 0 && scaleKf != clip.scale) {
+            val scaleFactor = (scaleKf / clip.scale).toFloat()
+            matrix.postScale(scaleFactor, scaleFactor, bmpW / 2f, bmpH / 2f)
+        }
+
+        if (rot != 0.0) {
+            matrix.postRotate(rot.toFloat(), bmpW / 2f, bmpH / 2f)
+        }
+
+        val posXWithPadding = (posX + 6) * u
+        val posYWithPadding = (posY + 6) * u
+        matrix.postTranslate(posXWithPadding.toFloat(), posYWithPadding.toFloat())
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
         val finalOpacity = opacity.coerceIn(0.0, 1.0)
