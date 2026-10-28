@@ -14,13 +14,19 @@ data class ExportSettingsSpec(
 )
 
 data class ColorGradingSpec(
-    val brightness: Double,
-    val contrast: Double,
-    val saturation: Double,
-    val temperature: Double,
-    val tint: Double,
-    val exposure: Double,
-    val vignette: Double
+    val brightness: Double = 0.0,
+    val contrast: Double = 1.0,
+    val saturation: Double = 1.0,
+    val temperature: Double = 0.0,
+    val tint: Double = 0.0,
+    val exposure: Double = 0.0,
+    val vignette: Double = 0.0,
+    val highlights: Double = 0.0,
+    val shadows: Double = 0.0,
+    val fade: Double = 0.0,
+    val sepia: Double = 0.0,
+    val brilliance: Double = 0.0,
+    val clarity: Double = 0.0
 )
 
 data class TextStyleSpec(
@@ -313,7 +319,13 @@ object TimelineParser {
                     temperature = cgObj.optDouble("temperature", 0.0),
                     tint = cgObj.optDouble("tint", 0.0),
                     exposure = cgObj.optDouble("exposure", 0.0),
-                    vignette = cgObj.optDouble("vignette", 0.0)
+                    vignette = cgObj.optDouble("vignette", 0.0),
+                    highlights = cgObj.optDouble("highlights", 0.0),
+                    shadows = cgObj.optDouble("shadows", 0.0),
+                    fade = cgObj.optDouble("fade", 0.0),
+                    sepia = cgObj.optDouble("sepia", 0.0),
+                    brilliance = cgObj.optDouble("brilliance", 0.0),
+                    clarity = cgObj.optDouble("clarity", 0.0)
                 )
 
                 val tsObj = clipObj.optJSONObject("textStyle") ?: JSONObject()

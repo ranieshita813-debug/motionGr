@@ -270,15 +270,25 @@ object CompositionBuilder {
         return list
     }
 
+    private fun isModifierClip(c: ClipSpec): Boolean {
+        return c.layerIndex < 0 ||
+               c.id.endsWith("_adj") ||
+               c.id.endsWith("_fx") ||
+               c.id.endsWith("_ck") ||
+               c.label in setOf("Adjustment", "Effect", "Filter", "Chroma Key")
+    }
+
     private fun colorEffects(cg: ColorGradingSpec): List<Effect> {
         val out = mutableListOf<Effect>()
         
-        if (abs(cg.brightness) > EPS) {
-            out += Brightness(cg.brightness.coerceIn(-1.0, 1.0).toFloat())
+        val effectiveBrightness = cg.brightness + cg.brilliance * 0.3
+        if (abs(effectiveBrightness) > EPS) {
+            out += Brightness(effectiveBrightness.coerceIn(-1.0, 1.0).toFloat())
         }
         
-        if (abs(cg.contrast - 1.0) > EPS) {
-            out += Contrast((cg.contrast - 1.0).coerceIn(-1.0, 1.0).toFloat())
+        val effectiveContrast = cg.contrast + cg.clarity * 0.3
+        if (abs(effectiveContrast - 1.0) > EPS) {
+            out += Contrast((effectiveContrast - 1.0).coerceIn(-1.0, 1.0).toFloat())
         }
         
         if (abs(cg.saturation - 1.0) > EPS) {
@@ -288,9 +298,9 @@ object CompositionBuilder {
         }
         
         val gain = 2.0.pow(cg.exposure)
-        val r = (gain * (1.0 + 0.25 * cg.temperature)).coerceAtLeast(0.0)
-        val g = (gain * (1.0 - 0.25 * cg.tint)).coerceAtLeast(0.0)
-        val b = (gain * (1.0 - 0.25 * cg.temperature)).coerceAtLeast(0.0)
+        val r = (gain * (1.0 + 0.25 * cg.temperature + cg.sepia * 0.2) * (1.0 - cg.fade * 0.15)).coerceAtLeast(0.0)
+        val g = (gain * (1.0 - 0.25 * cg.tint) * (1.0 - cg.fade * 0.15)).coerceAtLeast(0.0)
+        val b = (gain * (1.0 - 0.25 * cg.temperature - cg.sepia * 0.2) * (1.0 - cg.fade * 0.15)).coerceAtLeast(0.0)
         
         if (abs(r - 1.0) > EPS || abs(g - 1.0) > EPS || abs(b - 1.0) > EPS) {
             out += RgbAdjustment.Builder()
@@ -382,12 +392,16 @@ object CompositionBuilder {
             clip.clipType == "audio" || (src != null && clip.clipType !in OVERLAY_TYPES && kindOf(context, src) == Kind.AUDIO)
         }
 
+        val modifierClips = visibleClips.filter { clip ->
+            clip !in audioOnlyClips && isModifierClip(clip)
+        }
+
         val overlayClips = visibleClips.filter { clip ->
-            clip !in audioOnlyClips && (clip.layerIndex > 0 || clip.clipType in OVERLAY_TYPES)
+            clip !in audioOnlyClips && clip !in modifierClips && (clip.layerIndex > 0 || clip.clipType in OVERLAY_TYPES)
         }
 
         var baseClips = visibleClips.filter { clip ->
-            clip !in audioOnlyClips && clip !in overlayClips
+            clip !in audioOnlyClips && clip !in overlayClips && clip !in modifierClips
         }
 
         if (baseClips.isEmpty() && (overlayClips.isNotEmpty() || visibleClips.isNotEmpty())) {
@@ -483,16 +497,49 @@ object CompositionBuilder {
             )
 
             if (!isCard) {
-                if (clip.chromaKey.enabled) {
+                val clipEnd = clip.timelineStartMs + clip.timelineDurationMs
+                val activeModifiers = modifierClips.filter { mod ->
+                    mod.timelineStartMs < clipEnd && (mod.timelineStartMs + mod.timelineDurationMs) > clip.timelineStartMs
+                }
+
+                val activeCk = clip.chromaKey.takeIf { it.enabled }
+                    ?: activeModifiers.firstOrNull { it.chromaKey.enabled }?.chromaKey
+                if (activeCk != null && activeCk.enabled) {
                     videoEffects += ChromaKeyEffect(
-                        keyColor = clip.chromaKey.keyColor.toInt(),
-                        similarity = (clip.chromaKey.similarity / 100.0).toFloat().coerceIn(0.01f, 1.0f),
-                        smoothness = (clip.chromaKey.smoothness / 100.0).toFloat().coerceIn(0.001f, 1.0f),
-                        spillSuppress = (clip.chromaKey.spill / 100.0).toFloat().coerceIn(0.0f, 1.0f)
+                        keyColor = activeCk.keyColor.toInt(),
+                        similarity = (activeCk.similarity / 100.0).toFloat().coerceIn(0.01f, 1.0f),
+                        smoothness = (activeCk.smoothness / 100.0).toFloat().coerceIn(0.001f, 1.0f),
+                        spillSuppress = (activeCk.spill / 100.0).toFloat().coerceIn(0.0f, 1.0f)
                     )
                 }
 
                 videoEffects += colorEffects(clip.colorGrading)
+                if (clip.colorGrading.vignette > EPS) {
+                    videoEffects += CustomShaderEffect(
+                        context = context,
+                        effectId = "vignette",
+                        initialParameters = mapOf("amount" to clip.colorGrading.vignette),
+                        startMs = clip.timelineStartMs,
+                        endMs = clip.timelineStartMs + clip.timelineDurationMs,
+                        baseStartMs = clip.timelineStartMs
+                    )
+                }
+
+                for (mod in activeModifiers) {
+                    if (mod.layerIndex == -2 || mod.id.endsWith("_adj") || mod.label == "Adjustment") {
+                        videoEffects += colorEffects(mod.colorGrading)
+                        if (mod.colorGrading.vignette > EPS) {
+                            videoEffects += CustomShaderEffect(
+                                context = context,
+                                effectId = "vignette",
+                                initialParameters = mapOf("amount" to mod.colorGrading.vignette),
+                                startMs = mod.timelineStartMs,
+                                endMs = mod.timelineStartMs + mod.timelineDurationMs,
+                                baseStartMs = clip.timelineStartMs
+                            )
+                        }
+                    }
+                }
 
                 if (clip.effect != "none" && clip.effect.isNotEmpty()) {
                     videoEffects += CustomShaderEffect(
@@ -516,6 +563,34 @@ object CompositionBuilder {
                             endMs = shaderFx.endMs,
                             baseStartMs = clip.timelineStartMs
                         )
+                    }
+                }
+
+                for (mod in activeModifiers) {
+                    if (mod.layerIndex == -3 || mod.id.endsWith("_fx") || mod.label in setOf("Effect", "Filter")) {
+                        if (mod.effect != "none" && mod.effect.isNotEmpty()) {
+                            videoEffects += CustomShaderEffect(
+                                context = context,
+                                effectId = mod.effect,
+                                initialParameters = mod.effectParameters,
+                                startMs = mod.timelineStartMs,
+                                endMs = mod.timelineStartMs + mod.timelineDurationMs,
+                                baseStartMs = clip.timelineStartMs
+                            )
+                        }
+                        for (shaderFx in mod.shaderEffects) {
+                            if (shaderFx.isEnabled) {
+                                videoEffects += CustomShaderEffect(
+                                    context = context,
+                                    effectId = shaderFx.effectId,
+                                    initialParameters = shaderFx.parameterValues,
+                                    shaderEffectSpec = shaderFx,
+                                    startMs = shaderFx.startMs,
+                                    endMs = shaderFx.endMs,
+                                    baseStartMs = clip.timelineStartMs
+                                )
+                            }
+                        }
                     }
                 }
             }
