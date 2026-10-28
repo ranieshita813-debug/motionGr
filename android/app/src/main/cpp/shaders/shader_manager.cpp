@@ -78,7 +78,9 @@ void ShaderManager::applyChromaKey(
         );
 
         if (dist < params.similarity) {
-            float alphaFactor = std::max(0.0f, (dist - (params.similarity - params.smoothness)) / params.smoothness);
+            float alphaFactor = (params.smoothness > 0.0001f)
+                ? std::min(1.0f, std::max(0.0f, (dist - (params.similarity - params.smoothness)) / params.smoothness))
+                : 0.0f;
             uint32_t originalAlpha = (color >> 24) & 0xFF;
             uint32_t newAlpha = static_cast<uint32_t>(originalAlpha * alphaFactor);
             pixelData[i] = (newAlpha << 24) | (color & 0x00FFFFFF);

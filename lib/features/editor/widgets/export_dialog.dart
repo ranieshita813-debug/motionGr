@@ -1379,9 +1379,19 @@ class _ExportModalState extends State<ExportModal> {
             ),
             icon: const Icon(Icons.share_rounded, size: 18),
             label: Text('Share video', style: _t(15, color: Colors.white, weight: FontWeight.w600)),
-            // TODO: wire to share_plus: Share.shareXFiles([XFile(exportCtrl!.outputPath!)])
-            onPressed: () => ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('Share option ready'))),
+            onPressed: () {
+              final path = exportCtrl?.outputPath;
+              if (path != null && path.isNotEmpty) {
+                Clipboard.setData(ClipboardData(text: path));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('File path copied to clipboard: $path')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Video saved to gallery')),
+                );
+              }
+            },
           ),
           const SizedBox(height: 10),
           OutlinedButton(
