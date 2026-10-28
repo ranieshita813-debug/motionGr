@@ -1565,21 +1565,21 @@ class EditorController extends ChangeNotifier {
   // Color Grading
   // ---------------------------------------------------------------------------
   void updateColorGrading(ColorGradingSettings colorGrading) {
-    if (_selectedClipId == null) return;
-
-    final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
-    if (index != -1) {
-      final selected = _project.clips[index];
-      if (selected.label == 'Adjustment' || selected.id.endsWith('_adj') || selected.layerIndex == -2) {
-        _saveStateCoalesced('grade:$_selectedClipId');
-        _project.clips[index] = selected.copyWith(colorGrading: colorGrading);
-        _autosave();
-        notifyListeners();
-        return;
+    if (_selectedClipId != null) {
+      final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
+      if (index != -1) {
+        final selected = _project.clips[index];
+        if (selected.label == 'Adjustment' || selected.id.endsWith('_adj') || selected.layerIndex == -2) {
+          _saveStateCoalesced('grade:$_selectedClipId');
+          _project.clips[index] = selected.copyWith(colorGrading: colorGrading);
+          _autosave();
+          notifyListeners();
+          return;
+        }
       }
     }
 
-    final targetClip = selectedClip;
+    final targetClip = selectedClip ?? activeVideoClip ?? (_project.clips.isNotEmpty ? _project.clips.first : null);
     if (targetClip == null) return;
 
     _saveStateCoalesced('grade:${targetClip.id}');

@@ -129,14 +129,17 @@ object CompositionBuilder {
 
     private fun isContentUri(path: String) = path.startsWith("content://")
 
-    private fun isAssetPath(path: String): Boolean =
-        path.startsWith("assets/") || path.startsWith("asset/") || 
-        path.startsWith("asset://") || path.startsWith("file:///android_asset/")
+    private fun isAssetPath(path: String): Boolean {
+        val p = path.removePrefix("/").removePrefix("file:///")
+        return p.startsWith("assets/") || p.startsWith("asset/") ||
+               p.startsWith("flutter_assets/") || p.startsWith("android_asset/") ||
+               path.startsWith("asset://") || path.startsWith("file:///android_asset/")
+    }
 
     private fun rawAssetPath(path: String): String =
-        path.removePrefix("asset:///")
+        path.removePrefix("file:///android_asset/")
+            .removePrefix("asset:///")
             .removePrefix("asset://")
-            .removePrefix("file:///android_asset/")
             .removePrefix("/")
 
     private fun toAssetPath(path: String): String {
@@ -147,12 +150,15 @@ object CompositionBuilder {
     private fun sourceExists(context: Context, path: String): Boolean {
         if (isContentUri(path) || path.startsWith("http://") || path.startsWith("https://")) return true
         if (isAssetPath(path)) {
-            for (candidate in listOf(toAssetPath(path), rawAssetPath(path))) {
+            val ap = toAssetPath(path)
+            val rawP = rawAssetPath(path)
+            val stripped = rawP.removePrefix("flutter_assets/")
+            for (candidate in listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")) {
                 try {
                     context.assets.open(candidate).use { it.close() }
                     return true
                 } catch (_: Exception) {
-                    // ফাইল না থাকলে পরের ক্যান্ডিডেট চেষ্টা করুন
+                    // Try next candidate
                 }
             }
             return false
@@ -163,7 +169,8 @@ object CompositionBuilder {
     private fun copyAssetToTempFile(ctx: Context, path: String): File? {
         val ap = toAssetPath(path)
         val rawP = rawAssetPath(path)
-        for (candidate in listOf(ap, rawP)) {
+        val stripped = rawP.removePrefix("flutter_assets/")
+        for (candidate in listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")) {
             try {
                 ctx.assets.open(candidate).use { inputStream ->
                     val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)

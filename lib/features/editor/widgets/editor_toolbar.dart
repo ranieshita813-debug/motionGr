@@ -120,6 +120,12 @@ class EditorToolbar extends StatelessWidget {
             onTap: () => onSelectToolSheet('adjust'),
           ),
           EditorToolbarItem(
+            id: 'color_grading',
+            title: 'Color Grade',
+            icon: PhosphorIconsRegular.palette,
+            onTap: () => onSelectToolSheet('color_grading'),
+          ),
+          EditorToolbarItem(
             id: 'delete',
             title: 'Delete',
             icon: PhosphorIconsRegular.trash,
@@ -211,6 +217,12 @@ class EditorToolbar extends StatelessWidget {
           title: 'Adjust',
           icon: PhosphorIconsRegular.sliders,
           onTap: () => onSelectToolSheet('adjust'),
+        ),
+        EditorToolbarItem(
+          id: 'color_grading',
+          title: 'Color Grade',
+          icon: PhosphorIconsRegular.palette,
+          onTap: () => onSelectToolSheet('color_grading'),
         ),
         EditorToolbarItem(
           id: 'effects',
@@ -305,6 +317,12 @@ class EditorToolbar extends StatelessWidget {
             title: 'Adjust',
             icon: PhosphorIconsRegular.sliders,
             onTap: () => onSelectToolSheet('adjust'),
+          ),
+          EditorToolbarItem(
+            id: 'color_grading',
+            title: 'Color Grade',
+            icon: PhosphorIconsRegular.palette,
+            onTap: () => onSelectToolSheet('color_grading'),
           ),
           EditorToolbarItem(
             id: 'filters',

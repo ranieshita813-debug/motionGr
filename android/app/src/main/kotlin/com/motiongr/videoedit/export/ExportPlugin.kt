@@ -503,12 +503,15 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     // Helpers: sources, cache
     // ------------------------------------------------------------------------------------------
 
-    private fun isAssetPath(path: String): Boolean =
-        path.startsWith("assets/") || path.startsWith("asset/") || path.startsWith("asset://") || path.startsWith("file:///android_asset/")
+    private fun isAssetPath(path: String): Boolean {
+        val p = path.removePrefix("/").removePrefix("file:///")
+        return p.startsWith("assets/") || p.startsWith("asset/") ||
+               p.startsWith("flutter_assets/") || p.startsWith("android_asset/") ||
+               path.startsWith("asset://") || path.startsWith("file:///android_asset/")
+    }
 
     private fun toAssetPath(path: String): String {
-        var p = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/")
-        if (p.startsWith("/")) p = p.substring(1)
+        var p = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
         if (!p.startsWith("flutter_assets/")) {
             p = "flutter_assets/$p"
         }
@@ -521,18 +524,16 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
         if (isAssetPath(path)) {
             val ctx = context ?: return
             val ap = toAssetPath(path)
-            try {
-                ctx.assets.open(ap).close()
-                return
-            } catch (_: Exception) {
-                val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
+            val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
+            val stripped = rawP.removePrefix("flutter_assets/")
+            val candidates = listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")
+            for (candidate in candidates) {
                 try {
-                    ctx.assets.open(rawP).close()
+                    ctx.assets.open(candidate).close()
                     return
-                } catch (_: Exception) {
-                    throw FileNotFoundException("Asset not found: $path")
-                }
+                } catch (_: Exception) {}
             }
+            throw FileNotFoundException("Asset not found: $path")
         }
         if (!isUri(path) && !File(path).let { it.exists() && it.isFile }) {
             throw FileNotFoundException("File not found: $path")
@@ -542,7 +543,9 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     private fun copyAssetToTempFile(ctx: Context, path: String): File? {
         val ap = toAssetPath(path)
         val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
-        for (candidate in listOf(ap, rawP)) {
+        val stripped = rawP.removePrefix("flutter_assets/")
+        val candidates = listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")
+        for (candidate in candidates) {
             try {
                 ctx.assets.open(candidate).use { inputStream ->
                     val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)

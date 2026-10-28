@@ -18,6 +18,8 @@ import 'package:flutter_video_editor/core/services/ai_generation_service.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/ai/gen.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/ai/captions_style.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/clip_animation_sheet.dart';
+import 'package:flutter_video_editor/core/models/color_grade.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/color_grading_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/face_tracking_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/text_style_sheet.dart';
@@ -35,6 +37,7 @@ enum EditorTool {
   filters('Filters', PhosphorIconsRegular.funnel),
   effects('Effects', PhosphorIconsRegular.magicWand),
   adjust('Adjust', PhosphorIconsRegular.sliders),
+  colorGrading('Color Grade', PhosphorIconsRegular.palette),
   crop('Canvas', PhosphorIconsRegular.crop),
   speed('Speed', PhosphorIconsRegular.gauge),
   elements('Elements', PhosphorIconsRegular.shapes),
@@ -77,6 +80,40 @@ enum EditorTool {
                 },
                 onApply: (settings) {
                   editor.updateColorGrading(settings.toColorGrading());
+                },
+                onClose: () {},
+              );
+            },
+          ),
+        EditorTool.colorGrading => Builder(
+            builder: (ctx) {
+              final editor = ctx.read<EditorController>();
+              final clip = ctx.select<EditorController, TimelineClip?>((e) => e.selectedClip);
+              final initialGrade = clip != null
+                  ? ColorGrade.fromLegacy(
+                      brightness: clip.colorGrading.brightness,
+                      contrast: clip.colorGrading.contrast,
+                      saturation: clip.colorGrading.saturation,
+                    )
+                  : ColorGrade.identity;
+
+              return ColorGradeSheet(
+                initial: initialGrade,
+                onChanged: (grade) {
+                  final legacy = grade.toLegacy();
+                  editor.updateColorGrading(ColorGradingSettings(
+                    brightness: legacy.brightness,
+                    contrast: legacy.contrast,
+                    saturation: legacy.saturation,
+                  ));
+                },
+                onApply: (grade) {
+                  final legacy = grade.toLegacy();
+                  editor.updateColorGrading(ColorGradingSettings(
+                    brightness: legacy.brightness,
+                    contrast: legacy.contrast,
+                    saturation: legacy.saturation,
+                  ));
                 },
                 onClose: () {},
               );
