@@ -96,6 +96,7 @@ void main() {
       expect(restoredClip.loopAnimation, equals('bounce'));
       expect(restoredClip.cameraProperties['focalLength'], equals(50.0));
       expect(restoredClip.maskProperties['type'], equals('circle'));
+      expect(restoredClip.maskProperties['feather'], equals(12.0));
       expect(restoredClip.keyframes.length, equals(1));
       expect(restoredClip.shaderEffects.length, equals(1));
 
@@ -106,6 +107,36 @@ void main() {
       expect((shaderFx['keyframeAnimations'] as List).length, equals(1));
 
       expect(restoredClip.words.length, equals(1));
+    });
+
+    test('TimelineDto handles default maskProperties, cameraProperties and loopAnimation seamlessly', () {
+      final clip = TimelineClip(
+        id: 'test_clip_defaults',
+        label: 'Video Clip Defaults',
+        start: Duration.zero,
+        end: const Duration(seconds: 3),
+        clipType: ClipType.video,
+        layerIndex: 0,
+      );
+
+      final project = Project(
+        id: 'p2',
+        name: 'Export Default Values',
+        clips: [clip],
+      );
+
+      final dto = TimelineDto.fromProject(project, const ExportSettings());
+      final json = dto.toJson();
+      final restored = TimelineDto.fromJson(json);
+
+      expect(restored.clips.length, equals(1));
+      final c = restored.clips.first;
+      expect(c.anchorX, equals(0.5));
+      expect(c.anchorY, equals(0.5));
+      expect(c.loopAnimation, equals('none'));
+      expect(c.maskProperties['type'], equals('none'));
+      expect(c.maskProperties['feather'], equals(0.0));
+      expect(c.cameraProperties['focalLength'], equals(35.0));
     });
   });
 }
