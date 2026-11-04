@@ -187,167 +187,151 @@ class _KeyframeSheetState extends State<KeyframeSheet> {
 
     return ColoredBox(
       color: _kfBg,
-      child: ListView(
-        physics: (_lockScroll && selected != null) ? const NeverScrollableScrollPhysics() : null,
-        padding: EdgeInsets.fromLTRB(0, 4, 0, 12 + MediaQuery.paddingOf(context).bottom),
-        children: <Widget>[
-          // ---- toolbar: prev / diamond / next | timecode | delete -----------
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: <Widget>[
-                _KfAction(
-                  icon: PhosphorIconsRegular.caretLeft,
-                  tooltip: 'Previous keyframe',
-                  onTap: clip == null ? null : prev,
-                ),
-                _KfAction(
-                  icon: atHead != null
-                      ? PhosphorIcons.diamond(PhosphorIconsStyle.fill)
-                      : PhosphorIconsRegular.diamond,
-                  tooltip: atHead != null ? 'Remove keyframe' : 'Add keyframe',
-                  active: atHead != null,
-                  onTap: clip == null ? null : toggle,
-                ),
-                _KfAction(
-                  icon: PhosphorIconsRegular.caretRight,
-                  tooltip: 'Next keyframe',
-                  onTap: clip == null ? null : next,
-                ),
-                Expanded(
-                  child: Text(
-                    _kfTimecode(rel),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _kfText,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              // ---- toolbar: prev / diamond / next | timecode | delete -----------
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: <Widget>[
+                    _KfAction(
+                      icon: PhosphorIconsRegular.caretLeft,
+                      tooltip: 'Previous keyframe',
+                      onTap: clip == null ? null : prev,
                     ),
+                    _KfAction(
+                      icon: atHead != null
+                          ? PhosphorIcons.diamond(PhosphorIconsStyle.fill)
+                          : PhosphorIconsRegular.diamond,
+                      tooltip: atHead != null ? 'Remove keyframe' : 'Add keyframe',
+                      active: atHead != null,
+                      onTap: clip == null ? null : toggle,
+                    ),
+                    _KfAction(
+                      icon: PhosphorIconsRegular.caretRight,
+                      tooltip: 'Next keyframe',
+                      onTap: clip == null ? null : next,
+                    ),
+                    Expanded(
+                      child: Text(
+                        _kfTimecode(rel),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: _kfText,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
+                    _KfAction(
+                      icon: PhosphorIconsRegular.trash,
+                      tooltip: 'Delete selected keyframe',
+                      onTap: selected == null
+                          ? null
+                          : () {
+                              editor.removeKeyframe(selected.id);
+                              setState(() => _selId = null);
+                            },
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: 0.5, color: _kfLine),
+
+              // ---- track ---------------------------------------------------------
+              if (clip == null)
+                const _KfHint('Select a clip to animate it.')
+              else ...<Widget>[
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: _KfTrack(
+                    keys: all,
+                    selectedId: selected?.id,
+                    selectedIndex: selIndex,
+                    total: total,
+                    playhead: rel,
+                    onSeek: seekTo,
+                    onSelect: (k) {
+                      if (k == null) {
+                        setState(() => _selId = null);
+                      } else {
+                        seekTo(secondsOf(k.time));
+                        setState(() => _selId = k.id);
+                      }
+                    },
                   ),
                 ),
-                _KfAction(
-                  icon: PhosphorIconsRegular.trash,
-                  tooltip: 'Delete selected keyframe',
-                  onTap: selected == null
-                      ? null
-                      : () {
-                          editor.removeKeyframe(selected.id);
-                          setState(() => _selId = null);
-                        },
+                const Divider(height: 1, thickness: 0.5, color: _kfLine),
+                if (all.isEmpty)
+                  const _KfHint('No keyframes yet. Move the playhead and tap the diamond.')
+                else if (selected == null)
+                  const _KfHint('Tap a diamond to edit its curve.')
+                else if (!hasNext)
+                  const _KfHint('The last keyframe has no curve. Select an earlier one.'),
+              ],
+
+              // ---- curve section (selected keyframe that has a next one) ---------
+              if (selected != null && nextKf != null) ...<Widget>[
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      const Text(
+                        'Curve',
+                        style: TextStyle(color: _kfText, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      _KfChip(
+                        '${secondsOf(selected.time).toStringAsFixed(1)}s to '
+                        '${secondsOf(nextKf.time).toStringAsFixed(1)}s',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 64,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    itemCount: _kfOptions.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final _CurveOption opt = _kfOptions[i];
+                      return SizedBox(
+                        width: 50,
+                        child: _CurveTile(
+                          option: opt,
+                          on: _optionIsOn(opt, selected),
+                          onTap: () => pick(selected, opt),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: _CurveEditor(
+                    keyframe: selected,
+                    onChanged: editor.addKeyframe,
+                    onDragStateChanged: (dragging) {
+                      if (_lockScroll != dragging) setState(() => _lockScroll = dragging);
+                    },
+                  ),
                 ),
               ],
-            ),
+            ],
           ),
-          const Divider(height: 1, thickness: 0.5, color: _kfLine),
-
-          // ---- track ---------------------------------------------------------
-          if (clip == null)
-            const _KfHint('Select a clip to animate it.')
-          else ...<Widget>[
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: _KfTrack(
-                keys: all,
-                selectedId: selected?.id,
-                selectedIndex: selIndex,
-                total: total,
-                playhead: rel,
-                onSeek: seekTo,
-                onSelect: (k) {
-                  if (k == null) {
-                    setState(() => _selId = null);
-                  } else {
-                    seekTo(secondsOf(k.time));
-                    setState(() => _selId = k.id);
-                  }
-                },
-              ),
-            ),
-            const Divider(height: 1, thickness: 0.5, color: _kfLine),
-            if (all.isEmpty)
-              const _KfHint('No keyframes yet. Move the playhead and tap the diamond.')
-            else if (selected == null)
-              const _KfHint('Tap a diamond to edit its curve.')
-            else if (!hasNext)
-              const _KfHint('The last keyframe has no curve. Select an earlier one.'),
-          ],
-
-          // ---- curve section (selected keyframe that has a next one) ---------
-          if (selected != null && nextKf != null) ...<Widget>[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  const Text(
-                    'Curve to next keyframe',
-                    style: TextStyle(color: _kfText, fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                  _KfChip(
-                    '${secondsOf(selected.time).toStringAsFixed(1)}s to '
-                    '${secondsOf(nextKf.time).toStringAsFixed(1)}s',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 82,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                itemCount: _kfOptions.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) {
-                  final _CurveOption opt = _kfOptions[i];
-                  return SizedBox(
-                    width: 56,
-                    child: _CurveTile(
-                      option: opt,
-                      on: _optionIsOn(opt, selected),
-                      onTap: () => pick(selected, opt),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 6),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: _CurveEditor(
-                keyframe: selected,
-                onChanged: editor.addKeyframe,
-                onDragStateChanged: (dragging) {
-                  if (_lockScroll != dragging) setState(() => _lockScroll = dragging);
-                },
-              ),
-            ),
-          ],
-
-          // ---- clear ---------------------------------------------------------
-          if (all.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Center(
-              child: TextButton.icon(
-                style: TextButton.styleFrom(foregroundColor: _kfMuted),
-                onPressed: () {
-                  tapFeedback();
-                  for (final Keyframe k in all) {
-                    editor.removeKeyframe(k.id);
-                  }
-                  setState(() {
-                    _selId = null;
-                    _lockScroll = false;
-                  });
-                },
-                icon: const Icon(PhosphorIconsRegular.trash, size: 16),
-                label: const Text('Clear all keyframes', style: TextStyle(fontSize: 12)),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -541,8 +525,8 @@ class _KfTrack extends StatelessWidget {
   final ValueChanged<double> onSeek;
   final ValueChanged<Keyframe?> onSelect;
 
-  static const double _pad = 20;
-  static const double _h = 72;
+  static const double _pad = 16;
+  static const double _h = 44;
 
   @override
   Widget build(BuildContext context) {
@@ -608,7 +592,7 @@ class _TrackPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double rulerH = 22;
+    const double rulerH = 14;
     final double cy = rulerH + (size.height - rulerH) / 2;
 
     // ruler ticks + labels
@@ -757,7 +741,7 @@ class _CurveEditorState extends State<_CurveEditor> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: SizedBox(
-            height: 150,
+            height: 120,
             width: double.infinity,
             child: LayoutBuilder(
               builder: (context, constraints) {

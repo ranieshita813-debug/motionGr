@@ -95,6 +95,7 @@ class _ExportModalState extends State<ExportModal> {
   String _presetId = 'yt1080';
   double _aspect = 16 / 9;
   DateTime? _startedAt;
+  bool _showAdvanced = false;
 
   @override
   void initState() {
@@ -410,9 +411,149 @@ class _ExportModalState extends State<ExportModal> {
           ],
         ),
         const SizedBox(height: 14),
-        _tabStrip(),
-        ..._tabBody(editorCtrl),
+        _quickSettingsCard(),
+        const SizedBox(height: 12),
+        _advancedToggle(),
+        if (_showAdvanced) ...<Widget>[
+          const SizedBox(height: 10),
+          _tabStrip(),
+          ..._tabBody(editorCtrl),
+        ],
       ],
+    );
+  }
+
+  Widget _quickSettingsCard() {
+    final bool still = s.format.isStill;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Quality & Resolution', style: _t(13, weight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              _qualityPill('720p', s.height == 720, () {
+                _edit(() {
+                  s.matchSource = false;
+                  s.height = 720;
+                  s.width = _even(720 * _aspect);
+                  _syncDims();
+                });
+              }),
+              const SizedBox(width: 8),
+              _qualityPill('1080p FHD', s.height == 1080, () {
+                _edit(() {
+                  s.matchSource = false;
+                  s.height = 1080;
+                  s.width = _even(1080 * _aspect);
+                  _syncDims();
+                });
+              }),
+              const SizedBox(width: 8),
+              _qualityPill('4K UHD', s.height == 2160, () {
+                _edit(() {
+                  s.matchSource = false;
+                  s.height = 2160;
+                  s.width = _even(2160 * _aspect);
+                  _syncDims();
+                });
+              }),
+            ],
+          ),
+          if (!still) ...<Widget>[
+            const SizedBox(height: 12),
+            Text('Frame Rate', style: _t(13, weight: FontWeight.w600)),
+            const SizedBox(height: 10),
+            Row(
+              children: <Widget>[
+                _qualityPill('24 fps', s.fps == 24, () {
+                  _edit(() {
+                    s.fps = 24;
+                    s.matchSource = false;
+                  });
+                }),
+                const SizedBox(width: 8),
+                _qualityPill('30 fps', s.fps == 30, () {
+                  _edit(() {
+                    s.fps = 30;
+                    s.matchSource = false;
+                  });
+                }),
+                const SizedBox(width: 8),
+                _qualityPill('60 fps', s.fps == 60, () {
+                  _edit(() {
+                    s.fps = 60;
+                    s.matchSource = false;
+                  });
+                }),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _qualityPill(String label, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? _ink : _bg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: active ? _ink : _line),
+          ),
+          child: Text(
+            label,
+            style: _t(12, color: active ? Colors.white : _ink, weight: active ? FontWeight.w600 : FontWeight.w500),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _advancedToggle() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _showAdvanced = !_showAdvanced);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _line),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(_showAdvanced ? Icons.tune_rounded : Icons.tune_outlined, size: 17, color: _acc),
+            const SizedBox(width: 8),
+            Text('Advanced export settings', style: _t(13, color: _ink, weight: FontWeight.w500)),
+            const Spacer(),
+            Icon(
+              _showAdvanced ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+              size: 20,
+              color: _muted,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

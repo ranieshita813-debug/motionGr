@@ -68,18 +68,18 @@ class PlaybackController {
         ..reset()
         ..start();
 
-      _ticker = Timer.periodic(const Duration(milliseconds: 33), (Timer _) {
+      _ticker = Timer.periodic(const Duration(milliseconds: 16), (Timer _) {
         final Duration total = totalDurationGetter();
         final Duration next = _playFrom + _clock.elapsed;
 
         if (total > Duration.zero && next >= total) {
-          setHead(total);
+          setHead(total, notifyParent: true);
           _isPlaying = false;
           _ticker?.cancel();
           _clock.stop();
           onTimeUpdate();
         } else {
-          setHead(next);
+          setHead(next, notifyParent: true);
         }
       });
     }

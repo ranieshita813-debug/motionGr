@@ -1861,50 +1861,198 @@ class MaskSheet extends StatefulWidget {
 }
 
 class _MaskSheetState extends State<MaskSheet> {
-  MaskType? _type;
-  double _feather = 10.0;
+  MaskProperties _props = const MaskProperties();
+  bool _initialized = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      final clip = context.read<EditorController>().selectedClip;
+      if (clip != null) {
+        _props = clip.maskProperties;
+      }
+      _initialized = true;
+    }
+  }
+
+  void _update(MaskProperties updated, EditorController editor) {
+    setState(() => _props = updated);
+    editor.updateMaskProperties(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final editor = context.read<EditorController>();
-    return Column(
+    final editor = context.watch<EditorController>();
+    final clip = editor.selectedClip;
+    final props = clip?.maskProperties ?? _props;
+
+    final bool hasShape = props.type != MaskType.none;
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(_pad, 8, _pad, _pad + MediaQuery.paddingOf(context).bottom),
       children: <Widget>[
-        Expanded(
-          child: _ResponsiveGrid(
+        SizedBox(
+          height: 80,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
             itemCount: MaskType.values.length,
-            minTile: 76,
-            aspect: 0.8,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, i) {
               final type = MaskType.values[i];
-              return _ThumbTile(
-                label: _cap(type.name),
-                selected: type == _type,
-                gradient: _thumbGradient(i + 3),
+              final bool sel = props.type == type;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  setState(() => _type = type);
-                  editor.updateMaskProperties(MaskProperties(type: type, feather: _feather));
+                  tapFeedback();
+                  _update(props.copyWith(type: type), editor);
                 },
+                child: Container(
+                  width: 68,
+                  decoration: BoxDecoration(
+                    color: sel ? accentToken.withValues(alpha: 0.18) : cardToken,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: sel ? accentToken : dividerToken,
+                      width: sel ? 1.5 : 0.8,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Icon(
+                        switch (type) {
+                          MaskType.none => PhosphorIconsRegular.prohibit,
+                          MaskType.rectangle => PhosphorIconsRegular.square,
+                          MaskType.circle => PhosphorIconsRegular.circle,
+                          MaskType.linear => PhosphorIconsRegular.lineVertical,
+                          MaskType.mirror => PhosphorIconsRegular.columns,
+                          MaskType.star => PhosphorIconsRegular.star,
+                        },
+                        size: 24,
+                        color: sel ? accentToken : Colors.white70,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        _cap(type.name),
+                        style: TextStyle(
+                          color: sel ? Colors.white : mutedToken,
+                          fontSize: 11,
+                          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             },
           ),
         ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _pad + MediaQuery.paddingOf(context).bottom),
-          child: _SliderRow(
-            label: 'Feather',
-            value: _feather,
-            min: 0,
-            max: 50,
-            display: _feather.round().toString(),
-            // Needs a shape to feather.
-            onChanged: _type == null
-                ? null
-                : (v) {
-                    setState(() => _feather = v);
-                    editor.updateMaskProperties(MaskProperties(type: _type!, feather: v));
+        if (hasShape) ...<Widget>[
+          const SizedBox(height: 12),
+          _Card(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                const Row(
+                  children: <Widget>[
+                    Icon(PhosphorIconsRegular.arrowsLeftRight, size: 18, color: Colors.white70),
+                    SizedBox(width: 8),
+                    Text('Invert mask', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                Switch(
+                  value: props.isInverted,
+                  activeColor: accentToken,
+                  onChanged: (v) {
+                    tapFeedback();
+                    _update(props.copyWith(isInverted: v), editor);
                   },
+                ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 10),
+          _Card(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: Column(
+              children: <Widget>[
+                _SliderRow(
+                  label: 'Feather',
+                  value: props.feather,
+                  min: 0,
+                  max: 50,
+                  display: '${props.feather.round()} px',
+                  onChanged: (v) => _update(props.copyWith(feather: v), editor),
+                ),
+                const Divider(height: 12, thickness: 0.5, color: dividerToken),
+                _SliderRow(
+                  label: 'Width',
+                  value: props.width,
+                  min: 10,
+                  max: 200,
+                  display: '${props.width.round()}%',
+                  onChanged: (v) => _update(props.copyWith(width: v), editor),
+                ),
+                const Divider(height: 12, thickness: 0.5, color: dividerToken),
+                _SliderRow(
+                  label: 'Height',
+                  value: props.height,
+                  min: 10,
+                  max: 200,
+                  display: '${props.height.round()}%',
+                  onChanged: (v) => _update(props.copyWith(height: v), editor),
+                ),
+                const Divider(height: 12, thickness: 0.5, color: dividerToken),
+                _SliderRow(
+                  label: 'Position X',
+                  value: props.positionX,
+                  min: -100,
+                  max: 100,
+                  bipolar: true,
+                  display: '${props.positionX.round()}%',
+                  onChanged: (v) => _update(props.copyWith(positionX: v), editor),
+                ),
+                const Divider(height: 12, thickness: 0.5, color: dividerToken),
+                _SliderRow(
+                  label: 'Position Y',
+                  value: props.positionY,
+                  min: -100,
+                  max: 100,
+                  bipolar: true,
+                  display: '${props.positionY.round()}%',
+                  onChanged: (v) => _update(props.copyWith(positionY: v), editor),
+                ),
+                const Divider(height: 12, thickness: 0.5, color: dividerToken),
+                _SliderRow(
+                  label: 'Rotation',
+                  value: props.rotation,
+                  min: -180,
+                  max: 180,
+                  bipolar: true,
+                  display: '${props.rotation.round()}°',
+                  onChanged: (v) => _update(props.copyWith(rotation: v), editor),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: mutedToken,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              onPressed: () {
+                tapFeedback();
+                _update(const MaskProperties(), editor);
+              },
+              icon: const Icon(PhosphorIconsRegular.arrowCounterClockwise, size: 14),
+              label: const Text('Reset mask', style: TextStyle(fontSize: 12)),
+            ),
+          ),
+        ],
       ],
     );
   }
