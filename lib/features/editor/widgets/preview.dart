@@ -39,6 +39,103 @@ bool _fileExists(String? path) {
   return _existsCache.putIfAbsent(path, () => File(path).existsSync());
 }
 
+class ClipMaskClipper extends CustomClipper<Path> {
+  const ClipMaskClipper({required this.mask});
+
+  final MaskProperties mask;
+
+  @override
+  Path getClip(Size size) {
+    if (mask.type == MaskType.none) {
+      final p = Path()..addRect(Offset.zero & size);
+      return p;
+    }
+
+    final double cx = size.width / 2 + (mask.positionX / 100.0) * size.width;
+    final double cy = size.height / 2 + (mask.positionY / 100.0) * size.height;
+    final double w = math.max(2.0, (mask.width / 100.0) * size.width);
+    final double h = math.max(2.0, (mask.height / 100.0) * size.height);
+
+    final Path shapePath = Path();
+
+    switch (mask.type) {
+      case MaskType.rectangle:
+        final Rect r = Rect.fromCenter(center: Offset.zero, width: w, height: h);
+        shapePath.addRRect(RRect.fromRectAndRadius(r, Radius.circular(math.min(16.0, mask.feather))));
+        break;
+      case MaskType.circle:
+        final Rect r = Rect.fromCenter(center: Offset.zero, width: w, height: h);
+        shapePath.addOval(r);
+        break;
+      case MaskType.linear:
+        // Half-plane / linear split
+        shapePath.moveTo(-size.width * 2, 0);
+        shapePath.lineTo(size.width * 2, 0);
+        shapePath.lineTo(size.width * 2, size.height * 2);
+        shapePath.lineTo(-size.width * 2, size.height * 2);
+        shapePath.close();
+        break;
+      case MaskType.mirror:
+        // Symmetrical strip
+        final Rect r = Rect.fromCenter(center: Offset.zero, width: size.width * 4, height: h);
+        shapePath.addRect(r);
+        break;
+      case MaskType.star:
+        final double rOuter = math.min(w, h) / 2;
+        final double rInner = rOuter * 0.45;
+        const int points = 5;
+        for (int i = 0; i < points * 2; i++) {
+          final double r = i.isEven ? rOuter : rInner;
+          final double angle = (i * math.pi / points) - (math.pi / 2);
+          final double px = r * math.cos(angle);
+          final double py = r * math.sin(angle);
+          if (i == 0) {
+            shapePath.moveTo(px, py);
+          } else {
+            shapePath.lineTo(px, py);
+          }
+        }
+        shapePath.close();
+        break;
+      case MaskType.none:
+        break;
+    }
+
+    final Matrix4 matrix = Matrix4.translationValues(cx, cy, 0.0)
+      ..rotateZ(mask.rotation * math.pi / 180.0);
+    final Path transformedShape = shapePath.transform(matrix.storage);
+
+    if (mask.isInverted) {
+      final Path full = Path()..addRect(Offset.zero & size);
+      return Path.combine(PathOperation.difference, full, transformedShape);
+    }
+
+    return transformedShape;
+  }
+
+  @override
+  bool shouldReclip(covariant ClipMaskClipper oldClipper) {
+    final a = oldClipper.mask;
+    final b = mask;
+    return a.type != b.type ||
+        a.positionX != b.positionX ||
+        a.positionY != b.positionY ||
+        a.width != b.width ||
+        a.height != b.height ||
+        a.rotation != b.rotation ||
+        a.feather != b.feather ||
+        a.isInverted != b.isInverted;
+  }
+}
+
+Widget applyClipMask(Widget child, MaskProperties mask) {
+  if (mask.type == MaskType.none) return child;
+  return ClipPath(
+    clipper: ClipMaskClipper(mask: mask),
+    child: child,
+  );
+}
+
 Widget applyVideoEffectPreset(Widget child, VideoEffect fx, Duration playhead, TimelineClip? clip) {
   final List<double>? m = _VideoPlayerPreviewState._fxMatrices[fx];
   if (m != null) return ColorFiltered(colorFilter: ColorFilter.matrix(m), child: child);
@@ -79,6 +176,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
   int _token = 0;
   bool _busy = false;
   bool _dirty = false;
+  bool _seeking = false;
   double _speed = -1;
   double _vol = -1;
 
@@ -228,16 +326,37 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     final Duration drift = (c.value.position - local).abs();
 
+    if (_seeking) return;
+
     if (_e.isPlaying) {
       if (!c.value.isPlaying) {
-        await c.seekTo(local);
-        await c.play();
-      } else if (drift > const Duration(milliseconds: 400)) {
-        await c.seekTo(local);
+        _seeking = true;
+        try {
+          await c.seekTo(local);
+          if (mounted && _e.isPlaying) await c.play();
+        } finally {
+          _seeking = false;
+        }
+      } else if (drift > const Duration(milliseconds: 300)) {
+        _seeking = true;
+        try {
+          await c.seekTo(local);
+        } finally {
+          _seeking = false;
+        }
       }
     } else {
-      if (c.value.isPlaying) await c.pause();
-      if (drift > const Duration(milliseconds: 40)) await c.seekTo(local);
+      if (c.value.isPlaying) {
+        await c.pause();
+      }
+      if (drift > const Duration(milliseconds: 25)) {
+        _seeking = true;
+        try {
+          await c.seekTo(local);
+        } finally {
+          _seeking = false;
+        }
+      }
     }
   }
 
@@ -563,6 +682,9 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     if (clip != null) {
       child = _applyTransition(child, clip, _e.playhead);
+      if (clip.maskProperties.type != MaskType.none) {
+        child = applyClipMask(child, clip.maskProperties);
+      }
     }
 
     return Stack(
@@ -1616,6 +1738,9 @@ class _OverlayClipState extends State<_OverlayClip> {
           );
         }
         mediaWidget = _applyEffectsAndGrading(mediaWidget, clip);
+        if (clip.maskProperties.type != MaskType.none) {
+          mediaWidget = applyClipMask(mediaWidget, clip.maskProperties);
+        }
         return _applyAnimations(mediaWidget, clip);
       case ClipType.text:
       case ClipType.caption:
