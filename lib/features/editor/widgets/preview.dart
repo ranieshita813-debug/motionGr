@@ -101,8 +101,7 @@ class ClipMaskClipper extends CustomClipper<Path> {
         break;
     }
 
-    final Matrix4 matrix = Matrix4.identity()
-      ..translate(cx, cy)
+    final Matrix4 matrix = Matrix4.translationValues(cx, cy, 0.0)
       ..rotateZ(mask.rotation * math.pi / 180.0);
     final Path transformedShape = shapePath.transform(matrix.storage);
 

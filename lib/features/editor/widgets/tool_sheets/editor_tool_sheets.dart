@@ -261,17 +261,6 @@ String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 EdgeInsets _listPad(BuildContext context) =>
     EdgeInsets.fromLTRB(_pad, _pad, _pad, _pad + MediaQuery.paddingOf(context).bottom);
 
-Gradient _thumbGradient(int i) {
-  final double h = (i * 47 % 360).toDouble();
-  return LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: <Color>[
-      HSLColor.fromAHSL(1, h, 0.45, 0.42).toColor(),
-      HSLColor.fromAHSL(1, (h + 40) % 360, 0.5, 0.16).toColor(),
-    ],
-  );
-}
 
 class _Card extends StatelessWidget {
   const _Card({required this.child, this.padding = const EdgeInsets.all(12)});
@@ -664,14 +653,12 @@ class _ThumbTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.selected = false,
-    this.gradient,
     this.icon,
   });
 
   final String label;
   final VoidCallback onTap;
   final bool selected;
-  final Gradient? gradient;
   final PhosphorIconData? icon;
 
   @override
@@ -695,8 +682,7 @@ class _ThumbTile extends StatelessWidget {
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: gradient == null ? cardToken : null,
-                        gradient: gradient,
+                        color: cardToken,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: selected ? accentToken : Colors.transparent, width: 2),
                       ),
@@ -1964,7 +1950,7 @@ class _MaskSheetState extends State<MaskSheet> {
                 ),
                 Switch(
                   value: props.isInverted,
-                  activeColor: accentToken,
+                  activeThumbColor: accentToken,
                   onChanged: (v) {
                     tapFeedback();
                     _update(props.copyWith(isInverted: v), editor);
