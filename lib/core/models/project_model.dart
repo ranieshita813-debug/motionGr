@@ -511,43 +511,58 @@ class CameraProperties {
 class MaskProperties {
   const MaskProperties({
     this.type = MaskType.none,
-    this.positionX = 0.0,
-    this.positionY = 0.0,
+    double? positionX,
+    double? positionY,
+    double? centerX,
+    double? centerY,
     this.width = 100.0,
     this.height = 100.0,
     this.rotation = 0.0,
+    this.cornerRadius = 0.0,
     this.feather = 0.0,
-    this.isInverted = false,
-  });
+    bool? isInverted,
+    bool? invert,
+  })  : positionX = positionX ?? centerX ?? 0.0,
+        positionY = positionY ?? centerY ?? 0.0,
+        isInverted = isInverted ?? invert ?? false;
 
   final MaskType type;
   final double positionX;
   final double positionY;
+  double get centerX => positionX;
+  double get centerY => positionY;
   final double width;
   final double height;
   final double rotation;
+  final double cornerRadius;
   final double feather;
   final bool isInverted;
+  bool get invert => isInverted;
 
   MaskProperties copyWith({
     MaskType? type,
     double? positionX,
     double? positionY,
+    double? centerX,
+    double? centerY,
     double? width,
     double? height,
     double? rotation,
+    double? cornerRadius,
     double? feather,
     bool? isInverted,
+    bool? invert,
   }) {
     return MaskProperties(
       type: type ?? this.type,
-      positionX: positionX ?? this.positionX,
-      positionY: positionY ?? this.positionY,
+      positionX: positionX ?? centerX ?? this.positionX,
+      positionY: positionY ?? centerY ?? this.positionY,
       width: width ?? this.width,
       height: height ?? this.height,
       rotation: rotation ?? this.rotation,
+      cornerRadius: cornerRadius ?? this.cornerRadius,
       feather: feather ?? this.feather,
-      isInverted: isInverted ?? this.isInverted,
+      isInverted: isInverted ?? invert ?? this.isInverted,
     );
   }
 
@@ -556,11 +571,15 @@ class MaskProperties {
       'type': type.name,
       'positionX': positionX,
       'positionY': positionY,
+      'centerX': centerX,
+      'centerY': centerY,
       'width': width,
       'height': height,
       'rotation': rotation,
+      'cornerRadius': cornerRadius,
       'feather': feather,
       'isInverted': isInverted,
+      'invert': invert,
     };
   }
 
@@ -570,13 +589,14 @@ class MaskProperties {
         (e) => e.name == json['type'],
         orElse: () => MaskType.none,
       ),
-      positionX: (json['positionX'] as num?)?.toDouble() ?? 0.0,
-      positionY: (json['positionY'] as num?)?.toDouble() ?? 0.0,
+      positionX: (json['positionX'] as num?)?.toDouble() ?? (json['centerX'] as num?)?.toDouble() ?? 0.0,
+      positionY: (json['positionY'] as num?)?.toDouble() ?? (json['centerY'] as num?)?.toDouble() ?? 0.0,
       width: (json['width'] as num?)?.toDouble() ?? 100.0,
       height: (json['height'] as num?)?.toDouble() ?? 100.0,
       rotation: (json['rotation'] as num?)?.toDouble() ?? 0.0,
+      cornerRadius: (json['cornerRadius'] as num?)?.toDouble() ?? 0.0,
       feather: (json['feather'] as num?)?.toDouble() ?? 0.0,
-      isInverted: json['isInverted'] as bool? ?? false,
+      isInverted: (json['isInverted'] as bool?) ?? (json['invert'] as bool?) ?? false,
     );
   }
 }

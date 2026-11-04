@@ -209,7 +209,7 @@ class _ColorGradeSheetState extends State<ColorGradeSheet> {
   }
 
   Widget _strip() => SizedBox(
-        height: 70,
+        height: 74,
         child: ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -233,13 +233,14 @@ class _ColorGradeSheetState extends State<ColorGradeSheet> {
           width: 66,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Stack(
                 clipBehavior: Clip.none,
                 children: <Widget>[
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: on ? _accent.withAlpha(28) : _card,
                       shape: BoxShape.circle,
@@ -255,7 +256,7 @@ class _ColorGradeSheetState extends State<ColorGradeSheet> {
                     ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(t.label,
                   style: TextStyle(
                       color: on ? _accent : _muted,

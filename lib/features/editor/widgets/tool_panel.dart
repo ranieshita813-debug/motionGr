@@ -5,6 +5,7 @@ import 'package:flutter_video_editor/core/models/chroma_key.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/widgets/chroma_key_sheet.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
+import 'package:flutter_video_editor/features/editor/widgets/keyframe_controls.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/captions_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/order_tool_view.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
@@ -227,28 +228,32 @@ class ToolPanel extends StatelessWidget {
   final ValueChanged<double>? onResize;
   final ValueChanged<bool>? onDrag;
 
-  Widget _header() => Row(
-        children: <Widget>[
-          const SizedBox(width: 16),
-          tool == EditorTool.textToSpeech
-              ? SvgPicture.asset(
-                  'assets/icons/text_to_speech.svg',
-                  width: 22,
-                  height: 22,
-                  colorFilter: const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
-                )
-              : PhosphorIcon(tool.icon, color: Colors.white70, size: 22),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(tool.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Ubuntu Sans')),
-          ),
-          const SizedBox(width: 16),
-        ],
-      );
+  Widget _header(BuildContext context) {
+    final editor = context.read<EditorController>();
+    return Row(
+      children: <Widget>[
+        const SizedBox(width: 16),
+        tool == EditorTool.textToSpeech
+            ? SvgPicture.asset(
+                'assets/icons/text_to_speech.svg',
+                width: 22,
+                height: 22,
+                colorFilter: const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
+              )
+            : PhosphorIcon(tool.icon, color: Colors.white70, size: 22),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(tool.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Ubuntu Sans')),
+        ),
+        KeyframeControls(editor: editor),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
 
   Widget _buildFooter() => Container(
         height: 56,
@@ -307,7 +312,7 @@ class ToolPanel extends StatelessWidget {
           left: false,
           child: Column(
             children: <Widget>[
-              SizedBox(height: 52, child: _header()),
+              SizedBox(height: 52, child: _header(context)),
               const Divider(height: 1, thickness: 0.5, color: dividerToken),
               body,
               _buildFooter(),
@@ -346,7 +351,7 @@ class ToolPanel extends StatelessWidget {
                             color: Colors.white24,
                             borderRadius: BorderRadius.circular(2)),
                       ),
-                      Expanded(child: _header()),
+                      Expanded(child: _header(context)),
                     ],
                   ),
                 ),

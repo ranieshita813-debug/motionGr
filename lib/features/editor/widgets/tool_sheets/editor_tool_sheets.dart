@@ -12,6 +12,7 @@ import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 export 'effects_sheet.dart';
 export 'keyframes_sheet.dart';
 export 'captions_translate_sheet.dart';
+export 'mask.dart';
 
 // ============================================================================
 // Design notes
@@ -260,18 +261,6 @@ String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 EdgeInsets _listPad(BuildContext context) =>
     EdgeInsets.fromLTRB(_pad, _pad, _pad, _pad + MediaQuery.paddingOf(context).bottom);
-
-Gradient _thumbGradient(int i) {
-  final double h = (i * 47 % 360).toDouble();
-  return LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: <Color>[
-      HSLColor.fromAHSL(1, h, 0.45, 0.42).toColor(),
-      HSLColor.fromAHSL(1, (h + 40) % 360, 0.5, 0.16).toColor(),
-    ],
-  );
-}
 
 class _Card extends StatelessWidget {
   const _Card({required this.child, this.padding = const EdgeInsets.all(12)});
@@ -664,14 +653,12 @@ class _ThumbTile extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.selected = false,
-    this.gradient,
     this.icon,
   });
 
   final String label;
   final VoidCallback onTap;
   final bool selected;
-  final Gradient? gradient;
   final PhosphorIconData? icon;
 
   @override
@@ -695,8 +682,7 @@ class _ThumbTile extends StatelessWidget {
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: gradient == null ? cardToken : null,
-                        gradient: gradient,
+                        color: cardToken,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: selected ? accentToken : Colors.transparent, width: 2),
                       ),
@@ -1850,65 +1836,6 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
   }
 }
 
-// ----------------------------------------------------------------------------
-// Mask
-// ----------------------------------------------------------------------------
-class MaskSheet extends StatefulWidget {
-  const MaskSheet({super.key});
-
-  @override
-  State<MaskSheet> createState() => _MaskSheetState();
-}
-
-class _MaskSheetState extends State<MaskSheet> {
-  MaskType? _type;
-  double _feather = 10.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final editor = context.read<EditorController>();
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: _ResponsiveGrid(
-            itemCount: MaskType.values.length,
-            minTile: 76,
-            aspect: 0.8,
-            itemBuilder: (context, i) {
-              final type = MaskType.values[i];
-              return _ThumbTile(
-                label: _cap(type.name),
-                selected: type == _type,
-                gradient: _thumbGradient(i + 3),
-                onTap: () {
-                  setState(() => _type = type);
-                  editor.updateMaskProperties(MaskProperties(type: type, feather: _feather));
-                },
-              );
-            },
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(_pad, 0, _pad, _pad + MediaQuery.paddingOf(context).bottom),
-          child: _SliderRow(
-            label: 'Feather',
-            value: _feather,
-            min: 0,
-            max: 50,
-            display: _feather.round().toString(),
-            // Needs a shape to feather.
-            onChanged: _type == null
-                ? null
-                : (v) {
-                    setState(() => _feather = v);
-                    editor.updateMaskProperties(MaskProperties(type: _type!, feather: v));
-                  },
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // ----------------------------------------------------------------------------
 // Camera
