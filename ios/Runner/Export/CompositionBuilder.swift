@@ -157,6 +157,7 @@ class CompositionBuilder {
         for clip in overlayClips.sorted(by: { $0.layerIndex < $1.layerIndex }) {
             let layer = CALayer()
             layer.bounds = CGRect(x: 0, y: 0, width: 200 * sx, height: 100 * sy)
+            layer.anchorPoint = CGPoint(x: clip.anchorX, y: 1.0 - clip.anchorY)
             layer.position = CGPoint(x: clip.positionX * sx, y: videoSize.height - (clip.positionY * sy))
             layer.opacity = Float(clip.opacity)
 
@@ -171,6 +172,61 @@ class CompositionBuilder {
             anim.fillMode = .both
             anim.isRemovedOnCompletion = false
             layer.add(anim, forKey: "hidden")
+
+            // Scale & Rotation
+            let scaleVal = clip.scale * clip.cameraProperties.zoom
+            var transform = CATransform3DIdentity
+            if scaleVal != 1.0 {
+                transform = CATransform3DScale(transform, CGFloat(scaleVal), CGFloat(scaleVal), 1.0)
+            }
+            if clip.rotation != 0.0 {
+                let radians = CGFloat(clip.rotation * .pi / 180.0)
+                transform = CATransform3DRotate(transform, radians, 0, 0, 1.0)
+            }
+            layer.transform = transform
+
+            // Loop animation for iOS CALayer
+            if clip.loopAnimation != "none" {
+                switch clip.loopAnimation.lowercased() {
+                case "spin":
+                    let spinAnim = CABasicAnimation(keyPath: "transform.rotation.z")
+                    spinAnim.fromValue = 0
+                    spinAnim.toValue = 2.0 * Double.pi
+                    spinAnim.duration = 2.0
+                    spinAnim.repeatCount = .infinity
+                    spinAnim.beginTime = AVCoreAnimationBeginTimeAtZero + startSec
+                    layer.add(spinAnim, forKey: "spin")
+                case "bounce", "pulse":
+                    let pulseAnim = CAKeyframeAnimation(keyPath: "transform.scale")
+                    pulseAnim.values = [1.0, 1.15, 1.0]
+                    pulseAnim.keyTimes = [0, 0.5, 1.0]
+                    pulseAnim.duration = 1.0
+                    pulseAnim.repeatCount = .infinity
+                    pulseAnim.beginTime = AVCoreAnimationBeginTimeAtZero + startSec
+                    layer.add(pulseAnim, forKey: "pulse")
+                default:
+                    break
+                }
+            }
+
+            // Mask application
+            if clip.maskProperties.type.lowercased() != "none" {
+                let maskShapeLayer = CAShapeLayer()
+                maskShapeLayer.frame = layer.bounds
+                let mw = layer.bounds.width * CGFloat(clip.maskProperties.width / 100.0)
+                let mh = layer.bounds.height * CGFloat(clip.maskProperties.height / 100.0)
+                let mcx = layer.bounds.midX + CGFloat(clip.maskProperties.positionX * (layer.bounds.width / 100.0))
+                let mcy = layer.bounds.midY + CGFloat(clip.maskProperties.positionY * (layer.bounds.height / 100.0))
+                let maskRect = CGRect(x: mcx - mw / 2.0, y: mcy - mh / 2.0, width: mw, height: mh)
+
+                switch clip.maskProperties.type.lowercased() {
+                case "circle":
+                    maskShapeLayer.path = UIBezierPath(ovalIn: maskRect).cgPath
+                default:
+                    maskShapeLayer.path = UIBezierPath(rect: maskRect).cgPath
+                }
+                layer.mask = maskShapeLayer
+            }
 
             if clip.clipType == "text" || clip.clipType == "caption" {
                 let textLayer = CATextLayer()

@@ -67,6 +67,24 @@ struct DrawingStrokeSpec {
     let points: [DrawingPointSpec]
 }
 
+struct MaskSpec {
+    let type: String
+    let positionX: Double
+    let positionY: Double
+    let width: Double
+    let height: Double
+    let rotation: Double
+    let feather: Double
+    let isInverted: Bool
+}
+
+struct CameraPropertiesSpec {
+    let focalLength: Double
+    let sensorSize: Double
+    let zoom: Double
+    let shakeIntensity: Double
+}
+
 struct KeyframeSpec {
     let id: String
     let timeMs: Int64
@@ -118,15 +136,20 @@ struct ClipSpec {
     let rotation: Double
     let positionX: Double
     let positionY: Double
+    let anchorX: Double
+    let anchorY: Double
     let colorGrading: ColorGradingSpec
     let audioProperties: AudioPropertiesSpec
     let chromaKey: ChromaKeySpec
+    let cameraProperties: CameraPropertiesSpec
+    let maskProperties: MaskSpec
     let effectParameters: [String: Double]
     let fontFamily: String
     let textAnimationStyle: String
     let textStyle: TextStyleSpec
     let inAnimation: String
     let outAnimation: String
+    let loopAnimation: String
     let strokes: [DrawingStrokeSpec]
     let stickerAssetPath: String?
     let effect: String
@@ -209,6 +232,26 @@ class TimelineParser {
                     smoothness: ckDict["smoothness"] as? Double ?? 10.0,
                     spill: ckDict["spill"] as? Double ?? 50.0,
                     output: ckDict["output"] as? String ?? "composite"
+                )
+
+                let camDict = clipDict["cameraProperties"] as? [String: Any] ?? [:]
+                let cameraProperties = CameraPropertiesSpec(
+                    focalLength: camDict["focalLength"] as? Double ?? 35.0,
+                    sensorSize: camDict["sensorSize"] as? Double ?? 35.0,
+                    zoom: camDict["zoom"] as? Double ?? 1.0,
+                    shakeIntensity: camDict["shakeIntensity"] as? Double ?? 0.0
+                )
+
+                let maskDict = clipDict["maskProperties"] as? [String: Any] ?? [:]
+                let maskProperties = MaskSpec(
+                    type: maskDict["type"] as? String ?? "none",
+                    positionX: maskDict["positionX"] as? Double ?? 0.0,
+                    positionY: maskDict["positionY"] as? Double ?? 0.0,
+                    width: maskDict["width"] as? Double ?? 100.0,
+                    height: maskDict["height"] as? Double ?? 100.0,
+                    rotation: maskDict["rotation"] as? Double ?? 0.0,
+                    feather: maskDict["feather"] as? Double ?? 0.0,
+                    isInverted: maskDict["isInverted"] as? Bool ?? false
                 )
 
                 var effectParameters: [String: Double] = [:]
@@ -324,15 +367,20 @@ class TimelineParser {
                     rotation: clipDict["rotation"] as? Double ?? 0.0,
                     positionX: clipDict["positionX"] as? Double ?? 0.0,
                     positionY: clipDict["positionY"] as? Double ?? 0.0,
+                    anchorX: clipDict["anchorX"] as? Double ?? 0.5,
+                    anchorY: clipDict["anchorY"] as? Double ?? 0.5,
                     colorGrading: colorGrading,
                     audioProperties: audioProperties,
                     chromaKey: chromaKey,
+                    cameraProperties: cameraProperties,
+                    maskProperties: maskProperties,
                     effectParameters: effectParameters,
                     fontFamily: clipDict["fontFamily"] as? String ?? "Poppins",
                     textAnimationStyle: clipDict["textAnimationStyle"] as? String ?? "none",
                     textStyle: textStyle,
                     inAnimation: clipDict["inAnimation"] as? String ?? "none",
                     outAnimation: clipDict["outAnimation"] as? String ?? "none",
+                    loopAnimation: clipDict["loopAnimation"] as? String ?? "none",
                     strokes: strokes,
                     stickerAssetPath: clipDict["stickerAssetPath"] as? String,
                     effect: clipDict["effect"] as? String ?? "none",
