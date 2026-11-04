@@ -455,7 +455,8 @@ object OverlayRenderer {
             color = Color.WHITE
             style = Paint.Style.FILL
             if (mask.feather > 0.0) {
-                maskFilter = BlurMaskFilter((mask.feather * (w / 100f)).coerceAtLeast(1f).toFloat(), BlurMaskFilter.Blur.NORMAL)
+                val featherPx = (mask.feather * (w / 100.0)).coerceAtLeast(1.0).toFloat()
+                maskFilter = BlurMaskFilter(featherPx, BlurMaskFilter.Blur.NORMAL)
             }
         }
 
