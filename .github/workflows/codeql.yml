@@ -102,9 +102,9 @@ jobs:
       run: |
         flutter pub get
         if [ "${{ matrix.language }}" = "java-kotlin" ]; then
-          flutter build apk --debug
+          flutter build apk --debug --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4
         elif [ "${{ matrix.language }}" = "swift" ]; then
-          flutter build ios --no-codesign --debug
+          flutter build ios --no-codesign --debug --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4
         fi
 
     - name: Perform CodeQL Analysis

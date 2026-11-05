@@ -53,12 +53,15 @@ class _EditorPageState extends State<EditorPage> {
     switch (sheetName) {
       case 'ai': target = EditorTool.ai; break;
       case 'audio': target = EditorTool.audio; break;
+      case 'music': target = EditorTool.music; break;
       case 'text': target = EditorTool.text; break;
       case 'text_to_speech': target = EditorTool.textToSpeech; break;
       case 'stickers': target = EditorTool.stickers; break;
       case 'filters': target = EditorTool.filters; break;
       case 'effects': target = EditorTool.effects; break;
       case 'adjust': target = EditorTool.adjust; break;
+      case 'color_grading': target = EditorTool.colorGrading; break;
+      case 'color_grade': target = EditorTool.colorGrading; break;
       case 'crop': target = EditorTool.crop; break;
       case 'speed': target = EditorTool.speed; break;
       case 'elements': target = EditorTool.elements; break;

@@ -1670,6 +1670,37 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addAudioClip(String sourcePath, {String? title, Duration? duration}) {
+    addAudioTrack(sourcePath, trackName: title, duration: duration);
+  }
+
+  void addStickerOverlay(String path) {
+    _saveState();
+    final Duration start = playhead;
+    final Duration end = playhead + const Duration(seconds: 4);
+    final existingOverlays = _project.clips
+        .where((c) => c.clipType == ClipType.video || c.clipType == ClipType.image || c.clipType == ClipType.sticker)
+        .where((c) => c.layerIndex > 0)
+        .length;
+    final offsetY = existingOverlays * 25.0;
+
+    final clip = TimelineClip(
+      id: 'sticker_${DateTime.now().millisecondsSinceEpoch}',
+      label: path.split(RegExp(r'[\\/]')).last,
+      start: start,
+      end: end,
+      clipType: ClipType.image,
+      layerIndex: _freeOverlayLayer(1, start, end),
+      positionY: offsetY,
+      sourcePath: path,
+    );
+
+    _project.addClip(clip);
+    _selectedClipId = clip.id;
+    _autosave();
+    notifyListeners();
+  }
+
   // Audio Tools & Multi-layer
   void addAudioTrack(String sourcePath, {String? trackName, double volume = 1.0, Duration? duration}) {
     _saveState();
