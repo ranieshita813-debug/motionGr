@@ -1,31 +1,57 @@
-package com.example.trackingapp
+package com.motiongr.videoedit.tracking_system
 
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
+import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import org.opencv.android.OpenCVLoader
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
-class TrackingPlugin(
-    private val context: Context,
-    messenger: BinaryMessenger,
-) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
+class TrackingPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
+
+    private var context: Context? = null
+    private var methodChannel: MethodChannel? = null
+    private var eventChannel: EventChannel? = null
 
     private val main = Handler(Looper.getMainLooper())
     private val executor = Executors.newSingleThreadExecutor()
     private val running = AtomicBoolean(false)
     private val cancelFlag = AtomicBoolean(false)
     private var sink: EventChannel.EventSink? = null
-    private val engine by lazy { TrackerEngine(context) }
+    private var engine: TrackerEngine? = null
 
-    init {
-        MethodChannel(messenger, "app/tracking").setMethodCallHandler(this)
-        EventChannel(messenger, "app/tracking/progress").setStreamHandler(this)
+    constructor()
+
+    constructor(context: Context, messenger: BinaryMessenger) {
+        setup(context, messenger)
+    }
+
+    override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        setup(binding.applicationContext, binding.binaryMessenger)
+    }
+
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        methodChannel?.setMethodCallHandler(null)
+        eventChannel?.setStreamHandler(null)
+        methodChannel = null
+        eventChannel = null
+        context = null
+    }
+
+    private fun setup(ctx: Context, messenger: BinaryMessenger) {
+        this.context = ctx
+        this.engine = TrackerEngine(ctx)
+        methodChannel = MethodChannel(messenger, "app/tracking").also {
+            it.setMethodCallHandler(this)
+        }
+        eventChannel = EventChannel(messenger, "app/tracking/progress").also {
+            it.setStreamHandler(this)
+        }
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -57,9 +83,11 @@ class TrackingPlugin(
         executor.execute {
             try {
                 if (!OpenCVLoader.initLocal()) throw IllegalStateException("OpenCV লোড হয়নি")
-                val res = engine.track(
+                val activeEngine = engine ?: TrackerEngine(context ?: throw IllegalStateException("Context null"))
+                val res = activeEngine.track(
                     videoPath = path, startMs = startMs,
-                    bbox = doubleArrayOf(x, y, w, h), kind = kind, intervalMs = intervalMs,
+                    bbox = doubleArrayOf(x, y, w, h), kind = kind,
+                    intervalMs = intervalMs,
                     isCancelled = { cancelFlag.get() },
                     onProgress = { p -> main.post { sink?.success(p) } },
                 )

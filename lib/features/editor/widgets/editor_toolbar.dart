@@ -435,6 +435,12 @@ class EditorToolbar extends StatelessWidget {
       case ClipType.text:
         return [
           EditorToolbarItem(
+            id: 'tracking',
+            title: 'Tracking',
+            icon: PhosphorIconsRegular.crosshair,
+            onTap: () => editor.startTrackingPointerMode(),
+          ),
+          EditorToolbarItem(
             id: 'text_to_speech',
             title: 'Text to Speech',
             icon: PhosphorIconsRegular.waveSquare,
@@ -451,6 +457,41 @@ class EditorToolbar extends StatelessWidget {
             title: 'Edit Text',
             icon: PhosphorIconsRegular.pencilSimple,
             onTap: () => onSelectToolSheet('text'),
+          ),
+          EditorToolbarItem(
+            id: 'effects',
+            title: 'Effects',
+            icon: PhosphorIconsRegular.magicWand,
+            onTap: () => onSelectToolSheet('effects'),
+          ),
+          EditorToolbarItem(
+            id: 'animation',
+            title: 'Animation',
+            icon: PhosphorIconsRegular.play,
+            onTap: () => onSelectToolSheet('animation'),
+          ),
+          EditorToolbarItem(
+            id: 'duplicate',
+            title: 'Duplicate',
+            icon: PhosphorIconsRegular.copy,
+            onTap: () => editor.duplicateSelectedClip(),
+          ),
+          EditorToolbarItem(
+            id: 'delete',
+            title: 'Delete',
+            icon: PhosphorIconsRegular.trash,
+            onTap: () => editor.removeSelectedClip(),
+          ),
+        ];
+
+      case ClipType.element:
+      case ClipType.sticker:
+        return [
+          EditorToolbarItem(
+            id: 'tracking',
+            title: 'Tracking',
+            icon: PhosphorIconsRegular.crosshair,
+            onTap: () => editor.startTrackingPointerMode(),
           ),
           EditorToolbarItem(
             id: 'effects',

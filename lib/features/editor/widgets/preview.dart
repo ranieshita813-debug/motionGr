@@ -13,6 +13,7 @@ import 'package:video_player/video_player.dart';
 import 'package:flutter_video_editor/core/models/face_tracking_model.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
+import 'package:flutter_video_editor/core/services/tracking/native_tracker.dart';
 import 'package:flutter_video_editor/core/widgets/loading_wave.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
@@ -1166,7 +1167,9 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
             listenable: editor,
             builder: (_, __) => editor.isEyedropperActive
                 ? _EyedropperOverlay(boundaryKey: _boundaryKey, editor: editor)
-                : const SizedBox.shrink(),
+                : (editor.isTrackingPointerMode
+                    ? _TrackingPointerOverlay(editor: editor)
+                    : const SizedBox.shrink()),
           ),
         ],
       ),
@@ -1245,12 +1248,285 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                       : const SizedBox.shrink(),
                 ),
               ),
+              ListenableBuilder(
+                listenable: editor,
+                builder: (_, __) => editor.isTrackingRunning
+                    ? Positioned.fill(
+                        child: _TrackingProgressOverlay(
+                          progress: editor.trackingProgress,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
       ],
     );
   }
+}
+
+// ----------------------------------------------------------------------------
+// Tracking Progress Modal Overlay (similar to video optimize dialog, with %)
+// ----------------------------------------------------------------------------
+class _TrackingProgressOverlay extends StatelessWidget {
+  const _TrackingProgressOverlay({required this.progress});
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final int percent = (progress.clamp(0.0, 1.0) * 100).round();
+    return Container(
+      color: Colors.black.withValues(alpha: 0.8),
+      child: Center(
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 54,
+                        height: 54,
+                        child: CircularProgressIndicator(
+                          value: progress > 0 ? progress.clamp(0.0, 1.0) : null,
+                          strokeWidth: 4.0,
+                          strokeCap: StrokeCap.round,
+                          backgroundColor: const Color(0xFF3B3B3B),
+                          color: const Color(0xFFFFD700),
+                        ),
+                      ),
+                      Text(
+                        '$percent%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'HelveticaNeue',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const TextShimmerWave(
+                  'Tracking...',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'HelveticaNeue',
+                  ),
+                  baseColor: Color(0xFF888888),
+                  waveColor: Colors.white,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Interactive Target Pointer Overlay for Object Tracking
+// ----------------------------------------------------------------------------
+class _TrackingPointerOverlay extends StatefulWidget {
+  const _TrackingPointerOverlay({required this.editor});
+  final EditorController editor;
+
+  @override
+  State<_TrackingPointerOverlay> createState() => _TrackingPointerOverlayState();
+}
+
+class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
+  Offset? _localPos;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final currentPoint = widget.editor.trackingTargetPoint;
+        final double curX = (_localPos?.dx ?? (currentPoint.dx * w)).clamp(20.0, w - 20.0);
+        final double curY = (_localPos?.dy ?? (currentPoint.dy * h)).clamp(20.0, h - 20.0);
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (details) {
+                setState(() {
+                  _localPos = details.localPosition;
+                });
+                widget.editor.updateTrackingTargetPoint(
+                  Offset(_localPos!.dx / w, _localPos!.dy / h),
+                );
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  _localPos = details.localPosition;
+                });
+                widget.editor.updateTrackingTargetPoint(
+                  Offset(_localPos!.dx / w, _localPos!.dy / h),
+                );
+              },
+              onPanEnd: (_) {
+                _localPos = null;
+              },
+              onTapUp: (details) {
+                widget.editor.updateTrackingTargetPoint(
+                  Offset(details.localPosition.dx / w, details.localPosition.dy / h),
+                );
+              },
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.35),
+              ),
+            ),
+            // Crosshair Target Pointer
+            Positioned(
+              left: curX - 32,
+              top: curY - 32,
+              child: IgnorePointer(
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFFFD700), width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 8),
+                    ],
+                  ),
+                  child: Center(
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFD700),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        CustomPaint(
+                          size: const Size(64, 64),
+                          painter: _CrosshairPainter(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Header hint
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(PhosphorIconsRegular.crosshair, color: Color(0xFFFFD700), size: 16),
+                      SizedBox(width: 8),
+                      Text(
+                        'Drag or tap on target point to track',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12.5,
+                          fontFamily: 'HelveticaNeue',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Controls: Cancel & Start Tracking
+            Positioned(
+              bottom: 16,
+              right: 16,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: 'Cancel',
+                    icon: const Icon(PhosphorIconsRegular.x, color: Colors.white),
+                    onPressed: () => widget.editor.cancelTrackingPointerMode(),
+                  ),
+                  const SizedBox(width: 12),
+                  FloatingActionButton.extended(
+                    elevation: 4,
+                    backgroundColor: const Color(0xFFFFD700),
+                    foregroundColor: Colors.black,
+                    icon: const Icon(PhosphorIconsRegular.check, color: Colors.black),
+                    label: const Text(
+                      'Track',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'HelveticaNeue',
+                        color: Colors.black,
+                      ),
+                    ),
+                    onPressed: () => widget.editor.runTrackingForSelectedClip(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _CrosshairPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFFFFD700)
+      ..strokeWidth = 1.5;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    // Cross lines protruding outside circle
+    canvas.drawLine(Offset(cx, 0), Offset(cx, cy - 8), p);
+    canvas.drawLine(Offset(cx, cy + 8), Offset(cx, size.height), p);
+    canvas.drawLine(Offset(0, cy), Offset(cx - 8, cy), p);
+    canvas.drawLine(Offset(cx + 8, cy), Offset(size.width, cy), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _PreviewCheckerboardPainter extends CustomPainter {
@@ -1969,8 +2245,22 @@ class _OverlayClipState extends State<_OverlayClip> {
     final double u = widget.unit;
     final editor = context.watch<EditorController>();
     final relTime = editor.playhead - clip.start;
-    final double activeX = getInterpolatedKeyframeValue(clip, KeyframeProperty.positionX, relTime, clip.positionX);
-    final double activeY = getInterpolatedKeyframeValue(clip, KeyframeProperty.positionY, relTime, clip.positionY);
+    double activeX = getInterpolatedKeyframeValue(clip, KeyframeProperty.positionX, relTime, clip.positionX);
+    double activeY = getInterpolatedKeyframeValue(clip, KeyframeProperty.positionY, relTime, clip.positionY);
+
+    // If clip has tracking enabled with tracked points, follow the target point
+    final tracking = clip.trackingData;
+    if (tracking.isEnabled && tracking.points.isNotEmpty) {
+      final double sec = editor.playhead.inMilliseconds / 1000.0;
+      final pts = tracking.points.map((p) => TrackPoint.fromMap(p)).toList();
+      final p = pointAt(pts, sec);
+      if (p != null) {
+        // p.cx, p.cy are normalized coordinates (0..1) relative to canvas
+        // Convert to canvas design coordinates
+        activeX = p.cx * designWToken - 40;
+        activeY = (p.cy - p.h / 2) * widget.designH - 24;
+      }
+    }
 
     return Positioned(
       left: activeX * u,

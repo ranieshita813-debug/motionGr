@@ -1,4 +1,3 @@
-import 'dart:ui' show Rect;
 import 'package:flutter/services.dart';
 
 class TrackPoint {

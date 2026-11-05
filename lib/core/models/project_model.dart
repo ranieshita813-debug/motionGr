@@ -1213,24 +1213,28 @@ class TrackingData {
     this.targetName = 'Face',
     this.rect = const Rect.fromLTWH(0.3, 0.3, 0.4, 0.4),
     this.smoothness = 0.8,
+    this.points = const <Map<String, dynamic>>[],
   });
 
   final bool isEnabled;
   final String targetName;
   final Rect rect; // Normalized coordinates (0..1)
   final double smoothness;
+  final List<Map<String, dynamic>> points;
 
   TrackingData copyWith({
     bool? isEnabled,
     String? targetName,
     Rect? rect,
     double? smoothness,
+    List<Map<String, dynamic>>? points,
   }) {
     return TrackingData(
       isEnabled: isEnabled ?? this.isEnabled,
       targetName: targetName ?? this.targetName,
       rect: rect ?? this.rect,
       smoothness: smoothness ?? this.smoothness,
+      points: points ?? this.points,
     );
   }
 
@@ -1243,10 +1247,21 @@ class TrackingData {
       'width': rect.width,
       'height': rect.height,
       'smoothness': smoothness,
+      'points': points,
     };
   }
 
   factory TrackingData.fromJson(Map<String, dynamic> json) {
+    final rawPoints = json['points'];
+    final List<Map<String, dynamic>> parsedPoints = [];
+    if (rawPoints is List) {
+      for (final p in rawPoints) {
+        if (p is Map) {
+          parsedPoints.add(Map<String, dynamic>.from(p));
+        }
+      }
+    }
+
     return TrackingData(
       isEnabled: json['isEnabled'] as bool? ?? false,
       targetName: json['targetName'] as String? ?? 'Face',
@@ -1257,6 +1272,7 @@ class TrackingData {
         (json['height'] as num?)?.toDouble() ?? 0.4,
       ),
       smoothness: (json['smoothness'] as num?)?.toDouble() ?? 0.8,
+      points: parsedPoints,
     );
   }
 }

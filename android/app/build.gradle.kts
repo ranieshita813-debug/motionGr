@@ -24,7 +24,7 @@ android {
 
     defaultConfig {
         applicationId = "com.motiongr.videoedit"
-        minSdk = maxOf(21, flutter.minSdkVersion)
+        minSdk = maxOf(27, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
