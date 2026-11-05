@@ -188,5 +188,71 @@ void main() {
       expect(controller.selectedClip!.keyframes.isNotEmpty, isTrue);
       expect(find.byTooltip('Remove keyframe'), findsOneWidget);
     });
+
+    test('Mask keyframes interpolation and updateMaskProperties with keyframes', () {
+      final controller = EditorController();
+      final clip = TimelineClip(
+        id: 'clip_mask_kf',
+        label: 'Mask KF Test',
+        start: Duration.zero,
+        end: const Duration(seconds: 10),
+        clipType: ClipType.video,
+        maskProperties: const MaskProperties(
+          type: MaskType.circle,
+          centerX: 0.2,
+          centerY: 0.2,
+          width: 0.3,
+          height: 0.3,
+          rotation: 0.0,
+          feather: 0.0,
+        ),
+      );
+      controller.addClip(clip);
+      controller.selectClip('clip_mask_kf');
+
+      // Add keyframe at 1.0s (start)
+      seekPlayhead(controller, 1.0);
+      controller.addKeyframeAtPlayhead();
+
+      expect(
+        controller.selectedClip!.keyframes.any((k) => k.property == KeyframeProperty.maskX),
+        isTrue,
+      );
+
+      // Seek to 5.0s and modify mask properties via updateMaskProperties
+      seekPlayhead(controller, 5.0);
+      controller.updateMaskProperties(
+        const MaskProperties(
+          type: MaskType.circle,
+          centerX: 0.8,
+          centerY: 0.6,
+          width: 0.7,
+          height: 0.7,
+          rotation: 1.5,
+          feather: 20.0,
+        ),
+      );
+
+      final updatedClip = controller.selectedClip!;
+      final maskXKfs = updatedClip.keyframes.where((k) => k.property == KeyframeProperty.maskX).toList();
+      expect(maskXKfs.length, greaterThanOrEqualTo(2));
+
+      // Test interpolation at 1.0s
+      final maskAt1s = getInterpolatedMaskProperties(updatedClip, const Duration(seconds: 1));
+      expect(maskAt1s.centerX, closeTo(0.2, 0.05));
+      expect(maskAt1s.centerY, closeTo(0.2, 0.05));
+
+      // Test interpolation at 3.0s (halfway between 1s and 5s: 0.2 -> 0.8 => 0.5)
+      final maskAt3s = getInterpolatedMaskProperties(updatedClip, const Duration(seconds: 3));
+      expect(maskAt3s.centerX, closeTo(0.5, 0.05));
+      expect(maskAt3s.centerY, closeTo(0.4, 0.05));
+      expect(maskAt3s.feather, closeTo(10.0, 0.05));
+
+      // Test interpolation at 5.0s
+      final maskAt5s = getInterpolatedMaskProperties(updatedClip, const Duration(seconds: 5));
+      expect(maskAt5s.centerX, closeTo(0.8, 0.05));
+      expect(maskAt5s.centerY, closeTo(0.6, 0.05));
+      expect(maskAt5s.feather, closeTo(20.0, 0.05));
+    });
   });
 }
