@@ -7,14 +7,21 @@
 //  - Premiere: hairline section bars, boxed scrubbable value fields,
 //    triangle-thumb sliders, joined icon segmented control.
 //
-// Font tab: filter chips (All / Imported / Sans / Serif / Display / Script /
-// Mono) and an "Import" tile that loads a .ttf / .otf from the device.
-// Search has been removed.
+// Font tab: filter chips (All / Imported / Online / Sans / Serif / Display /
+// Script / Mono), an "Import" tile that loads a .ttf / .otf from the device
+// (file or whole folder), and an Online library (Google Fonts) you can
+// browse and download with one tap.
 //
-// New dependencies (pubspec.yaml):
+// Dependencies (pubspec.yaml):
 //   file_picker: ^8.0.0
 //   path_provider: ^2.1.0
 //   path: ^1.9.0
+//   http: ^1.2.2
+//
+// Online library key (free, Google Fonts Developer API):
+//   flutter run --dart-define=GOOGLE_FONTS_API_KEY=your_key
+// For production, proxy the catalog request through your backend so the
+// key isn't shipped inside the app.
 
 import 'dart:convert';
 import 'dart:io';
@@ -23,6 +30,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -36,6 +44,65 @@ const Color _field = Color(0xFF18181B);
 const Color _line = Color(0xFF2C2C31);
 const Color _track = Color(0xFF45454C);
 const Color _accent = Color(0xFF2DE2E6);
+
+// ----------------------------------------------------------------------------
+// Online font catalog (Google Fonts)
+// ----------------------------------------------------------------------------
+
+@immutable
+class OnlineFont {
+  const OnlineFont(this.family, this.category, this.url);
+  final String family;
+
+  /// Google category: sans-serif, serif, display, handwriting, monospace.
+  final String category;
+
+  /// Direct link to the regular-weight .ttf file.
+  final String url;
+}
+
+class OnlineFontCatalog {
+  static const String _key = String.fromEnvironment('GOOGLE_FONTS_API_KEY');
+
+  /// Fetches the catalog sorted by popularity. The API returns the whole list
+  /// in one request, so paging is done client-side.
+  static Future<List<OnlineFont>> fetch() async {
+    final Uri uri = Uri.https('www.googleapis.com', '/webfonts/v1/webfonts', {
+      'key': _key,
+      'sort': 'popularity',
+    });
+    final http.Response res =
+        await http.get(uri).timeout(const Duration(seconds: 15));
+    if (res.statusCode != 200) {
+      throw HttpException('Font library error (${res.statusCode})');
+    }
+
+    final Object? decoded = jsonDecode(res.body);
+    if (decoded is! Map || decoded['items'] is! List) {
+      throw const FormatException('Unexpected font library response');
+    }
+
+    final List<OnlineFont> out = <OnlineFont>[];
+    for (final Object? i in decoded['items'] as List) {
+      if (i is! Map) continue;
+      final Object? family = i['family'];
+      final Object? category = i['category'];
+      final Object? files = i['files'];
+      if (family is! String || files is! Map) continue;
+
+      final Object? url =
+          files['regular'] ?? (files.values.isEmpty ? null : files.values.first);
+      if (url is! String) continue;
+
+      out.add(OnlineFont(
+        family,
+        category is String ? category : '',
+        url.replaceFirst('http://', 'https://'), // Android blocks cleartext
+      ));
+    }
+    return out;
+  }
+}
 
 // ----------------------------------------------------------------------------
 // Imported font library
@@ -58,7 +125,7 @@ class ImportedFont {
   }
 }
 
-/// Keeps fonts the user imported from local storage.
+/// Keeps fonts the user imported or downloaded from local storage.
 ///
 /// Files are copied into `<documents>/imported_fonts/`, registered with the
 /// engine through [FontLoader] (so `TextStyle(fontFamily: name)` works
@@ -184,7 +251,8 @@ class FontLibrary extends ChangeNotifier {
     if (!await dir.exists()) return <ImportedFont>[];
 
     final List<File> fontFiles = <File>[];
-    await for (final FileSystemEntity entity in dir.list(recursive: true, followLinks: false)) {
+    await for (final FileSystemEntity entity
+        in dir.list(recursive: true, followLinks: false)) {
       if (entity is File) {
         final String ext = p.extension(entity.path).toLowerCase();
         if (ext == '.ttf' || ext == '.otf') {
@@ -232,6 +300,50 @@ class FontLibrary extends ChangeNotifier {
     return importedList;
   }
 
+  /// Downloads a font from the online catalog, registers it and saves it.
+  /// Returns the existing entry if the family was already downloaded.
+  /// Throws [HttpException] on network errors and [FormatException] when the
+  /// file isn't a usable font.
+  Future<ImportedFont> downloadOnline(OnlineFont o) async {
+    await init();
+    for (final f in _fonts) {
+      if (f.name == o.family) return f;
+    }
+
+    final http.Response res =
+        await http.get(Uri.parse(o.url)).timeout(const Duration(seconds: 25));
+    if (res.statusCode != 200) {
+      throw HttpException('Download failed (${res.statusCode})');
+    }
+
+    final Directory d = await _dir();
+    final String ext = p.extension(Uri.parse(o.url).path).toLowerCase();
+    final String dest = p.join(
+      d.path,
+      '${o.family.replaceAll(' ', '_')}${ext.isEmpty ? '.ttf' : ext}',
+    );
+
+    // Write to a temp file first so an interrupted download never leaves a
+    // corrupt font behind.
+    final File tmp = File('$dest.part');
+    await tmp.writeAsBytes(res.bodyBytes, flush: true);
+    await tmp.rename(dest);
+
+    try {
+      await _register(o.family, dest);
+    } catch (_) {
+      final File bad = File(dest);
+      if (await bad.exists()) await bad.delete();
+      throw const FormatException("That file isn't a valid font");
+    }
+
+    final ImportedFont f = ImportedFont(name: o.family, path: dest);
+    _fonts.add(f);
+    await _save();
+    notifyListeners();
+    return f;
+  }
+
   /// Removes the file and the list entry. The engine can't unregister a
   /// family until the app restarts, so clips already using it keep rendering
   /// for this session.
@@ -255,6 +367,7 @@ class FontLibrary extends ChangeNotifier {
 enum _FontFilter {
   all('All'),
   imported('Imported'),
+  online('Online'),
   sans('Sans'),
   serif('Serif'),
   display('Display'),
@@ -338,6 +451,13 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
   _Tab _tab = _Tab.font;
   _FontFilter _filter = _FontFilter.all;
   bool _importing = false;
+
+  // Online library state.
+  List<OnlineFont>? _online;
+  bool _onlineLoading = false;
+  String? _onlineError;
+  int _onlineShown = 40;
+  final Set<String> _downloading = <String>{};
 
   final FontLibrary _library = FontLibrary.instance;
 
@@ -439,6 +559,53 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
       _toast("Couldn't import fonts from folder. Try another directory");
     } finally {
       if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  // ---- Online fonts ---------------------------------------------------------
+
+  Future<void> _loadOnline() async {
+    if (_online != null || _onlineLoading) return;
+    setState(() {
+      _onlineLoading = true;
+      _onlineError = null;
+    });
+    try {
+      final List<OnlineFont> list = await OnlineFontCatalog.fetch();
+      if (!mounted) return;
+      setState(() => _online = list);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _onlineError = "Couldn't load fonts. Check your connection");
+      }
+    } finally {
+      if (mounted) setState(() => _onlineLoading = false);
+    }
+  }
+
+  bool _haveFont(EditorController editor, String family) =>
+      editor.availableFonts.contains(family) || _library.has(family);
+
+  Future<void> _useOnline(EditorController editor, OnlineFont o) async {
+    // Already bundled with the app, or already downloaded: just apply it.
+    if (_haveFont(editor, o.family)) {
+      editor.updateSelectedClipFont(o.family);
+      return;
+    }
+    if (_downloading.contains(o.family)) return;
+
+    setState(() => _downloading.add(o.family));
+    try {
+      final ImportedFont f = await _library.downloadOnline(o);
+      if (!mounted) return;
+      editor.uploadCustomFont(f.name);
+      editor.updateSelectedClipFont(f.name);
+    } on FormatException catch (e) {
+      _toast(e.message);
+    } catch (_) {
+      _toast("Couldn't download that font. Try again");
+    } finally {
+      if (mounted) setState(() => _downloading.remove(o.family));
     }
   }
 
@@ -562,6 +729,8 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
   // ---- Font tab -------------------------------------------------------------
 
   Widget _fontTab(EditorController editor, dynamic clip) {
+    if (_filter == _FontFilter.online) return _onlineTab(editor, clip);
+
     final List<_FontEntry> all = _allFonts(editor);
     final List<_FontEntry> shown = all.where((f) => f.matches(_filter)).toList();
 
@@ -618,6 +787,7 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
               onTap: () {
                 HapticFeedback.selectionClick();
                 setState(() => _filter = f);
+                if (f == _FontFilter.online) _loadOnline();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 13),
@@ -630,9 +800,14 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (f == _FontFilter.imported) ...[
-                      Icon(PhosphorIconsRegular.uploadSimple,
-                          size: 14, color: on ? _accent : EditorTokens.muted),
+                    if (f == _FontFilter.imported || f == _FontFilter.online) ...[
+                      Icon(
+                        f == _FontFilter.online
+                            ? PhosphorIconsRegular.cloudArrowDown
+                            : PhosphorIconsRegular.uploadSimple,
+                        size: 14,
+                        color: on ? _accent : EditorTokens.muted,
+                      ),
                       const SizedBox(width: 5),
                     ],
                     Text(
@@ -706,7 +881,8 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
     );
   }
 
-  /// Dashed "Import" tile, always the first item in the grid.
+  /// "Import" tile with File and Folder actions, always the first item in
+  /// the grid.
   Widget _importTile(EditorController editor, double w) {
     return Semantics(
       button: true,
@@ -734,7 +910,12 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                   children: [
                     Icon(PhosphorIconsRegular.filePlus, size: 14, color: _accent),
                     SizedBox(width: 4),
-                    Text('File', style: TextStyle(color: _accent, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu')),
+                    Text('File',
+                        style: TextStyle(
+                            color: _accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Ubuntu')),
                   ],
                 ),
               ),
@@ -752,7 +933,12 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                   children: [
                     Icon(PhosphorIconsRegular.folderPlus, size: 14, color: _accent),
                     SizedBox(width: 4),
-                    Text('Folder', style: TextStyle(color: _accent, fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Ubuntu')),
+                    Text('Folder',
+                        style: TextStyle(
+                            color: _accent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Ubuntu')),
                   ],
                 ),
               ),
@@ -826,6 +1012,209 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                     ),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---- Online tab -----------------------------------------------------------
+
+  Widget _onlineMessage(IconData icon, String text, {String? action, VoidCallback? onTap}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 32, 16, 0),
+      child: Column(
+        children: [
+          Icon(icon, size: 34, color: _track),
+          const SizedBox(height: 8),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: EditorTokens.muted, fontSize: 12, fontFamily: 'Ubuntu'),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onTap,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _accent,
+                side: const BorderSide(color: _accent),
+                minimumSize: const Size(0, 38),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              ),
+              child: Text(action),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _onlineTab(EditorController editor, dynamic clip) {
+    if (_onlineError != null && _online == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _filterChips(),
+          _onlineMessage(
+            PhosphorIconsRegular.wifiSlash,
+            _onlineError!,
+            action: 'Retry',
+            onTap: _loadOnline,
+          ),
+        ],
+      );
+    }
+
+    if (_online == null) {
+      // Covers both "loading" and the first frame before _loadOnline starts.
+      if (!_onlineLoading && _onlineError == null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _loadOnline();
+        });
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _filterChips(),
+          const Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: _accent),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final List<OnlineFont> list = _online!;
+    if (list.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _filterChips(),
+          _onlineMessage(PhosphorIconsRegular.textAa, 'No fonts available right now'),
+        ],
+      );
+    }
+
+    final int count = _onlineShown.clamp(0, list.length).toInt();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _filterChips(),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: LayoutBuilder(builder: (context, box) {
+            const int cols = 4;
+            const double gap = 8;
+            final double w = (box.maxWidth - gap * (cols - 1)) / cols;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final OnlineFont o in list.take(count))
+                  _onlineTile(editor, o, w, clip.fontFamily == o.family),
+              ],
+            );
+          }),
+        ),
+        if (count < list.length)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Center(
+              child: TextButton(
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _onlineShown += 40);
+                },
+                child: const Text(
+                  'Show more',
+                  style: TextStyle(
+                      color: _accent, fontSize: 12.5, fontFamily: 'Ubuntu'),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _onlineTile(EditorController editor, OnlineFont o, double w, bool on) {
+    final bool have = _haveFont(editor, o.family);
+    final bool busy = _downloading.contains(o.family);
+    return Semantics(
+      button: true,
+      selected: on,
+      label: have ? o.family : 'Download ${o.family}',
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _useOnline(editor, o);
+        },
+        child: Container(
+          width: w,
+          height: 68,
+          decoration: BoxDecoration(
+            color: on ? _accent.withAlpha(28) : _card,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: on ? _accent : Colors.transparent, width: 1.4),
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Real glyphs once the font is local; a font can't
+                    // preview itself before it has been downloaded.
+                    Text(
+                      'Aa',
+                      style: TextStyle(
+                        color: on ? _accent : EditorTokens.text,
+                        fontSize: 22,
+                        fontFamily: have ? o.family : 'Ubuntu',
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        o.family,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: on ? _accent : EditorTokens.muted,
+                          fontSize: 9.5,
+                          fontFamily: 'Ubuntu',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: busy
+                    ? const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.8, color: _accent),
+                      )
+                    : Icon(
+                        have ? PhosphorIconsRegular.check : PhosphorIconsRegular.arrowDown,
+                        size: 12,
+                        color: have ? _accent : EditorTokens.muted,
+                      ),
+              ),
             ],
           ),
         ),
@@ -947,8 +1336,10 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                 tileColor: _field,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 leading: const PhosphorIcon(PhosphorIconsRegular.scissors, color: _accent, size: 18),
-                title: const Text('Split Caption', style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Ubuntu')),
-                subtitle: const Text('Split subtitle at current playhead', style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Ubuntu')),
+                title: const Text('Split Caption',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Ubuntu')),
+                subtitle: const Text('Split subtitle at current playhead',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Ubuntu')),
                 onTap: () {
                   HapticFeedback.selectionClick();
                   editor.splitCaptionClip();
@@ -959,8 +1350,10 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                 tileColor: _field,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 leading: const PhosphorIcon(PhosphorIconsRegular.squaresFour, color: _accent, size: 18),
-                title: const Text('Merge Next Subtitle', style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Ubuntu')),
-                subtitle: const Text('Combine this caption with the next one', style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Ubuntu')),
+                title: const Text('Merge Next Subtitle',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Ubuntu')),
+                subtitle: const Text('Combine this caption with the next one',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Ubuntu')),
                 onTap: () {
                   HapticFeedback.selectionClick();
                   editor.mergeNextCaptionClip();
@@ -971,8 +1364,10 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
                 tileColor: _field,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 leading: const PhosphorIcon(PhosphorIconsRegular.closedCaptioning, color: _accent, size: 18),
-                title: const Text('Regenerate Auto Captions', style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Ubuntu')),
-                subtitle: const Text('Re-align captions for all media clips', style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Ubuntu')),
+                title: const Text('Regenerate Auto Captions',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Ubuntu')),
+                subtitle: const Text('Re-align captions for all media clips',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Ubuntu')),
                 onTap: () {
                   HapticFeedback.selectionClick();
                   editor.generateAutoCaptions();
@@ -1295,7 +1690,6 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
 extension on Widget {
   Widget withTopPadding(double v) => Padding(padding: EdgeInsets.only(top: v), child: this);
 }
-
 
 // ---- Premiere-style parameter row ---------------------------------------------
 

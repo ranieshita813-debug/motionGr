@@ -9,7 +9,7 @@
 # IntelliJ/Android Studio
 .idea/
 *.iml
-
+env.json
 # VS Code
 .vscode/
 
