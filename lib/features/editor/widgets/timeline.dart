@@ -414,17 +414,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
   bool _isOverlay(_ClipSnapshot c) => c.type != ClipType.audio && !c.isMain;
 
-  bool _isStickerType(ClipType t) =>
-      t == ClipType.sticker || t == ClipType.element;
-
-  bool _isTextType(ClipType t) =>
-      t != ClipType.audio &&
-      t != ClipType.video &&
-      t != ClipType.image &&
-      t != ClipType.drawing &&
-      !_isStickerType(t) &&
-      t != ClipType.caption;
-
   /// Track name for an overlay lane, based on what it contains.
   String _overlayName(List<_ClipSnapshot> cs) {
     if (cs.isEmpty) return 'Text';
