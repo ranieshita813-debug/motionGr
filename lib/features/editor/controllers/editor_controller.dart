@@ -1260,6 +1260,15 @@ class EditorController extends ChangeNotifier {
   }
 
   // Masking
+  bool _isMaskEditing = false;
+  bool get isMaskEditing => _isMaskEditing;
+
+  void setMaskEditing(bool v) {
+    if (_isMaskEditing == v) return;
+    _isMaskEditing = v;
+    notifyListeners();
+  }
+
   void updateMaskProperties(MaskProperties maskProperties) {
     if (_selectedClipId == null) return;
     final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);

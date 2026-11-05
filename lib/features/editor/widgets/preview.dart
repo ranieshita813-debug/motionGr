@@ -21,6 +21,8 @@ import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
 import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/chroma_key_preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/masked_layer.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask_handles_overlay.dart';
 
 // ----------------------------------------------------------------------------
 // Monochrome palette
@@ -212,7 +214,10 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     }
     final relTime = _e.playhead - clip.start;
     final double baseVol = getInterpolatedKeyframeValue(clip, KeyframeProperty.volume, relTime, clip.volume);
-    final double vol = baseVol.clamp(0.0, 1.0).toDouble();
+    final double tSec = math.max(0.0, relTime.inMilliseconds / 1000.0);
+    final double durSec = clip.trimmedDurationSeconds;
+    final double pPlayback = clip.audioProperties.playbackSeconds(durSec);
+    final double vol = (baseVol * clip.audioProperties.gainAt(tSec, pPlayback)).clamp(0.0, 1.0).toDouble();
     if (vol != _vol) {
       _vol = vol;
       await c.setVolume(vol);
@@ -460,6 +465,14 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       final double kOpacity = getInterpolatedKeyframeValue(clip, KeyframeProperty.opacity, relTime, clip.opacity);
 
       final double sc = kScale.clamp(0.2, 5.0).toDouble();
+
+      child = RepaintBoundary(
+        child: MaskedLayer.fromProps(
+          props: clip.maskProperties,
+          child: child,
+        ),
+      );
+
       if (sc != 1.0) child = Transform.scale(scale: sc, child: child);
       if (kRot != 0.0) child = Transform.rotate(angle: kRot * math.pi / 180, child: child);
       if (kOpacity < 1.0) child = Opacity(opacity: kOpacity.clamp(0.0, 1.0).toDouble(), child: child);
@@ -578,6 +591,8 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
               waveColor: Colors.white,
             ),
           ),
+        if (_e.isMaskEditing && clip != null && _e.selectedClipId == clip.id)
+          const Positioned.fill(child: MaskHandlesOverlay()),
       ],
     );
   }
@@ -2406,8 +2421,11 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
       final double speed = clip.speed.clamp(0.1, 10.0).toDouble();
       final relTime = _e.playhead - clip.start;
       final double kVol = getInterpolatedKeyframeValue(clip, KeyframeProperty.volume, relTime, clip.volume);
+      final double tSec = math.max(0.0, relTime.inMilliseconds / 1000.0);
+      final double durSec = clip.trimmedDurationSeconds;
+      final double pPlayback = clip.audioProperties.playbackSeconds(durSec);
       final double vol =
-          (kVol * clip.audioProperties.volume).clamp(0.0, 1.0).toDouble();
+          (kVol * clip.audioProperties.gainAt(tSec, pPlayback)).clamp(0.0, 1.0).toDouble();
       await controller.setPlaybackSpeed(speed);
       await controller.setVolume(vol);
 

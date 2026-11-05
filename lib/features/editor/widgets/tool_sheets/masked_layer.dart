@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -179,7 +180,9 @@ class _MaskedLayerState extends State<MaskedLayer> {
           TileMode.clamp,
           TileMode.clamp,
           (Matrix4.identity()
+                // ignore: deprecated_member_use
                 ..translate(r.left, r.top)
+                // ignore: deprecated_member_use
                 ..scale(1 / dpr, 1 / dpr))
               .storage,
         ),
