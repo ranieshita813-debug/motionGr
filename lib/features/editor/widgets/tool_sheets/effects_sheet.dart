@@ -10,7 +10,7 @@ import 'package:flutter_video_editor/features/effects/pages/effects_library_page
 import 'package:flutter_video_editor/features/effects/services/custom_effect_import_service.dart';
 import 'package:flutter_video_editor/features/effects/widgets/effect_timeline_chip.dart';
 
-const _font = 'Ubuntu Sans';
+const _font = 'HelveticaNeue';
 const _tabs = ['All', 'Cinematic', 'Retro', 'Glitch'];
 
 class EffectsSheet extends StatefulWidget {

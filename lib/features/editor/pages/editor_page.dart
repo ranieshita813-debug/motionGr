@@ -116,7 +116,7 @@ class _EditorPageState extends State<EditorPage> {
               SnackBar(
                 content: Text(
                   '${isVideo ? 'AI Video' : 'AI Image'} added to timeline!',
-                  style: const TextStyle(fontFamily: 'Ubuntu'),
+                  style: const TextStyle(fontFamily: 'HelveticaNeue'),
                 ),
                 duration: const Duration(seconds: 2),
               ),
@@ -353,15 +353,20 @@ class _EditorPageState extends State<EditorPage> {
               body: LayoutBuilder(builder: (context, c) {
                 // The panel never takes more than half of what is left, so an
                 // open keyboard cannot squeeze the preview down to nothing.
-                final double panelH = (c.maxHeight * _frac)
+                final double defaultPanelH = (c.maxHeight * _frac)
                     .clamp(160.0, math.max(160.0, c.maxHeight * 0.5))
                     .toDouble();
+                final double panelH = _tool == EditorTool.mask
+                    ? 210.0
+                    : defaultPanelH;
                 final double sideW =
                     (c.maxWidth * 0.3).clamp(320.0, 440.0).toDouble();
 
                 // On phones, an open tool sheet hides the timeline, divider
                 // and transport bar so the preview gets all the space.
-                final bool hideTimeline = _tool != null && !wide;
+                // Mask tool needs the video controls (TransportBar) and timeline
+                // to stay visible so the user can seek, view tracks, and use transport keyframe controls.
+                final bool hideTimeline = _tool != null && _tool != EditorTool.mask && !wide;
 
                 final Widget toolbar = EditorToolbar(
                   key: const ValueKey('bar'),

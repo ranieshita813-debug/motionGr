@@ -37,7 +37,7 @@ const _field = Color(0xFF2A2A2A);
 const _accent = Color(0xFF2DE2D0); // CapCut-like cyan highlight
 const _textHi = Colors.white;
 const _textLo = Color(0xFF8E8E93);
-const _font = 'Ubuntu';
+const _font = 'HelveticaNeue';
 
 // ───────────────────────── SHAPES ─────────────────────────
 

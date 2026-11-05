@@ -5,6 +5,10 @@ import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/widgets/keyframe_controls.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
+import 'package:flutter_video_editor/core/theme/app_theme.dart';
+import 'package:flutter_video_editor/features/editor/pages/editor_page.dart';
+import 'package:flutter_video_editor/features/editor/widgets/timeline.dart';
+import 'package:flutter_video_editor/features/editor/widgets/transport.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_panel.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask.dart';
 
@@ -86,6 +90,67 @@ void main() {
 
       final updatedClip = controller.selectedClip;
       expect(updatedClip?.maskProperties.type, equals(MaskType.circle));
+    });
+
+    test('AppTheme defaults to HelveticaNeue font', () {
+      expect(AppTheme.defaultFontFamily, equals('HelveticaNeue'));
+      expect(AppTheme.darkTheme.textTheme.bodyLarge?.fontFamily, equals('HelveticaNeue'));
+      expect(AppTheme.darkTheme.textTheme.headlineMedium?.fontFamily, equals('HelveticaNeue'));
+    });
+
+    testWidgets('EditorPage keeps TransportBar and TimelineWidget visible when Mask tool is active', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844); // mobile phone screen
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final controller = EditorController();
+      final clip = TimelineClip(
+        id: 'clip_mobile',
+        label: 'Video',
+        start: Duration.zero,
+        end: const Duration(seconds: 10),
+        clipType: ClipType.video,
+      );
+      controller.addClip(clip);
+      controller.selectClip('clip_mobile');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: ChangeNotifierProvider<EditorController>.value(
+            value: controller,
+            child: const Scaffold(
+              body: EditorPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially timeline and transport bar are visible
+      expect(find.byType(TransportBar), findsOneWidget);
+      expect(find.byType(TimelineWidget), findsOneWidget);
+
+      // Scroll and open Mask tool
+      await tester.scrollUntilVisible(
+        find.text('Mask'),
+        100.0,
+        scrollable: find.descendant(of: find.byType(EditorPage), matching: find.byType(Scrollable)).last,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Mask'));
+      await tester.pumpAndSettle();
+
+      // MaskSheet is open
+      expect(find.byType(MaskSheet), findsOneWidget);
+
+      // Crucial: Video TransportBar and TimelineWidget must remain visible!
+      expect(find.byType(TransportBar), findsOneWidget);
+      expect(find.byType(TimelineWidget), findsOneWidget);
     });
   });
 
