@@ -27,11 +27,12 @@ import 'package:provider/provider.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/core/models/svg_model.dart';
+import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'package:flutter_video_editor/features/editor/widgets/svg_editor.dart';
 
 // ───────────────────────── CAPCUT-STYLE TOKENS ─────────────────────────
 
-const _sheet = Color(0xFF161616);
+const _sheet = bgToken;
 const _tile = Color(0xFF242424);
 const _field = Color(0xFF2A2A2A);
 const _accent = Color(0xFF2DE2D0); // CapCut-like cyan highlight

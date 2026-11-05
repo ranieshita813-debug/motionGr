@@ -451,6 +451,7 @@ class _EditorPageState extends State<EditorPage> {
                           multiOn: _multiOn,
                           multi: _multi,
                           onClearMulti: _clearMulti,
+                          mainTrackOnly: _tool == EditorTool.mask,
                         ),
                       ),
                     if (wide)

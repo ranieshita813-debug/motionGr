@@ -272,7 +272,8 @@ class ToolPanel extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'HelveticaNeue')),
         ),
-        KeyframeControls(editor: editor),
+        if (tool != EditorTool.mask)
+          KeyframeControls(editor: editor),
         const SizedBox(width: 8),
       ],
     );

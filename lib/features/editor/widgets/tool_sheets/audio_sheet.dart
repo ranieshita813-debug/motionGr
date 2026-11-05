@@ -7,7 +7,7 @@ import 'package:flutter_video_editor/features/editor/controllers/editor_controll
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'audio_properties.dart';
 
-const Color _bg = Color(0xFF000000);
+const Color _bg = bgToken;
 const Color _card = Color(0xFF1C1C1E);
 const Color _cardOn = Color(0xFF2C2C2E);
 const Color _text = Color(0xFFFFFFFF);

@@ -155,7 +155,7 @@ void main() {
   });
 
   group('ToolPanel Keyframe Controls Tests', () {
-    testWidgets('ToolPanel renders KeyframeControls for all tools when clip is selected', (WidgetTester tester) async {
+    testWidgets('ToolPanel renders KeyframeControls for non-mask tools and omits for Mask tool', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -174,9 +174,8 @@ void main() {
       controller.addClip(clip);
       controller.selectClip('test_clip');
 
-      // Test across multiple tools: mask, adjust, effects, filters
+      // Test across non-mask tools: adjust, effects, filters, colorGrading
       final toolsToTest = [
-        EditorTool.mask,
         EditorTool.adjust,
         EditorTool.effects,
         EditorTool.filters,
@@ -205,6 +204,24 @@ void main() {
         // Add keyframe tooltip should be available
         expect(find.byTooltip('Add keyframe'), findsOneWidget);
       }
+
+      // ToolPanel with EditorTool.mask should omit KeyframeControls
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider<EditorController>.value(
+            value: controller,
+            child: Scaffold(
+              body: ToolPanel(
+                tool: EditorTool.mask,
+                onClose: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(KeyframeControls), findsNothing);
+
       await tester.pump(const Duration(milliseconds: 700));
     });
 
@@ -234,7 +251,7 @@ void main() {
             value: controller,
             child: Scaffold(
               body: ToolPanel(
-                tool: EditorTool.mask,
+                tool: EditorTool.adjust,
                 onClose: () {},
               ),
             ),

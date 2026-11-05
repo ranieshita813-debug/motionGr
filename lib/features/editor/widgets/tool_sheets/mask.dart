@@ -6,7 +6,7 @@ import 'package:flutter_video_editor/features/editor/controllers/editor_controll
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'mask_geometry.dart';
 
-const Color _mkBg = Color(0xFF000000);
+const Color _mkBg = bgToken;
 const Color _mkCard = Color(0xFF1C1C1E);
 const Color _mkCardOn = Color(0xFF2C2C2E);
 const Color _mkText = Color(0xFFFFFFFF);
