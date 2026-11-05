@@ -21,14 +21,34 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/ai/capt
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/clip_animation_sheet.dart';
 import 'package:flutter_video_editor/core/models/color_grade.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/color_grading_sheet.dart';
-import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart'
+    hide AudioToolsSheet, MaskSheet;
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/face_tracking_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/text_style_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_tools_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask.dart';
 
 // ----------------------------------------------------------------------------
 // Inline tools enum
 // ----------------------------------------------------------------------------
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/text_to_speech_sheet.dart';
+
+class _AudioSheetHost extends StatelessWidget {
+  const _AudioSheetHost();
+
+  @override
+  Widget build(BuildContext context) {
+    final clip = context.select<EditorController, TimelineClip?>((e) => e.selectedClip);
+    if (clip == null) {
+      return const AudioToolsSheet();
+    }
+    return AudioSheet(
+      durationSeconds: clip.trimmedDurationSeconds,
+      waveform: clip.waveformPeaks,
+    );
+  }
+}
 
 enum EditorTool {
   audio('Audio', PhosphorIconsRegular.speakerHigh),
@@ -60,7 +80,7 @@ enum EditorTool {
   final PhosphorIconData icon;
 
   Widget get body => switch (this) {
-        EditorTool.audio => const AudioToolsSheet(),
+        EditorTool.audio => const _AudioSheetHost(),
         EditorTool.text => const TextAnimationSheet(),
         EditorTool.textToSpeech => const TextToSpeechSheet(),
         EditorTool.stickers => const StickersSheet(),

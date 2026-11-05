@@ -794,74 +794,316 @@ class ColorGradingSettings {
   }
 }
 
+enum VoiceEffect { none, man, woman, child, deep, robot, tremble, echo }
+
+extension VoiceEffectX on VoiceEffect {
+  String get label => switch (this) {
+        VoiceEffect.none => 'None',
+        VoiceEffect.man => 'Man',
+        VoiceEffect.woman => 'Woman',
+        VoiceEffect.child => 'Child',
+        VoiceEffect.deep => 'Deep',
+        VoiceEffect.robot => 'Robot',
+        VoiceEffect.tremble => 'Tremble',
+        VoiceEffect.echo => 'Echo',
+      };
+}
+
 class AudioProperties {
   const AudioProperties({
     this.volume = 1.0,
     this.speed = 1.0,
     this.pitch = 1.0,
-    this.fadeIn = Duration.zero,
-    this.fadeOut = Duration.zero,
+    this.fadeIn = 0.0,
+    this.fadeOut = 0.0,
     this.equalizerPreset = 'Flat',
-    this.noiseReduction = 0.0,
+    this.noiseReduction = false,
     this.voiceEffect = 'Normal',
+    this.keepPitch = true,
+    this.normalize = false,
+    this.enhanceVoice = false,
+    this.voice = VoiceEffect.none,
   });
 
+  /// 0..2 (0%..200%). 1.0 = original.
   final double volume;
+
+  /// 0.25..4
   final double speed;
+
   final double pitch;
-  final Duration fadeIn;
-  final Duration fadeOut;
+
+  /// seconds (floating point)
+  final double fadeIn;
+  final double fadeOut;
+
+  /// Duration helpers for compatibility with Duration-based code
+  Duration get fadeInDuration => Duration(milliseconds: (fadeIn * 1000).round());
+  Duration get fadeOutDuration => Duration(milliseconds: (fadeOut * 1000).round());
+
   final String equalizerPreset;
-  final double noiseReduction;
+
+  /// noise reduction bool
+  final bool noiseReduction;
+
   final String voiceEffect;
+
+  /// true = change speed without changing pitch (atempo)
+  final bool keepPitch;
+
+  final bool normalize;
+  final bool enhanceVoice;
+  final VoiceEffect voice;
+
+  bool get isDefault =>
+      (volume - 1.0).abs() < 0.001 &&
+      (speed - 1.0).abs() < 0.001 &&
+      (pitch - 1.0).abs() < 0.001 &&
+      fadeIn == 0.0 &&
+      fadeOut == 0.0 &&
+      !noiseReduction &&
+      !normalize &&
+      !enhanceVoice &&
+      voice == VoiceEffect.none;
 
   AudioProperties copyWith({
     double? volume,
     double? speed,
     double? pitch,
-    Duration? fadeIn,
-    Duration? fadeOut,
+    Object? fadeIn,
+    Object? fadeOut,
     String? equalizerPreset,
-    double? noiseReduction,
+    Object? noiseReduction,
     String? voiceEffect,
+    bool? keepPitch,
+    bool? normalize,
+    bool? enhanceVoice,
+    VoiceEffect? voice,
   }) {
+    double resolvedFadeIn = this.fadeIn;
+    if (fadeIn is Duration) {
+      resolvedFadeIn = fadeIn.inMilliseconds / 1000.0;
+    } else if (fadeIn is num) {
+      resolvedFadeIn = fadeIn.toDouble();
+    }
+
+    double resolvedFadeOut = this.fadeOut;
+    if (fadeOut is Duration) {
+      resolvedFadeOut = fadeOut.inMilliseconds / 1000.0;
+    } else if (fadeOut is num) {
+      resolvedFadeOut = fadeOut.toDouble();
+    }
+
+    bool resolvedNr = this.noiseReduction;
+    if (noiseReduction is bool) {
+      resolvedNr = noiseReduction;
+    } else if (noiseReduction is num) {
+      resolvedNr = noiseReduction > 0.0;
+    }
+
     return AudioProperties(
       volume: volume ?? this.volume,
       speed: speed ?? this.speed,
       pitch: pitch ?? this.pitch,
-      fadeIn: fadeIn ?? this.fadeIn,
-      fadeOut: fadeOut ?? this.fadeOut,
+      fadeIn: resolvedFadeIn,
+      fadeOut: resolvedFadeOut,
       equalizerPreset: equalizerPreset ?? this.equalizerPreset,
-      noiseReduction: noiseReduction ?? this.noiseReduction,
+      noiseReduction: resolvedNr,
       voiceEffect: voiceEffect ?? this.voiceEffect,
+      keepPitch: keepPitch ?? this.keepPitch,
+      normalize: normalize ?? this.normalize,
+      enhanceVoice: enhanceVoice ?? this.enhanceVoice,
+      voice: voice ?? this.voice,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AudioProperties &&
+      other.volume == volume &&
+      other.speed == speed &&
+      other.pitch == pitch &&
+      other.fadeIn == fadeIn &&
+      other.fadeOut == fadeOut &&
+      other.equalizerPreset == equalizerPreset &&
+      other.noiseReduction == noiseReduction &&
+      other.voiceEffect == voiceEffect &&
+      other.keepPitch == keepPitch &&
+      other.normalize == normalize &&
+      other.enhanceVoice == enhanceVoice &&
+      other.voice == voice;
+
+  @override
+  int get hashCode => Object.hash(
+        volume,
+        speed,
+        pitch,
+        fadeIn,
+        fadeOut,
+        equalizerPreset,
+        noiseReduction,
+        voiceEffect,
+        keepPitch,
+        normalize,
+        enhanceVoice,
+        voice,
+      );
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'volume': volume,
       'speed': speed,
       'pitch': pitch,
-      'fadeInMs': fadeIn.inMilliseconds,
-      'fadeOutMs': fadeOut.inMilliseconds,
+      'fadeIn': fadeIn,
+      'fadeOut': fadeOut,
+      'fadeInMs': (fadeIn * 1000).round(),
+      'fadeOutMs': (fadeOut * 1000).round(),
       'equalizerPreset': equalizerPreset,
       'noiseReduction': noiseReduction,
       'voiceEffect': voiceEffect,
+      'keepPitch': keepPitch,
+      'normalize': normalize,
+      'enhanceVoice': enhanceVoice,
+      'voice': voice.name,
     };
   }
 
-  factory AudioProperties.fromJson(Map<String, dynamic> json) {
+  factory AudioProperties.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const AudioProperties();
+    final double inSec = (json['fadeIn'] as num?)?.toDouble() ??
+        ((json['fadeInMs'] as num?)?.toDouble() != null
+            ? (json['fadeInMs'] as num).toDouble() / 1000.0
+            : 0.0);
+    final double outSec = (json['fadeOut'] as num?)?.toDouble() ??
+        ((json['fadeOutMs'] as num?)?.toDouble() != null
+            ? (json['fadeOutMs'] as num).toDouble() / 1000.0
+            : 0.0);
+    final nrVal = json['noiseReduction'];
+    final bool nr = nrVal is bool
+        ? nrVal
+        : (nrVal is num ? nrVal > 0.0 : false);
+
+    VoiceEffect vEff = VoiceEffect.none;
+    if (json['voice'] != null) {
+      vEff = VoiceEffect.values.firstWhere(
+        (e) => e.name == json['voice'],
+        orElse: () => VoiceEffect.none,
+      );
+    }
+
     return AudioProperties(
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
       speed: (json['speed'] as num?)?.toDouble() ?? 1.0,
       pitch: (json['pitch'] as num?)?.toDouble() ?? 1.0,
-      fadeIn: Duration(milliseconds: json['fadeInMs'] as int? ?? 0),
-      fadeOut: Duration(milliseconds: json['fadeOutMs'] as int? ?? 0),
+      fadeIn: inSec,
+      fadeOut: outSec,
       equalizerPreset: json['equalizerPreset'] as String? ?? 'Flat',
-      noiseReduction: (json['noiseReduction'] as num?)?.toDouble() ?? 0.0,
+      noiseReduction: nr,
       voiceEffect: json['voiceEffect'] as String? ?? 'Normal',
+      keepPitch: json['keepPitch'] as bool? ?? true,
+      normalize: json['normalize'] as bool? ?? false,
+      enhanceVoice: json['enhanceVoice'] as bool? ?? false,
+      voice: vEff,
     );
   }
+
+  // --------------------------------------------------------------------------
+  // PREVIEW
+  // --------------------------------------------------------------------------
+
+  /// Playback length after speed change.
+  double playbackSeconds(double sourceSeconds) =>
+      speed <= 0 ? sourceSeconds : sourceSeconds / speed;
+
+  /// Gain at [t] seconds into the clip's PLAYBACK time (already speed-adjusted).
+  double gainAt(double t, double playbackSeconds) {
+    double g = volume;
+    if (fadeIn > 0 && t < fadeIn) g *= (t / fadeIn).clamp(0.0, 1.0);
+    final double outStart = playbackSeconds - fadeOut;
+    if (fadeOut > 0 && t > outStart) {
+      g *= ((playbackSeconds - t) / fadeOut).clamp(0.0, 1.0);
+    }
+    return math.max(0.0, g);
+  }
+
+  // --------------------------------------------------------------------------
+  // EXPORT (FFmpeg)
+  // --------------------------------------------------------------------------
+
+  /// Returns an ffmpeg -af chain (null if nothing to do).
+  String? buildFfmpegFilter({required double sourceSeconds, int sampleRate = 44100}) {
+    final List<String> f = <String>[];
+
+    // speed
+    if ((speed - 1.0).abs() > 0.001) {
+      if (keepPitch) {
+        f.addAll(_atempo(speed));
+      } else {
+        f.add('asetrate=${(sampleRate * speed).round()}');
+        f.add('aresample=$sampleRate');
+      }
+    }
+
+    // voice effect
+    switch (voice) {
+      case VoiceEffect.none:
+        break;
+      case VoiceEffect.man:
+        f.addAll(_pitch(0.85, sampleRate));
+      case VoiceEffect.woman:
+        f.addAll(_pitch(1.2, sampleRate));
+      case VoiceEffect.child:
+        f.addAll(_pitch(1.45, sampleRate));
+      case VoiceEffect.deep:
+        f.addAll(_pitch(0.72, sampleRate));
+      case VoiceEffect.robot:
+        f.add("afftfilt=real='hypot(re,im)*sin(0)':imag='hypot(re,im)*cos(0)':win_size=512:overlap=0.75");
+      case VoiceEffect.tremble:
+        f.add('tremolo=f=9:d=0.75');
+      case VoiceEffect.echo:
+        f.add('aecho=0.8:0.88:420:0.35');
+    }
+
+    if (noiseReduction) f.add('afftdn=nr=14:nf=-32');
+    if (enhanceVoice) {
+      f.add('highpass=f=80');
+      f.add('equalizer=f=3000:t=q:w=1:g=3');
+      f.add('acompressor=threshold=-18dB:ratio=3:attack=10:release=120');
+    }
+    if (normalize) f.add('loudnorm=I=-16:TP=-1.5:LRA=11');
+
+    if ((volume - 1.0).abs() > 0.001) f.add('volume=${volume.toStringAsFixed(3)}');
+
+    final double dur = playbackSeconds(sourceSeconds);
+    if (fadeIn > 0) f.add('afade=t=in:st=0:d=${fadeIn.toStringAsFixed(2)}');
+    if (fadeOut > 0) {
+      final double st = math.max(0.0, dur - fadeOut);
+      f.add('afade=t=out:st=${st.toStringAsFixed(2)}:d=${fadeOut.toStringAsFixed(2)}');
+    }
+
+    return f.isEmpty ? null : f.join(',');
+  }
+
+  static List<String> _atempo(double factor) {
+    final List<String> out = <String>[];
+    double f = factor;
+    while (f > 2.0) {
+      out.add('atempo=2.0');
+      f /= 2.0;
+    }
+    while (f < 0.5) {
+      out.add('atempo=0.5');
+      f /= 0.5;
+    }
+    out.add('atempo=${f.toStringAsFixed(4)}');
+    return out;
+  }
+
+  static List<String> _pitch(double ratio, int sr) => <String>[
+        'asetrate=${(sr * ratio).round()}',
+        'aresample=$sr',
+        ..._atempo(1 / ratio),
+      ];
 }
 
 class CaptionWord {
@@ -1143,6 +1385,8 @@ class TimelineClip {
   final List<String>? thumbnails;
 
   Duration get duration => end - start;
+  double get trimmedDurationSeconds => (end - start).inMilliseconds / 1000.0;
+  List<double>? get waveformPeaks => waveform;
 
   bool get isModifier =>
       layerIndex < 0 ||
