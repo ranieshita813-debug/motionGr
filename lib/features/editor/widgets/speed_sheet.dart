@@ -20,10 +20,11 @@ import 'package:provider/provider.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/models/speed_settings.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
+import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 
 // ---- Tokens -------------------------------------------------------------------
 
-const Color _sheet = Color(0xFF121214);
+const Color _sheet = bgToken;
 const Color _card = Color(0xFF1C1C20);
 const Color _cardHi = Color(0xFF2E2E34);
 const Color _field = Color(0xFF18181B);

@@ -251,6 +251,7 @@ class TimelineWidget extends StatefulWidget {
     required this.onClearMulti,
     this.compact = false,
     this.snapEnabled = true,
+    this.mainTrackOnly = false,
     this.onAddText,
     this.onAddSticker,
   });
@@ -260,6 +261,7 @@ class TimelineWidget extends StatefulWidget {
   final ValueNotifier<Set<String>> multi;
   final VoidCallback onClearMulti;
   final bool compact;
+  final bool mainTrackOnly;
 
   /// Snapping is always on in the CapCut-style layout (the toggle chip was
   /// removed). Pass false to disable it from outside.
@@ -412,17 +414,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
   bool _isOverlay(_ClipSnapshot c) => c.type != ClipType.audio && !c.isMain;
 
-  bool _isStickerType(ClipType t) =>
-      t == ClipType.sticker || t == ClipType.element;
-
-  bool _isTextType(ClipType t) =>
-      t != ClipType.audio &&
-      t != ClipType.video &&
-      t != ClipType.image &&
-      t != ClipType.drawing &&
-      !_isStickerType(t) &&
-      t != ClipType.caption;
-
   /// Track name for an overlay lane, based on what it contains.
   String _overlayName(List<_ClipSnapshot> cs) {
     if (cs.isEmpty) return 'Text';
@@ -462,6 +453,22 @@ class _TimelineWidgetState extends State<TimelineWidget> {
   List<_Lane> _lanes(List<_ClipSnapshot> clips, String? selectedId) {
     final main = clips.where((c) => c.isMain).toList()
       ..sort((a, b) => a.startMs.compareTo(b.startMs));
+
+    // When in mask editing mode or mainTrackOnly is requested, only display the main video track
+    if (widget.mainTrackOnly || editor.isMaskEditing) {
+      bool hasTransitions = false;
+      for (int i = 0; i < main.length - 1; i++) {
+        if ((main[i + 1].startSec - main[i].endSec).abs() <= _adjacentEps) {
+          hasTransitions = true;
+          break;
+        }
+      }
+      return <_Lane>[
+        _Lane(_videoH + (hasTransitions ? _trH : 0), _ClipKind.video, main,
+            addKind: _AddKind.media, name: 'Video', clipH: _videoH),
+      ];
+    }
+
     final audio = clips.where((c) => c.type == ClipType.audio).toList()
       ..sort((a, b) => a.startMs.compareTo(b.startMs));
 
@@ -636,13 +643,10 @@ class _TimelineWidgetState extends State<TimelineWidget> {
           name: total > 1 ? '$base $n' : base));
     }
 
-    // Blank lanes: a kind that has no clips yet gets a tappable placeholder
-    // lane instead of an add button. They are only offered once the main
-    // track has something in it.
+    // Blank lanes: only "Add audio" placeholder is shown, and only when there
+    // are no audio clips and NO overlay clips present.
     final bool hasMain = main.isNotEmpty;
-    final bool hasText = clips.any((c) => _isOverlay(c) && _isTextType(c.type));
-    final bool hasSticker =
-        clips.any((c) => _isOverlay(c) && _isStickerType(c.type));
+    final bool hasAnyOverlay = overlayLanes.isNotEmpty || clips.any((c) => _isOverlay(c));
 
     // The video lane only reserves the transition strip when two main clips
     // actually touch.
@@ -656,18 +660,12 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
     return <_Lane>[
       ...overlayLanes,
-      if (hasMain && !hasText)
-        _Lane(_textH, _ClipKind.text, const <_ClipSnapshot>[],
-            addKind: _AddKind.text, name: 'Add text'),
-      if (hasMain && !hasSticker)
-        _Lane(_textH, _ClipKind.text, const <_ClipSnapshot>[],
-            addKind: _AddKind.sticker, name: 'Add sticker'),
       _Lane(_videoH + (hasTransitions ? _trH : 0), _ClipKind.video, main,
           addKind: _AddKind.media, name: 'Video', clipH: _videoH),
       for (int i = 0; i < audioRows.length; i++)
         _Lane(_audioH, _ClipKind.audio, audioRows[i],
             name: audioRows.length > 1 ? 'Audio ${i + 1}' : 'Audio'),
-      if (hasMain && audioRows.isEmpty)
+      if (hasMain && audioRows.isEmpty && !hasAnyOverlay)
         _Lane(_audioH, _ClipKind.audio, const <_ClipSnapshot>[],
             addKind: _AddKind.audio, name: 'Add audio'),
     ];

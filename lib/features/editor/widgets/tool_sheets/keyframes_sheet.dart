@@ -27,7 +27,7 @@ import 'package:flutter_video_editor/features/editor/utils/keyframe_curves.dart'
 // ============================================================================
 const double _kfFps = 30;
 
-const Color _kfBg = Color(0xFF000000);
+const Color _kfBg = bgToken;
 const Color _kfPanel = Color(0xFF111111);
 const Color _kfCard = Color(0xFF1C1C1E);
 const Color _kfCardOn = Color(0xFF262628);

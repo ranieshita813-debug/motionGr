@@ -16,8 +16,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
+import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 
-const Color _bg = Color(0xFF121214);
+const Color _bg = bgToken;
 const Color _card = Color(0xFF232327);
 const Color _field = Color(0xFF18181B);
 const Color _line = Color(0xFF2C2C31);
