@@ -7,8 +7,10 @@ import io.flutter.embedding.engine.FlutterEngine
 
 @UnstableApi
 class MainActivity : FlutterActivity() {
+private var trackingPlugin: TrackingPlugin? = null
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(ExportPlugin())
+        trackingPlugin = TrackingPlugin(applicationContext, flutterEngine.dartExecutor.binaryMessenger)
     }
 }
