@@ -50,7 +50,7 @@ jobs:
           KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_PATH: "upload-keystore.jks"
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

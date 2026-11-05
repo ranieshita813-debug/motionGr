@@ -27,6 +27,7 @@ dependencies:
   provider: ^6.1.2
   video_player: ^2.8.2
   phosphor_icons: ^3.0.1
+  just_audio: ^0.9.40
 
 dev_dependencies:
   flutter_test:

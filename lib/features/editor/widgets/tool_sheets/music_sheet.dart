@@ -100,7 +100,10 @@ class MusicRepository {
   MusicRepository({http.Client? client}) : _client = client ?? http.Client();
   final http.Client _client;
 
-  static const String _clientId = String.fromEnvironment('JAMENDO_CLIENT_ID');
+  static const String _clientId = String.fromEnvironment(
+    'JAMENDO_CLIENT_ID',
+    defaultValue: '84086260f413ccd1ecc3f1f617a2b5a4',
+  );
   static const int pageSize = 30;
 
   Future<MusicPage> fetch({String? query, String? tag, int offset = 0}) async {

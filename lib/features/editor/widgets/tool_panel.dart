@@ -28,6 +28,7 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/text_st
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_tools_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/music_sheet.dart';
 
 // ----------------------------------------------------------------------------
 // Inline tools enum
@@ -52,6 +53,7 @@ class _AudioSheetHost extends StatelessWidget {
 
 enum EditorTool {
   audio('Audio', PhosphorIconsRegular.speakerHigh),
+  music('Music', PhosphorIconsRegular.musicNotes),
   text('Text', PhosphorIconsRegular.textAa),
   textToSpeech('Text to Speech', PhosphorIconsRegular.waveSquare),
   stickers('Stickers', PhosphorIconsRegular.smiley),
@@ -81,6 +83,7 @@ enum EditorTool {
 
   Widget get body => switch (this) {
         EditorTool.audio => const _AudioSheetHost(),
+        EditorTool.music => const MusicSheet(),
         EditorTool.text => const TextAnimationSheet(),
         EditorTool.textToSpeech => const TextToSpeechSheet(),
         EditorTool.stickers => const StickersSheet(),
