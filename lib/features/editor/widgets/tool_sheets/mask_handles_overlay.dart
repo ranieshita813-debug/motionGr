@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
+import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'mask_geometry.dart';
 
 const Color _accent = Color(0xFF25F4EE);
@@ -40,7 +41,12 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
     return Offset(d.dx * c + d.dy * s, -d.dx * s + d.dy * c);
   }
 
-  MaskProperties? _current(EditorController e) => e.selectedClip?.maskProperties;
+  MaskProperties? _current(EditorController e) {
+    final clip = e.selectedClip;
+    if (clip == null) return null;
+    final relTime = e.playhead - clip.start;
+    return getInterpolatedMaskProperties(clip, relTime);
+  }
 
   void _writeX(MaskXform x) {
     final EditorController e = context.read<EditorController>();

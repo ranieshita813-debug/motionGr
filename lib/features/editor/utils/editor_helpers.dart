@@ -147,6 +147,62 @@ double getInterpolatedKeyframeValue(
   return ks.last.value;
 }
 
+/// Computes the active [MaskProperties] at [relativeTime] by interpolating any
+/// keyframed mask properties (maskX, maskY, maskWidth, maskHeight, maskRotation, maskFeather).
+MaskProperties getInterpolatedMaskProperties(
+  TimelineClip clip,
+  Duration relativeTime,
+) {
+  final MaskProperties base = clip.maskProperties;
+  if (base.type == MaskType.none) return base;
+
+  final double kX = getInterpolatedKeyframeValue(
+    clip,
+    KeyframeProperty.maskX,
+    relativeTime,
+    base.centerX,
+  );
+  final double kY = getInterpolatedKeyframeValue(
+    clip,
+    KeyframeProperty.maskY,
+    relativeTime,
+    base.centerY,
+  );
+  final double kW = getInterpolatedKeyframeValue(
+    clip,
+    KeyframeProperty.maskWidth,
+    relativeTime,
+    base.width,
+  );
+  final double kH = getInterpolatedKeyframeValue(
+    clip,
+    KeyframeProperty.maskHeight,
+    relativeTime,
+    base.height,
+  );
+  final double kRot = getInterpolatedKeyframeValue(
+    clip,
+    KeyframeProperty.maskRotation,
+    relativeTime,
+    base.rotation,
+  );
+  final double kFeather = getInterpolatedKeyframeValue(
+    clip,
+    KeyframeProperty.maskFeather,
+    relativeTime,
+    base.feather,
+  );
+
+  return base.copyWith(
+    centerX: kX,
+    centerY: kY,
+    width: kW,
+    height: kH,
+    rotation: kRot,
+    feather: kFeather,
+  );
+}
+
 bool isTypingActive() {
   final BuildContext? c = FocusManager.instance.primaryFocus?.context;
   if (c == null) return false;

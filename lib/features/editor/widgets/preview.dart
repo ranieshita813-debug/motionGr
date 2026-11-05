@@ -463,12 +463,13 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       final double kScale = getInterpolatedKeyframeValue(clip, KeyframeProperty.scale, relTime, clip.scale);
       final double kRot = getInterpolatedKeyframeValue(clip, KeyframeProperty.rotation, relTime, clip.rotation);
       final double kOpacity = getInterpolatedKeyframeValue(clip, KeyframeProperty.opacity, relTime, clip.opacity);
+      final MaskProperties activeMask = getInterpolatedMaskProperties(clip, relTime);
 
       final double sc = kScale.clamp(0.2, 5.0).toDouble();
 
       child = RepaintBoundary(
         child: MaskedLayer.fromProps(
-          props: clip.maskProperties,
+          props: activeMask,
           child: child,
         ),
       );

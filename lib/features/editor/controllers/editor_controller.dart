@@ -1275,9 +1275,43 @@ class EditorController extends ChangeNotifier {
     if (index == -1) return;
 
     _saveStateCoalesced('mask:$_selectedClipId');
-    _project.clips[index] = _project.clips[index].copyWith(
-      maskProperties: maskProperties,
-    );
+    final clip = _project.clips[index];
+    final relTime = playhead - clip.start;
+    final bool hasKeyframes = clip.keyframes.isNotEmpty;
+    final bool inRange = !relTime.isNegative && relTime <= clip.duration;
+
+    if (hasKeyframes && inRange && maskProperties.type != MaskType.none) {
+      final updatedKeyframes = List<Keyframe>.from(clip.keyframes);
+      final stamp = DateTime.now().millisecondsSinceEpoch;
+
+      void updateOrAddKf(KeyframeProperty prop, double val) {
+        updatedKeyframes.removeWhere((k) =>
+            k.property == prop && (k.time.inMilliseconds - relTime.inMilliseconds).abs() < 100);
+        updatedKeyframes.add(Keyframe(
+          id: 'kf_${stamp}_${prop.name}',
+          time: relTime,
+          property: prop,
+          value: val,
+        ));
+      }
+
+      updateOrAddKf(KeyframeProperty.maskX, maskProperties.centerX);
+      updateOrAddKf(KeyframeProperty.maskY, maskProperties.centerY);
+      updateOrAddKf(KeyframeProperty.maskWidth, maskProperties.width);
+      updateOrAddKf(KeyframeProperty.maskHeight, maskProperties.height);
+      updateOrAddKf(KeyframeProperty.maskRotation, maskProperties.rotation);
+      updateOrAddKf(KeyframeProperty.maskFeather, maskProperties.feather);
+
+      _project.clips[index] = clip.copyWith(
+        maskProperties: maskProperties,
+        keyframes: updatedKeyframes,
+      );
+    } else {
+      _project.clips[index] = clip.copyWith(
+        maskProperties: maskProperties,
+      );
+    }
+
     _autosave();
     notifyListeners();
   }
@@ -1313,6 +1347,8 @@ class EditorController extends ChangeNotifier {
     final updatedKeyframes = List<Keyframe>.from(clip.keyframes);
     final stamp = DateTime.now().millisecondsSinceEpoch;
 
+    final bool hasMask = clip.maskProperties.type != MaskType.none;
+
     final propsToAdd = property != null
         ? <KeyframeProperty>[property]
         : <KeyframeProperty>[
@@ -1323,6 +1359,14 @@ class EditorController extends ChangeNotifier {
             KeyframeProperty.opacity,
             if (clip.clipType == ClipType.audio || clip.clipType == ClipType.video)
               KeyframeProperty.volume,
+            if (hasMask) ...<KeyframeProperty>[
+              KeyframeProperty.maskX,
+              KeyframeProperty.maskY,
+              KeyframeProperty.maskWidth,
+              KeyframeProperty.maskHeight,
+              KeyframeProperty.maskRotation,
+              KeyframeProperty.maskFeather,
+            ],
           ];
 
     for (int i = 0; i < propsToAdd.length; i++) {
@@ -1334,6 +1378,12 @@ class EditorController extends ChangeNotifier {
         KeyframeProperty.rotation => getInterpolatedKeyframeValue(clip, p, relTime, clip.rotation),
         KeyframeProperty.opacity => getInterpolatedKeyframeValue(clip, p, relTime, clip.opacity),
         KeyframeProperty.volume => getInterpolatedKeyframeValue(clip, p, relTime, clip.volume),
+        KeyframeProperty.maskX => getInterpolatedKeyframeValue(clip, p, relTime, clip.maskProperties.centerX),
+        KeyframeProperty.maskY => getInterpolatedKeyframeValue(clip, p, relTime, clip.maskProperties.centerY),
+        KeyframeProperty.maskWidth => getInterpolatedKeyframeValue(clip, p, relTime, clip.maskProperties.width),
+        KeyframeProperty.maskHeight => getInterpolatedKeyframeValue(clip, p, relTime, clip.maskProperties.height),
+        KeyframeProperty.maskRotation => getInterpolatedKeyframeValue(clip, p, relTime, clip.maskProperties.rotation),
+        KeyframeProperty.maskFeather => getInterpolatedKeyframeValue(clip, p, relTime, clip.maskProperties.feather),
       };
 
       updatedKeyframes.removeWhere(

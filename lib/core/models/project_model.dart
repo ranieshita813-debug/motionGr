@@ -109,6 +109,12 @@ enum KeyframeProperty {
   rotation,
   opacity,
   volume,
+  maskX,
+  maskY,
+  maskWidth,
+  maskHeight,
+  maskRotation,
+  maskFeather,
 }
 
 enum CurveType {
