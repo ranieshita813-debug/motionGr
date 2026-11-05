@@ -81,13 +81,13 @@ class _MaskSheetState extends State<MaskSheet> {
     return ColoredBox(
       color: _mkBg,
       child: Padding(
-        padding: EdgeInsets.only(top: 10, bottom: 10 + bottom),
+        padding: EdgeInsets.only(top: 6, bottom: 6 + bottom),
         child: SizedBox(
-          height: 86,
+          height: 72,
           child: Row(
             children: <Widget>[
               Padding(
-                padding: const EdgeInsets.only(left: 16),
+                padding: const EdgeInsets.only(left: 12),
                 child: _MaskTile(
                   label: 'Invert',
                   name: 'invert',
@@ -101,14 +101,14 @@ class _MaskSheetState extends State<MaskSheet> {
               ),
               Container(
                 width: 1,
-                height: 40,
-                margin: const EdgeInsets.symmetric(horizontal: 12),
+                height: 36,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
                 color: _mkDim,
               ),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.only(right: 12),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -123,7 +123,7 @@ class _MaskSheetState extends State<MaskSheet> {
                       ),
                       for (final MaskType type in MaskType.values)
                         if (type != MaskType.none) ...<Widget>[
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           _MaskTile(
                             label: _mkCap(type.name),
                             name: type.name,
@@ -170,26 +170,26 @@ class _MaskTile extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: enabled ? onTap : null,
       child: SizedBox(
-        width: 58,
+        width: 50,
         child: Column(
           children: <Widget>[
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
-              width: 58,
-              height: 58,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 color: selected ? _mkCardOn : _mkCard,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: selected ? _mkText : Colors.transparent, width: 1.5),
               ),
               child: name == 'invert'
-                  ? Icon(Icons.invert_colors_rounded, size: 24, color: fg)
+                  ? Icon(Icons.invert_colors_rounded, size: 22, color: fg)
                   : Padding(
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(11),
                       child: CustomPaint(painter: _IconPainter(name: name, color: fg)),
                     ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               label,
               maxLines: 1,
@@ -197,6 +197,7 @@ class _MaskTile extends StatelessWidget {
               style: TextStyle(
                 color: fg,
                 fontSize: 11,
+                fontFamily: 'HelveticaNeue',
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),

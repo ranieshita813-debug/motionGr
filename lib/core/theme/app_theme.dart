@@ -1,30 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_video_editor/core/theme/app_colors.dart';
 
 class AppTheme {
+  static const String defaultFontFamily = 'HelveticaNeue';
+
   static ThemeData get darkTheme {
     final baseTextTheme = ThemeData.dark().textTheme;
-    final googleSansTheme = GoogleFonts.openSansTextTheme(baseTextTheme).copyWith(
-      headlineMedium: GoogleFonts.openSans(
+    final helveticaTheme = baseTextTheme.apply(
+      fontFamily: defaultFontFamily,
+      bodyColor: AppColors.textPrimary,
+      displayColor: AppColors.textPrimary,
+    ).copyWith(
+      headlineMedium: const TextStyle(
+        fontFamily: defaultFontFamily,
         fontSize: 24,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
       ),
-      titleMedium: GoogleFonts.openSans(
+      titleMedium: const TextStyle(
+        fontFamily: defaultFontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       ),
-      bodyLarge: GoogleFonts.openSans(
+      bodyLarge: const TextStyle(
+        fontFamily: defaultFontFamily,
         fontSize: 14,
         color: AppColors.textPrimary,
       ),
-      bodyMedium: GoogleFonts.openSans(
+      bodyMedium: const TextStyle(
+        fontFamily: defaultFontFamily,
         fontSize: 12,
         color: AppColors.textSecondary,
       ),
-      labelSmall: GoogleFonts.openSans(
+      labelSmall: const TextStyle(
+        fontFamily: defaultFontFamily,
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: AppColors.textSecondary,
@@ -35,7 +45,7 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.background,
-      fontFamily: 'Google Sans',
+      fontFamily: defaultFontFamily,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.accent,
         secondary: AppColors.accent,
@@ -65,7 +75,7 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: googleSansTheme,
+      textTheme: helveticaTheme,
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         modalBackgroundColor: AppColors.surface,

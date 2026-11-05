@@ -38,6 +38,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/
     - assets/fonts/
     - assets/icons/
     - assets/img/
@@ -69,6 +70,40 @@ flutter:
     - shaders/convex_screen_pro.frag
 
   fonts:
+    - family: HelveticaNeue
+      fonts:
+        - asset: assets/HelveticaNeue-Thin.otf
+          weight: 100
+        - asset: assets/HelveticaNeue-Ultralight.otf
+          weight: 200
+        - asset: assets/HelveticaNeue-Light.otf
+          weight: 300
+        - asset: assets/HelveticaNeue-Regular.otf
+          weight: 400
+        - asset: assets/HelveticaNeue-RegularItalic.otf
+          weight: 400
+          style: italic
+        - asset: assets/HelveticaNeue-Medium.otf
+          weight: 500
+        - asset: assets/HelveticaNeue-Bold.otf
+          weight: 700
+    - family: Helvetica Neue
+      fonts:
+        - asset: assets/HelveticaNeue-Thin.otf
+          weight: 100
+        - asset: assets/HelveticaNeue-Ultralight.otf
+          weight: 200
+        - asset: assets/HelveticaNeue-Light.otf
+          weight: 300
+        - asset: assets/HelveticaNeue-Regular.otf
+          weight: 400
+        - asset: assets/HelveticaNeue-RegularItalic.otf
+          weight: 400
+          style: italic
+        - asset: assets/HelveticaNeue-Medium.otf
+          weight: 500
+        - asset: assets/HelveticaNeue-Bold.otf
+          weight: 700
     - family: Google Sans
       fonts:
         - asset: assets/fonts/GoogleSans-Regular.ttf

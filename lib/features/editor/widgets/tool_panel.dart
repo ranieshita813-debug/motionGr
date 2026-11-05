@@ -224,7 +224,7 @@ enum EditorTool {
                     icon: const PhosphorIcon(PhosphorIconsFill.sparkle, size: 20),
                     label: const Text(
                       'Open AI Generator',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Ubuntu Sans'),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'HelveticaNeue'),
                     ),
                   ),
                 ),
@@ -270,7 +270,7 @@ class ToolPanel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Ubuntu Sans')),
+                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'HelveticaNeue')),
         ),
         KeyframeControls(editor: editor),
         const SizedBox(width: 8),
@@ -298,7 +298,7 @@ class ToolPanel extends StatelessWidget {
             Text(
               tool.title,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Ubuntu Sans'),
+                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'HelveticaNeue'),
             ),
             const Spacer(),
             IconButton(

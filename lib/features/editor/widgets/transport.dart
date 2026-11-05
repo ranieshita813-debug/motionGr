@@ -32,7 +32,7 @@ class TransportBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           KeyframeControls(editor: editor),
-          const Expanded(child: SizedBox.shrink()),
+          const Spacer(),
           _icon(PhosphorIconsRegular.skipBack, 'Previous frame',
               () => seekPlayhead(editor, secondsOf(editor.playhead) - 1 / fpsToken), s),
           Selector<EditorController, bool>(
@@ -65,18 +65,9 @@ class TransportBar extends StatelessWidget {
           ),
           _icon(PhosphorIconsRegular.skipForward, 'Next frame',
               () => seekPlayhead(editor, secondsOf(editor.playhead) + 1 / fpsToken), s),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _icon(PhosphorIconsRegular.arrowUUpLeft, 'Undo', editor.undo, s),
-                  _icon(PhosphorIconsRegular.arrowUUpRight, 'Redo', editor.redo, s),
-                ],
-              ),
-            ),
-          ),
+          const Spacer(),
+          _icon(PhosphorIconsRegular.arrowUUpLeft, 'Undo', editor.undo, s),
+          _icon(PhosphorIconsRegular.arrowUUpRight, 'Redo', editor.redo, s),
         ],
       ),
     );

@@ -48,7 +48,7 @@ class _CaptionTranslationSheetState extends State<CaptionTranslationSheet> {
           SnackBar(
             content: Text(
               'Captions translated to $_selectedLanguage',
-              style: const TextStyle(fontFamily: 'Ubuntu Sans'),
+              style: const TextStyle(fontFamily: 'HelveticaNeue'),
             ),
             duration: const Duration(seconds: 2),
           ),
@@ -60,7 +60,7 @@ class _CaptionTranslationSheetState extends State<CaptionTranslationSheet> {
           SnackBar(
             content: Text(
               'Translation failed: $e',
-              style: const TextStyle(fontFamily: 'Ubuntu Sans'),
+              style: const TextStyle(fontFamily: 'HelveticaNeue'),
             ),
             backgroundColor: Colors.redAccent,
           ),
@@ -159,7 +159,7 @@ class _CaptionTranslationSheetState extends State<CaptionTranslationSheet> {
                                       color: isSelected ? EditorTokens.bg : EditorTokens.text,
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
-                                      fontFamily: 'Ubuntu Sans',
+                                      fontFamily: 'HelveticaNeue',
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -171,7 +171,7 @@ class _CaptionTranslationSheetState extends State<CaptionTranslationSheet> {
                                           ? EditorTokens.bg.withValues(alpha: 0.7)
                                           : EditorTokens.muted,
                                       fontSize: 10,
-                                      fontFamily: 'Ubuntu Sans',
+                                      fontFamily: 'HelveticaNeue',
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -212,7 +212,7 @@ class _CaptionTranslationSheetState extends State<CaptionTranslationSheet> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        fontFamily: 'Ubuntu Sans',
+                        fontFamily: 'HelveticaNeue',
                       ),
                     ),
                   ),
