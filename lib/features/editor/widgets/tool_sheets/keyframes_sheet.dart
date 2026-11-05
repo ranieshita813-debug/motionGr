@@ -1142,7 +1142,7 @@ class _CurvePainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: <Color>[_kfAccent.withOpacity(0.18), _kfAccent.withOpacity(0.0)],
+          colors: <Color>[_kfAccent.withValues(alpha: 0.18), _kfAccent.withValues(alpha: 0.0)],
         ).createShader(Offset.zero & size),
     );
 
@@ -1173,7 +1173,7 @@ class _CurvePainter extends CustomPainter {
     // bezier handles (halo + ring + dot)
     if (isBezier) {
       for (final Offset pt in <Offset>[p1, p2]) {
-        canvas.drawCircle(pt, 16, Paint()..color = _kfAccent.withOpacity(0.18));
+        canvas.drawCircle(pt, 16, Paint()..color = _kfAccent.withValues(alpha: 0.18));
         canvas.drawCircle(pt, 9, Paint()..color = Colors.white);
         canvas.drawCircle(pt, 6.5, Paint()..color = _kfAccent);
       }
@@ -1183,7 +1183,7 @@ class _CurvePainter extends CustomPainter {
     final double? pr = progress;
     if (pr != null) {
       final Offset d = _gp(size, pr, k.ease(pr));
-      canvas.drawCircle(d, 9, Paint()..color = Colors.white.withOpacity(0.25));
+      canvas.drawCircle(d, 9, Paint()..color = Colors.white.withValues(alpha: 0.25));
       canvas.drawCircle(d, 4.5, Paint()..color = Colors.white);
     }
   }

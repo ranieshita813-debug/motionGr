@@ -178,6 +178,31 @@ class _MaskSheetState extends State<MaskSheet> {
   bool _invert = false;
   _MaskXform _x = const _MaskXform();
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final editor = context.read<EditorController>();
+      final clip = editor.selectedClip;
+      if (clip != null && clip.maskProperties.type != MaskType.none) {
+        setState(() {
+          _type = clip.maskProperties.type;
+          _feather = clip.maskProperties.feather;
+          _invert = clip.maskProperties.invert;
+          _x = _MaskXform(
+            cx: clip.maskProperties.centerX,
+            cy: clip.maskProperties.centerY,
+            w: clip.maskProperties.width > 2.0 ? 0.5 : clip.maskProperties.width,
+            h: clip.maskProperties.height > 2.0 ? 0.5 : clip.maskProperties.height,
+            rot: clip.maskProperties.rotation,
+            corner: clip.maskProperties.cornerRadius,
+          );
+        });
+      }
+    });
+  }
+
   void _apply(EditorController editor) {
     final MaskType? t = _type;
     if (t == null) return;
@@ -195,7 +220,7 @@ class _MaskSheetState extends State<MaskSheet> {
   }
 
   void _clear(EditorController editor) {
-    // TODO: remove the mask from the selected clip, e.g. editor.clearMask();
+    editor.updateMaskProperties(const MaskProperties());
   }
 
   @override
@@ -281,19 +306,20 @@ class _MaskSheetState extends State<MaskSheet> {
                               _clear(editor);
                             },
                           ),
-                          for (final MaskType type in MaskType.values) ...<Widget>[
-                            const SizedBox(width: 10),
-                            _MaskTile(
-                              label: _mkCap(type.name),
-                              name: type.name,
-                              selected: type == _type,
-                              onTap: () {
-                                tapFeedback();
-                                setState(() => _type = type);
-                                _apply(editor);
-                              },
-                            ),
-                          ],
+                          for (final MaskType type in MaskType.values)
+                            if (type != MaskType.none) ...<Widget>[
+                              const SizedBox(width: 10),
+                              _MaskTile(
+                                label: _mkCap(type.name),
+                                name: type.name,
+                                selected: type == _type,
+                                onTap: () {
+                                  tapFeedback();
+                                  setState(() => _type = type);
+                                  _apply(editor);
+                                },
+                              ),
+                            ],
                         ],
                       ),
                     ),
@@ -468,7 +494,7 @@ class _CanvasPainter extends CustomPainter {
   final _MaskXform x;
 
   void _dot(Canvas canvas, Offset p) {
-    canvas.drawCircle(p, 8, Paint()..color = Colors.black.withOpacity(0.5));
+    canvas.drawCircle(p, 8, Paint()..color = Colors.black.withValues(alpha: 0.5));
     canvas.drawCircle(p, 6, Paint()..color = Colors.white);
   }
 
@@ -489,7 +515,7 @@ class _CanvasPainter extends CustomPainter {
     final double sigma = feather * (size.width / 340) / 2.2;
 
     // dim everything, then show the scene through the (feathered) mask
-    canvas.drawRect(full, Paint()..color = Colors.black.withOpacity(0.62));
+    canvas.drawRect(full, Paint()..color = Colors.black.withValues(alpha: 0.62));
     canvas.saveLayer(full, Paint());
     canvas.save();
     canvas.translate(g.c.dx, g.c.dy);
@@ -529,20 +555,20 @@ class _CanvasPainter extends CustomPainter {
     }
 
     final Paint guide = Paint()
-      ..color = Colors.white.withOpacity(0.6)
+      ..color = Colors.white.withValues(alpha: 0.6)
       ..strokeWidth = 1.4;
 
     // rotate handle
     final Offset rot = g.rotate;
     canvas.drawLine(Offset(0, -g.hh), rot, guide);
-    canvas.drawCircle(rot, 13, Paint()..color = _mkAccent.withOpacity(0.2));
+    canvas.drawCircle(rot, 13, Paint()..color = _mkAccent.withValues(alpha: 0.2));
     canvas.drawCircle(rot, 8, Paint()..color = Colors.white);
     canvas.drawCircle(rot, 5.5, Paint()..color = _mkAccent);
 
     // feather handle: ⟩
     final Offset fh = g.feather;
     canvas.drawLine(Offset(g.vhw, 0), fh, guide);
-    canvas.drawCircle(fh, 18, Paint()..color = _mkAccent.withOpacity(0.2));
+    canvas.drawCircle(fh, 18, Paint()..color = _mkAccent.withValues(alpha: 0.2));
     canvas.drawCircle(fh, 12, Paint()..color = Colors.white);
     canvas.drawPath(
       Path()
@@ -568,7 +594,7 @@ class _CanvasPainter extends CustomPainter {
     // round-corner handle (rectangle only)
     final Offset? rd = g.radius;
     if (rd != null) {
-      canvas.drawCircle(rd, 11, Paint()..color = _mkAccent.withOpacity(0.2));
+      canvas.drawCircle(rd, 11, Paint()..color = _mkAccent.withValues(alpha: 0.2));
       canvas.drawCircle(rd, 7, Paint()..color = Colors.white);
       canvas.drawPath(
         Path()
@@ -678,7 +704,7 @@ class _IconPainter extends CustomPainter {
       ..strokeWidth = 1.8
       ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round;
-    final Paint fill = Paint()..color = color.withOpacity(0.2);
+    final Paint fill = Paint()..color = color.withValues(alpha: 0.2);
 
     if (name == 'none') {
       canvas.drawOval(r, line);
