@@ -94,6 +94,7 @@ class _ExportModalState extends State<ExportModal> {
   int _tab = 0;
   String _presetId = 'yt1080';
   double _aspect = 16 / 9;
+  bool _showAdvanced = false;
   DateTime? _startedAt;
 
   @override
@@ -356,62 +357,155 @@ class _ExportModalState extends State<ExportModal> {
   // Settings screen
   // ---------------------------------------------------------------------------
 
+  Widget _quickSettingsCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Resolution', style: _t(13, color: _ink, weight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          _Seg<String>(
+            values: const <String>['720p', '1080p', '4K'],
+            selected: s.width >= 3840
+                ? '4K'
+                : (s.width >= 1920 ? '1080p' : '720p'),
+            label: (r) => r,
+            onChanged: (r) {
+              _edit(() {
+                s.matchSource = false;
+                if (r == '720p') {
+                  s.width = 1280;
+                  s.height = 720;
+                } else if (r == '4K') {
+                  s.width = 3840;
+                  s.height = 2160;
+                } else {
+                  s.width = 1920;
+                  s.height = 1080;
+                }
+                _syncDims();
+              });
+            },
+          ),
+          if (!s.format.isStill) ...<Widget>[
+            const SizedBox(height: 14),
+            Text('Frame Rate', style: _t(13, color: _ink, weight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            _Seg<double>(
+              values: const <double>[24, 30, 60],
+              selected: s.fps >= 59 ? 60 : (s.fps <= 25 ? 24 : 30),
+              label: (f) => '${f.toInt()} fps',
+              onChanged: (f) {
+                _edit(() {
+                  s.fps = f;
+                  s.matchSource = false;
+                });
+              },
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _labeled(
+                  'Format',
+                  _Dd<VideoFormat>(
+                    value: s.format,
+                    items: VideoFormat.values,
+                    label: (f) => f.label,
+                    onChanged: _setFormat,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _labeled('File name', _nameField()),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _settingsView(EditorController editorCtrl) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
       children: <Widget>[
         _previewCard(editorCtrl),
         const SizedBox(height: 12),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _labeled(
-                'Format',
-                _Dd<VideoFormat>(
-                  value: s.format,
-                  items: VideoFormat.values,
-                  label: (f) => f.label,
-                  onChanged: _setFormat,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _labeled(
-                'Preset',
-                _Dd<String>(
-                  value: _presetId,
-                  items: <String>[...kExportPresets.map((p) => p.id), 'custom'],
-                  label: (id) => id == 'custom'
-                      ? 'Custom'
-                      : kExportPresets.firstWhere((p) => p.id == id).name,
-                  onChanged: _applyPreset,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _labeled(
-                'Range',
-                _Dd<ExportRangeMode>(
-                  value: s.range,
-                  items: ExportRangeMode.values,
-                  label: (r) => r.label,
-                  onChanged: (v) => setState(() => s.range = v),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(child: _labeled('File name', _nameField())),
-          ],
-        ),
+        _quickSettingsCard(),
         const SizedBox(height: 14),
-        _tabStrip(),
-        ..._tabBody(editorCtrl),
+        // Collapsible Advanced Settings
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() => _showAdvanced = !_showAdvanced);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: _card,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _line),
+            ),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.tune_rounded, size: 18, color: _muted),
+                const SizedBox(width: 8),
+                Text('Advanced Export Settings', style: _t(13, weight: FontWeight.w600)),
+                const Spacer(),
+                Icon(
+                  _showAdvanced ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  color: _muted,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_showAdvanced) ...<Widget>[
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _labeled(
+                  'Preset',
+                  _Dd<String>(
+                    value: _presetId,
+                    items: <String>[...kExportPresets.map((p) => p.id), 'custom'],
+                    label: (id) => id == 'custom'
+                        ? 'Custom'
+                        : kExportPresets.firstWhere((p) => p.id == id).name,
+                    onChanged: _applyPreset,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _labeled(
+                  'Range',
+                  _Dd<ExportRangeMode>(
+                    value: s.range,
+                    items: ExportRangeMode.values,
+                    label: (r) => r.label,
+                    onChanged: (v) => setState(() => s.range = v),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _tabStrip(),
+          ..._tabBody(editorCtrl),
+        ],
       ],
     );
   }

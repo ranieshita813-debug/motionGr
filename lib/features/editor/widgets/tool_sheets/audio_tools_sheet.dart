@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/music_sheet.dart';
+import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 
 const Color _accent = Color(0xFF25F4EE); // CapCut cyan, same as the TTS sheet
 const String _font = 'Fredoka';
@@ -32,6 +34,62 @@ class _AudioToolsSheetState extends State<AudioToolsSheet> {
   double? _volumeDraft;
   double? _speedDraft;
   double _volumeBeforeMute = 1.0;
+
+  void _openMusic(BuildContext context) {
+    tapFeedback();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: bgToken,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => FractionallySizedBox(
+        heightFactor: 0.75,
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Music Library',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: _font,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(PhosphorIconsRegular.folderOpen, color: _accent, size: 20),
+                    tooltip: 'From device',
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _importAudio(context.read<EditorController>());
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Expanded(child: MusicSheet()),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _importAudio(EditorController editor) async {
     try {
@@ -90,8 +148,8 @@ class _AudioToolsSheetState extends State<AudioToolsSheet> {
               child: _ActionTile(
                 icon: PhosphorIconsRegular.musicNotes,
                 label: 'Music',
-                caption: 'From device',
-                onTap: () => _importAudio(editor),
+                caption: 'Online & device',
+                onTap: () => _openMusic(context),
               ),
             ),
             const SizedBox(width: 10),

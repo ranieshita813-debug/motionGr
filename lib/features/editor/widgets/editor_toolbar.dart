@@ -213,12 +213,6 @@ class EditorToolbar extends StatelessWidget {
           onTap: () => onSelectToolSheet('audio'),
         ),
         EditorToolbarItem(
-          id: 'music',
-          title: 'Music',
-          icon: PhosphorIconsRegular.musicNotes,
-          onTap: () => onSelectToolSheet('music'),
-        ),
-        EditorToolbarItem(
           id: 'adjust',
           title: 'Adjust',
           icon: PhosphorIconsRegular.sliders,
@@ -538,12 +532,6 @@ class EditorToolbar extends StatelessWidget {
             title: 'Speed',
             icon: PhosphorIconsRegular.gauge,
             onTap: () => onSelectToolSheet('speed'),
-          ),
-          EditorToolbarItem(
-            id: 'music',
-            title: 'Music',
-            icon: PhosphorIconsRegular.musicNotes,
-            onTap: () => onSelectToolSheet('music'),
           ),
           EditorToolbarItem(
             id: 'effects',

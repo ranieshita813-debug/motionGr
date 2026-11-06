@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:flutter_video_editor/core/models/chroma_key.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
@@ -80,6 +79,44 @@ enum EditorTool {
   const EditorTool(this.title, this.icon);
   final String title;
   final PhosphorIconData icon;
+
+  Widget buildBody(VoidCallback onClose) => switch (this) {
+        EditorTool.colorGrading => Builder(
+            builder: (ctx) {
+              final editor = ctx.read<EditorController>();
+              final clip = ctx.select<EditorController, TimelineClip?>((e) => e.selectedClip);
+              final initialGrade = clip != null
+                  ? ColorGrade.fromLegacy(
+                      brightness: clip.colorGrading.brightness,
+                      contrast: clip.colorGrading.contrast,
+                      saturation: clip.colorGrading.saturation,
+                    )
+                  : ColorGrade.identity;
+
+              return ColorGradeSheet(
+                initial: initialGrade,
+                onChanged: (grade) {
+                  final legacy = grade.toLegacy();
+                  editor.updateColorGrading(ColorGradingSettings(
+                    brightness: legacy.brightness,
+                    contrast: legacy.contrast,
+                    saturation: legacy.saturation,
+                  ));
+                },
+                onApply: (grade) {
+                  final legacy = grade.toLegacy();
+                  editor.updateColorGrading(ColorGradingSettings(
+                    brightness: legacy.brightness,
+                    contrast: legacy.contrast,
+                    saturation: legacy.saturation,
+                  ));
+                },
+                onClose: onClose,
+              );
+            },
+          ),
+        _ => body,
+      };
 
   Widget get body => switch (this) {
         EditorTool.audio => const _AudioSheetHost(),
@@ -252,27 +289,18 @@ class ToolPanel extends StatelessWidget {
   final ValueChanged<bool>? onDrag;
 
   Widget _header(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        const SizedBox(width: 16),
-        tool == EditorTool.textToSpeech
-            ? SvgPicture.asset(
-                'assets/icons/text_to_speech.svg',
-                width: 22,
-                height: 22,
-                colorFilter: const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
-              )
-            : PhosphorIcon(tool.icon, color: Colors.white70, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(tool.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka')),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(
+          tool.title,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka'),
         ),
-        const SizedBox(width: 8),
-      ],
+      ),
     );
   }
 
@@ -313,9 +341,10 @@ class ToolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasCustomFooter = tool == EditorTool.colorGrading;
     final Widget bodyWidget = tool == EditorTool.speed
         ? SpeedSheet(onClose: onClose)
-        : tool.body;
+        : tool.buildBody(onClose);
 
     final Widget body = Expanded(
       child: ClipRect(
@@ -334,9 +363,8 @@ class ToolPanel extends StatelessWidget {
           child: Column(
             children: <Widget>[
               SizedBox(height: 52, child: _header(context)),
-              const Divider(height: 1, thickness: 0.5, color: dividerToken),
               body,
-              _buildFooter(),
+              if (!hasCustomFooter) _buildFooter(),
             ],
           ),
         ),
@@ -377,9 +405,8 @@ class ToolPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              const Divider(height: 1, thickness: 0.5, color: dividerToken),
               body,
-              _buildFooter(),
+              if (!hasCustomFooter) _buildFooter(),
             ],
           ),
         ),

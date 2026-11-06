@@ -362,11 +362,10 @@ class _EditorPageState extends State<EditorPage> {
                 final double sideW =
                     (c.maxWidth * 0.3).clamp(320.0, 440.0).toDouble();
 
-                // On phones, an open tool sheet hides the timeline, divider
-                // and transport bar so the preview gets all the space.
-                // Mask tool needs the video controls (TransportBar) and timeline
-                // to stay visible so the user can seek, view tracks, and use transport keyframe controls.
-                final bool hideTimeline = _tool != null && _tool != EditorTool.mask && !wide;
+                // Video controls panel (TransportBar) stays visible across all tool sheets.
+                // When a tool sheet is open on phones, hide the multi-layer timeline and divider
+                // (except for mask tool which needs the main video track).
+                final bool hideTimelineTracks = _tool != null && _tool != EditorTool.mask && !wide;
 
                 final Widget toolbar = EditorToolbar(
                   key: const ValueKey('bar'),
@@ -395,17 +394,6 @@ class _EditorPageState extends State<EditorPage> {
                       valueListenable: canvasRatioNotifier,
                       builder: (context, ratio, _) {
                         final Widget pv = PreviewCanvas(editor: editor);
-                        if (hideTimeline) {
-                          // No transport bar here, so tap the preview to
-                          // play / pause while tweaking a tool.
-                          return Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: editor.togglePlayback,
-                              child: pv,
-                            ),
-                          );
-                        }
                         final double s = scaleOf(size);
                         final EdgeInsets safe = MediaQuery.paddingOf(context);
                         final double colW = wide
@@ -416,8 +404,8 @@ class _EditorPageState extends State<EditorPage> {
                         final double barH = (64 * s).clamp(60.0, 80.0).toDouble();
                         final double bottomH =
                             ((wide || _tool == null) ? barH : panelH) + safe.bottom;
-                        final double tlMin = (isShort(size) ? 90 : 120) * s;
-                        final double tlMax = 240 * s;
+                        final double tlMin = hideTimelineTracks ? 0 : (isShort(size) ? 90 : 120) * s;
+                        final double tlMax = hideTimelineTracks ? 0 : 240 * s;
                         // Canvas is full width with square corners, so the
                         // wanted height is simply width / ratio (no padding).
                         final double desired = topH + colW / ratio.value;
@@ -433,17 +421,21 @@ class _EditorPageState extends State<EditorPage> {
                         _maxAdj = math.max(0.0, (maxP - base).toDouble());
                         final double hgt =
                             (base + _splitAdj.clamp(_minAdj, _maxAdj)).toDouble();
+
+                        if (hideTimelineTracks) {
+                          return Expanded(child: pv);
+                        }
                         return SizedBox(height: hgt, child: pv);
                       },
                     ),
-                    if (!hideTimeline) TransportBar(editor: editor),
-                    if (!hideTimeline)
+                    TransportBar(editor: editor),
+                    if (!hideTimelineTracks)
                       PaneDivider(
                         onDrag: (dy) => setState(() => _splitAdj =
                             (_splitAdj + dy).clamp(_minAdj, _maxAdj).toDouble()),
                         onReset: () => setState(() => _splitAdj = 0),
                       ),
-                    if (!hideTimeline)
+                    if (!hideTimelineTracks)
                       Expanded(
                         child: TimelineWidget(
                           editor: editor,
