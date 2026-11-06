@@ -31,11 +31,19 @@ class MaskHandlesOverlay extends StatefulWidget {
   State<MaskHandlesOverlay> createState() => _MaskHandlesOverlayState();
 }
 
+class _MaskSnapLine {
+  const _MaskSnapLine(this.vertical, this.pos);
+  final bool vertical;
+  final double pos; // in pixels
+}
+
 class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
   static const double _hit = 30;
 
   _Mode _mode = _Mode.none;
   MaskXform _start = const MaskXform();
+  List<_MaskSnapLine> _snapLines = const <_MaskSnapLine>[];
+  String _lastSnapSig = '';
 
   void _setMode(_Mode m) {
     if (_mode == m) return;
@@ -142,9 +150,48 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
               _writeFeather((now.feather + dl * 0.35).clamp(0.0, kMaskMaxFeather).toDouble());
               break;
             case _Mode.move:
+              double targetCx = (cur.cx + d.focalPointDelta.dx / size.width).clamp(0.0, 1.0).toDouble();
+              double targetCy = (cur.cy + d.focalPointDelta.dy / size.height).clamp(0.0, 1.0).toDouble();
+
+              // Magnetic snap targets in normalized coordinates (0..1)
+              const double snapDistThreshold = 14.0; // pixels
+              final double thX = snapDistThreshold / size.width;
+              final double thY = snapDistThreshold / size.height;
+
+              final List<double> snapTargetsX = <double>[0.0, 1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0];
+              final List<double> snapTargetsY = <double>[0.0, 1.0 / 3.0, 0.5, 2.0 / 3.0, 1.0];
+
+              final List<_MaskSnapLine> activeLines = <_MaskSnapLine>[];
+
+              for (final double tx in snapTargetsX) {
+                if ((targetCx - tx).abs() < thX) {
+                  targetCx = tx;
+                  activeLines.add(_MaskSnapLine(true, tx * size.width));
+                  break;
+                }
+              }
+
+              for (final double ty in snapTargetsY) {
+                if ((targetCy - ty).abs() < thY) {
+                  targetCy = ty;
+                  activeLines.add(_MaskSnapLine(false, ty * size.height));
+                  break;
+                }
+              }
+
+              final String sig = activeLines.map((l) => '${l.vertical}${l.pos.toStringAsFixed(1)}').join('|');
+              if (sig.isNotEmpty && sig != _lastSnapSig) {
+                tapFeedback();
+              }
+              _lastSnapSig = sig;
+
+              if (mounted) {
+                setState(() => _snapLines = activeLines);
+              }
+
               MaskXform n = cur.copyWith(
-                cx: (cur.cx + d.focalPointDelta.dx / size.width).clamp(0.0, 1.0).toDouble(),
-                cy: (cur.cy + d.focalPointDelta.dy / size.height).clamp(0.0, 1.0).toDouble(),
+                cx: targetCx,
+                cy: targetCy,
               );
               if (d.pointerCount > 1) {
                 final bool line = maskIsLine(name);
@@ -160,7 +207,15 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
               break;
           }
         },
-        onScaleEnd: (_) => _setMode(_Mode.none),
+        onScaleEnd: (_) {
+          if (_snapLines.isNotEmpty) {
+            setState(() {
+              _snapLines = const <_MaskSnapLine>[];
+              _lastSnapSig = '';
+            });
+          }
+          _setMode(_Mode.none);
+        },
         child: CustomPaint(
           size: size,
           painter: _HandlesPainter(
@@ -168,6 +223,7 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
             feather: p.feather,
             x: x,
             mode: _mode,
+            snapLines: _snapLines,
           ),
         ),
       );
@@ -181,14 +237,27 @@ class _HandlesPainter extends CustomPainter {
     required this.feather,
     required this.x,
     required this.mode,
+    this.snapLines = const <_MaskSnapLine>[],
   });
 
   final String name;
   final double feather;
   final MaskXform x;
   final _Mode mode;
+  final List<_MaskSnapLine> snapLines;
 
   // ---- helpers -------------------------------------------------------------
+
+  void _drawDashedLine(Canvas canvas, Offset a, Offset b, Paint p) {
+    final double total = (b - a).distance;
+    if (total <= 0) return;
+    final Offset dir = (b - a) / total;
+    double d = 0;
+    while (d < total) {
+      canvas.drawLine(a + dir * d, a + dir * math.min(d + 6, total), p);
+      d += 10;
+    }
+  }
 
   /// Round handle: soft shadow, white body, accent ring, optional glyph.
   /// The glyph is counter-rotated so it always stays upright.
@@ -356,6 +425,20 @@ class _HandlesPainter extends CustomPainter {
         radius: 14, active: mode == _Mode.feather, glyph: _featherGlyph);
 
     canvas.restore();
+
+    // Render Magnetic Snap Guidelines when dragging
+    if (snapLines.isNotEmpty) {
+      final Paint guidePaint = Paint()
+        ..color = _accent.withValues(alpha: 0.9)
+        ..strokeWidth = 1.0;
+      for (final line in snapLines) {
+        if (line.vertical) {
+          _drawDashedLine(canvas, Offset(line.pos, 0), Offset(line.pos, size.height), guidePaint);
+        } else {
+          _drawDashedLine(canvas, Offset(0, line.pos), Offset(size.width, line.pos), guidePaint);
+        }
+      }
+    }
   }
 
   @override
@@ -363,6 +446,7 @@ class _HandlesPainter extends CustomPainter {
       o.name != name ||
       o.feather != feather ||
       o.mode != mode ||
+      o.snapLines != snapLines ||
       o.x.cx != x.cx ||
       o.x.cy != x.cy ||
       o.x.w != x.w ||

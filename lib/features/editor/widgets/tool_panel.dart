@@ -252,27 +252,18 @@ class ToolPanel extends StatelessWidget {
   final ValueChanged<bool>? onDrag;
 
   Widget _header(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        const SizedBox(width: 16),
-        tool == EditorTool.textToSpeech
-            ? SvgPicture.asset(
-                'assets/icons/text_to_speech.svg',
-                width: 22,
-                height: 22,
-                colorFilter: const ColorFilter.mode(Colors.white70, BlendMode.srcIn),
-              )
-            : PhosphorIcon(tool.icon, color: Colors.white70, size: 22),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(tool.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka')),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(
+          tool.title,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka'),
         ),
-        const SizedBox(width: 8),
-      ],
+      ),
     );
   }
 
@@ -313,9 +304,10 @@ class ToolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasCustomFooter = tool == EditorTool.colorGrading;
     final Widget bodyWidget = tool == EditorTool.speed
         ? SpeedSheet(onClose: onClose)
-        : tool.body;
+        : tool.buildBody(onClose);
 
     final Widget body = Expanded(
       child: ClipRect(
@@ -334,9 +326,8 @@ class ToolPanel extends StatelessWidget {
           child: Column(
             children: <Widget>[
               SizedBox(height: 52, child: _header(context)),
-              const Divider(height: 1, thickness: 0.5, color: dividerToken),
               body,
-              _buildFooter(),
+              if (!hasCustomFooter) _buildFooter(),
             ],
           ),
         ),
@@ -377,9 +368,8 @@ class ToolPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              const Divider(height: 1, thickness: 0.5, color: dividerToken),
               body,
-              _buildFooter(),
+              if (!hasCustomFooter) _buildFooter(),
             ],
           ),
         ),

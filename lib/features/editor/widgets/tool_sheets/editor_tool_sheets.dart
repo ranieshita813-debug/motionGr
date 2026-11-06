@@ -84,9 +84,8 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 48,
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: dividerToken))),
       child: Row(
         children: <Widget>[
           IconButton(

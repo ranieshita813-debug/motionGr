@@ -27,9 +27,8 @@ void main() {
       expect(editor.project.clips.any((c) => c.sourcePath == '/tmp/sticker.png'), isTrue);
     });
 
-    testWidgets('EditorToolbar renders Music tool when no clip is selected', (WidgetTester tester) async {
+    testWidgets('EditorToolbar does not render Music tool directly on toolbar', (WidgetTester tester) async {
       final editor = EditorController();
-      String? selectedSheet;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -37,7 +36,7 @@ void main() {
             body: ChangeNotifierProvider<EditorController>.value(
               value: editor,
               child: EditorToolbar(
-                onSelectToolSheet: (sheet) => selectedSheet = sheet,
+                onSelectToolSheet: (_) {},
                 onAddMedia: () {},
                 onAddOverlay: () {},
               ),
@@ -46,50 +45,9 @@ void main() {
         ),
       );
 
-      final musicItem = find.text('Music');
-      expect(musicItem, findsOneWidget);
-
-      await tester.tap(musicItem);
-      await tester.pumpAndSettle();
-      expect(selectedSheet, equals('music'));
-    });
-
-    testWidgets('EditorToolbar renders Music tool when audio clip is selected', (WidgetTester tester) async {
-      final editor = EditorController();
-      final audioClip = TimelineClip(
-        id: 'audio_1',
-        label: 'My Audio',
-        start: Duration.zero,
-        end: const Duration(seconds: 10),
-        clipType: ClipType.audio,
-        layerIndex: 1,
-      );
-      editor.project.addClip(audioClip);
-      editor.selectClip(audioClip.id);
-
-      String? selectedSheet;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ChangeNotifierProvider<EditorController>.value(
-              value: editor,
-              child: EditorToolbar(
-                onSelectToolSheet: (sheet) => selectedSheet = sheet,
-                onAddMedia: () {},
-                onAddOverlay: () {},
-              ),
-            ),
-          ),
-        ),
-      );
-
-      final musicItem = find.text('Music');
-      expect(musicItem, findsOneWidget);
-
-      await tester.tap(musicItem);
-      await tester.pumpAndSettle();
-      expect(selectedSheet, equals('music'));
+      // Music tool was removed from toolbar in favor of Audio Sheet
+      expect(find.text('Music'), findsNothing);
+      expect(find.text('Audio'), findsOneWidget);
     });
 
     testWidgets('EditorTool.music body returns MusicSheet', (WidgetTester tester) async {
