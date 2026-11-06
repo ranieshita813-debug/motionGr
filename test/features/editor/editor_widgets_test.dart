@@ -36,7 +36,7 @@ void main() {
   });
 
   group('Editor Widgets & Canvas Background Tests', () {
-    testWidgets('TimelineWidget renders blank lane placeholder with transparent background', (WidgetTester tester) async {
+    testWidgets('TimelineWidget does not render blank lane placeholders (Add text, Add audio, etc)', (WidgetTester tester) async {
       final multiOn = ValueNotifier<bool>(false);
       final multi = ValueNotifier<Set<String>>(<String>{});
 
@@ -57,14 +57,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify that "Add text" placeholder appears for blank text lane
-      expect(find.text('Add text'), findsOneWidget);
-
-      // Verify that Container for placeholder has transparent color and uses CustomPaint
-      final textFinder = find.text('Add text');
-      final containerFinder = find.ancestor(of: textFinder, matching: find.byType(Container)).first;
-      final Container container = tester.widget<Container>(containerFinder);
-      expect(container.color, equals(Colors.transparent));
+      // Verify that placeholder tracks are not rendered
+      expect(find.text('Add text'), findsNothing);
+      expect(find.text('Add sticker'), findsNothing);
+      expect(find.text('Add audio'), findsNothing);
     });
 
     testWidgets('canvasColorNotifier updates canvas background in PreviewCanvas', (WidgetTester tester) async {

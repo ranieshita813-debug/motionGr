@@ -99,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Text(
               _word[i],
               style: TextStyle(
-                fontFamily: 'Unbounded',
+                fontFamily: 'HelveticaNeue',
                 fontSize: _fontSize,
                 fontWeight: FontWeight.w700,
                 height: 1.1,

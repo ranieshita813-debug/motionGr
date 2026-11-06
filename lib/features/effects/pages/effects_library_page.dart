@@ -246,7 +246,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
                 color: EditorTokens.text,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                fontFamily: 'Ubuntu',
+                fontFamily: 'HelveticaNeue',
               ),
             ),
           ),
@@ -306,7 +306,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
         labelStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          fontFamily: 'Ubuntu',
+          fontFamily: 'HelveticaNeue',
         ),
         tabs: const [
           Tab(text: 'ALL EFFECTS'),
@@ -347,7 +347,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
                 style: const TextStyle(
                   color: EditorTokens.text,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Ubuntu',
+                  fontFamily: 'HelveticaNeue',
                 ),
               ),
             ),
@@ -377,7 +377,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
                 'APPLY EFFECT',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'Ubuntu',
+                  fontFamily: 'HelveticaNeue',
                 ),
               ),
             ),

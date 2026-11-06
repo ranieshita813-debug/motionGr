@@ -60,7 +60,7 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         alignment: Alignment.center,
         child: const Text(
           'Select a clip to apply animations',
-          style: TextStyle(color: EditorTokens.muted, fontFamily: 'Ubuntu'),
+          style: TextStyle(color: EditorTokens.muted, fontFamily: 'HelveticaNeue'),
         ),
       );
     }
@@ -80,7 +80,7 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
           labelStyle: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 13,
-            fontFamily: 'Ubuntu',
+            fontFamily: 'HelveticaNeue',
           ),
           tabs: const [
             Tab(text: 'In Animation'),
@@ -185,7 +185,7 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
                       color: isSelected ? EditorTokens.bg : EditorTokens.text,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Ubuntu',
+                      fontFamily: 'HelveticaNeue',
                     ),
                   ),
                 ),

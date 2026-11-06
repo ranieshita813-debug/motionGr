@@ -412,17 +412,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
   bool _isOverlay(_ClipSnapshot c) => c.type != ClipType.audio && !c.isMain;
 
-  bool _isStickerType(ClipType t) =>
-      t == ClipType.sticker || t == ClipType.element;
-
-  bool _isTextType(ClipType t) =>
-      t != ClipType.audio &&
-      t != ClipType.video &&
-      t != ClipType.image &&
-      t != ClipType.drawing &&
-      !_isStickerType(t) &&
-      t != ClipType.caption;
-
   /// Track name for an overlay lane, based on what it contains.
   String _overlayName(List<_ClipSnapshot> cs) {
     if (cs.isEmpty) return 'Text';
@@ -636,14 +625,6 @@ class _TimelineWidgetState extends State<TimelineWidget> {
           name: total > 1 ? '$base $n' : base));
     }
 
-    // Blank lanes: a kind that has no clips yet gets a tappable placeholder
-    // lane instead of an add button. They are only offered once the main
-    // track has something in it.
-    final bool hasMain = main.isNotEmpty;
-    final bool hasText = clips.any((c) => _isOverlay(c) && _isTextType(c.type));
-    final bool hasSticker =
-        clips.any((c) => _isOverlay(c) && _isStickerType(c.type));
-
     // The video lane only reserves the transition strip when two main clips
     // actually touch.
     bool hasTransitions = false;
@@ -656,20 +637,11 @@ class _TimelineWidgetState extends State<TimelineWidget> {
 
     return <_Lane>[
       ...overlayLanes,
-      if (hasMain && !hasText)
-        _Lane(_textH, _ClipKind.text, const <_ClipSnapshot>[],
-            addKind: _AddKind.text, name: 'Add text'),
-      if (hasMain && !hasSticker)
-        _Lane(_textH, _ClipKind.text, const <_ClipSnapshot>[],
-            addKind: _AddKind.sticker, name: 'Add sticker'),
       _Lane(_videoH + (hasTransitions ? _trH : 0), _ClipKind.video, main,
           addKind: _AddKind.media, name: 'Video', clipH: _videoH),
       for (int i = 0; i < audioRows.length; i++)
         _Lane(_audioH, _ClipKind.audio, audioRows[i],
             name: audioRows.length > 1 ? 'Audio ${i + 1}' : 'Audio'),
-      if (hasMain && audioRows.isEmpty)
-        _Lane(_audioH, _ClipKind.audio, const <_ClipSnapshot>[],
-            addKind: _AddKind.audio, name: 'Add audio'),
     ];
   }
 

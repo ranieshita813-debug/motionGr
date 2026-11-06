@@ -677,12 +677,29 @@ class EditorController extends ChangeNotifier {
   TimelineClip? get activeVideoClip {
     for (final clip in _project.clips) {
       if ((clip.clipType == ClipType.video || clip.clipType == ClipType.image) &&
+          clip.layerIndex == 0 &&
+          !clip.isModifier &&
           playhead >= clip.start &&
           playhead <= clip.end) {
         return clip;
       }
     }
-    return selectedClip;
+    // Secondary fallback: any video or image under playhead
+    for (final clip in _project.clips) {
+      if ((clip.clipType == ClipType.video || clip.clipType == ClipType.image) &&
+          !clip.isModifier &&
+          playhead >= clip.start &&
+          playhead <= clip.end) {
+        return clip;
+      }
+    }
+    final sel = selectedClip;
+    if (sel != null &&
+        (sel.clipType == ClipType.video || sel.clipType == ClipType.image) &&
+        !sel.isModifier) {
+      return sel;
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -1080,7 +1097,7 @@ class EditorController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   void addTextOverlay(
     String text, {
-    String fontFamily = 'Ubuntu Sans',
+    String fontFamily = 'HelveticaNeue',
     TextAnimationStyle animationStyle = TextAnimationStyle.fadeIn,
   }) {
     _saveState();
@@ -1112,8 +1129,7 @@ class EditorController extends ChangeNotifier {
 
   List<String> get availableFonts {
     final list = <String>[
-      'Ubuntu Sans',
-      'Unbounded',
+      'HelveticaNeue',
       'Roboto',
       'Montserrat',
       'Playfair Display',
@@ -2132,7 +2148,7 @@ class EditorController extends ChangeNotifier {
         end: cue.end,
         clipType: ClipType.caption,
         layerIndex: _freeOverlayLayer(4, cue.start, cue.end),
-        fontFamily: 'Ubuntu Sans',
+        fontFamily: 'HelveticaNeue',
         words: cue.words,
       );
       _project.addClip(clip);
@@ -2159,7 +2175,7 @@ class EditorController extends ChangeNotifier {
         end: cue.end,
         clipType: ClipType.caption,
         layerIndex: _freeOverlayLayer(4, cue.start, cue.end),
-        fontFamily: 'Ubuntu Sans',
+        fontFamily: 'HelveticaNeue',
         words: cue.words,
       );
       _project.addClip(clip);
@@ -2209,7 +2225,7 @@ class EditorController extends ChangeNotifier {
       end: cue.end,
       clipType: ClipType.caption,
       layerIndex: _freeOverlayLayer(4, cue.start, cue.end),
-      fontFamily: 'Ubuntu Sans',
+      fontFamily: 'HelveticaNeue',
       words: cue.words,
     );
     _project.addClip(clip);

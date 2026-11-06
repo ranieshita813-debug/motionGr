@@ -71,7 +71,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                       color: EditorTokens.text,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      fontFamily: 'Ubuntu',
+                      fontFamily: 'HelveticaNeue',
                     ),
                   ),
                 ),
@@ -114,7 +114,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                                 color: EditorTokens.text,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'Ubuntu',
+                                fontFamily: 'HelveticaNeue',
                               ),
                             ),
                           ),
@@ -124,7 +124,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
                               color: EditorTokens.accent,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              fontFamily: 'Ubuntu',
+                              fontFamily: 'HelveticaNeue',
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -181,7 +181,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           style: const TextStyle(
             color: EditorTokens.text,
             fontSize: 11,
-            fontFamily: 'Ubuntu',
+            fontFamily: 'HelveticaNeue',
           ),
           items: AnimationEasing.values.map((easing) {
             return DropdownMenuItem<AnimationEasing>(
@@ -259,7 +259,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           dense: true,
           title: Text(
             val ? 'Enabled' : 'Disabled',
-            style: const TextStyle(color: EditorTokens.muted, fontSize: 12, fontFamily: 'Ubuntu'),
+            style: const TextStyle(color: EditorTokens.muted, fontSize: 12, fontFamily: 'HelveticaNeue'),
           ),
           value: val,
           activeTrackColor: EditorTokens.text,
@@ -271,7 +271,7 @@ class _EffectParameterPanelState extends State<EffectParameterPanel> {
           value: param.options.contains(val) ? val : (param.options.isNotEmpty ? param.options.first : null),
           dropdownColor: EditorTokens.elevated,
           isExpanded: true,
-          style: const TextStyle(color: EditorTokens.text, fontSize: 12, fontFamily: 'Ubuntu'),
+          style: const TextStyle(color: EditorTokens.text, fontSize: 12, fontFamily: 'HelveticaNeue'),
           items: param.options.map((opt) {
             return DropdownMenuItem<String>(
               value: opt,

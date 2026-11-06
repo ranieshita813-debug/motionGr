@@ -468,12 +468,14 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
       final double sc = kScale.clamp(0.2, 5.0).toDouble();
 
-      child = RepaintBoundary(
-        child: MaskedLayer.fromProps(
-          props: activeMask,
-          child: child,
-        ),
-      );
+      if (activeMask.type != MaskType.none) {
+        child = RepaintBoundary(
+          child: MaskedLayer.fromProps(
+            props: activeMask,
+            child: child,
+          ),
+        );
+      }
 
       if (sc != 1.0) child = Transform.scale(scale: sc, child: child);
       if (kRot != 0.0) child = Transform.rotate(angle: kRot * math.pi / 180, child: child);
@@ -933,7 +935,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                           style: TextStyle(
                             color: q == _selectedQuality ? Colors.white : Colors.white54,
                             fontWeight: q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
-                            fontFamily: 'Google Sans',
+                            fontFamily: 'HelveticaNeue',
                           ),
                         ),
                       ),
@@ -955,7 +957,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                             color: Colors.white,
                             fontSize: 11.5 * s,
                             fontWeight: FontWeight.w600,
-                            fontFamily: 'Google Sans',
+                            fontFamily: 'HelveticaNeue',
                           ),
                         ),
                         SizedBox(width: 4 * s),
@@ -996,7 +998,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                     color: Colors.black,
                                     fontSize: 12.5 * s,
                                     fontWeight: FontWeight.w800,
-                                    fontFamily: 'Google Sans')),
+                                    fontFamily: 'HelveticaNeue')),
                           ],
                         ),
                       ),

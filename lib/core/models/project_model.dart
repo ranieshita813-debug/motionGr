@@ -1336,7 +1336,7 @@ class TimelineClip {
     this.effectParameters = const <String, double>{},
     this.sourcePath,
     this.stickerAssetPath,
-    this.fontFamily = 'Ubuntu Sans',
+    this.fontFamily = 'HelveticaNeue',
     this.textAnimationStyle = TextAnimationStyle.none,
     this.textStyle = const TextStyleProperties(),
     this.colorGrading = const ColorGradingSettings(),
@@ -1600,7 +1600,7 @@ class TimelineClip {
           const <String, double>{},
       sourcePath: json['sourcePath'] as String?,
       stickerAssetPath: json['stickerAssetPath'] as String?,
-      fontFamily: json['fontFamily'] as String? ?? 'Ubuntu Sans',
+      fontFamily: json['fontFamily'] as String? ?? 'HelveticaNeue',
       textAnimationStyle: TextAnimationStyle.values.firstWhere(
         (e) => e.name == json['textAnimationStyle'],
         orElse: () => TextAnimationStyle.none,
@@ -1688,7 +1688,7 @@ class Project {
             <String>[
               'Roboto',
               'Montserrat',
-              'Ubuntu Sans',
+              'HelveticaNeue',
               'Playfair Display',
               'Bebas Neue',
               'Caveat'
