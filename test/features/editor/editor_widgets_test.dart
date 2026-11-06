@@ -152,5 +152,44 @@ void main() {
       // Verify no duplicate close arrow icon (Icons.keyboard_arrow_down_rounded) from old internal header
       expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
     });
+
+    testWidgets('PreviewCanvas renders with non-zero dimensions and displays media and overlays', (WidgetTester tester) async {
+      final customEditor = EditorController();
+      customEditor.addTextOverlay('Preview Sample Text');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChangeNotifierProvider<EditorController>.value(
+              value: customEditor,
+              child: SizedBox(
+                width: 400,
+                height: 300,
+                child: PreviewCanvas(editor: customEditor),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Verify canvas rendered size is non-zero
+      final canvasBoxFinder = find.byKey(const ValueKey('canvasColorBox'));
+      expect(canvasBoxFinder, findsOneWidget);
+      final RenderBox renderBox = tester.renderObject(canvasBoxFinder) as RenderBox;
+      expect(renderBox.size.width, greaterThan(0));
+      expect(renderBox.size.height, greaterThan(0));
+
+      // Verify the text overlay is rendered with non-zero dimensions
+      final textFinder = find.text('Preview Sample Text');
+      expect(textFinder, findsOneWidget);
+      final RenderBox textRenderBox = tester.renderObject(textFinder) as RenderBox;
+      expect(textRenderBox.size.width, greaterThan(0));
+      expect(textRenderBox.size.height, greaterThan(0));
+
+      // Let autosave timer settle
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+    });
   });
 }

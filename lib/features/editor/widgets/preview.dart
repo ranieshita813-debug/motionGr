@@ -1283,6 +1283,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
         _topBar(context),
         Expanded(
           child: Stack(
+            fit: StackFit.expand,
             children: <Widget>[
               Positioned.fill(
                 child: Container(
@@ -1295,12 +1296,14 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                         transformationController: _tf,
                         minScale: 1,
                         maxScale: 4,
-                        child: Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(pad),
-                            child: ValueListenableBuilder<CanvasRatio>(
-                              valueListenable: canvasRatioNotifier,
-                              builder: (_, r, __) => _canvas(editor, r.value),
+                        child: SizedBox.expand(
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(pad),
+                              child: ValueListenableBuilder<CanvasRatio>(
+                                valueListenable: canvasRatioNotifier,
+                                builder: (_, r, __) => _canvas(editor, r.value),
+                              ),
                             ),
                           ),
                         ),
