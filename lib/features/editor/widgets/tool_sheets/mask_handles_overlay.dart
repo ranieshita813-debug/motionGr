@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart';
@@ -9,13 +10,14 @@ import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'mask_geometry.dart';
 
 const Color _accent = Color(0xFF25F4EE);
+const Color _ink = Color(0xFF0B1B1E);
 
 enum _Mode { none, move, rotate, corner, band, feather, radius }
 
 // ============================================================================
 // Transparent overlay placed EXACTLY over the video rect in the main player.
-// It draws only the outline + handles and writes straight into the clip's
-// MaskProperties. The real masking is done by MaskedLayer.
+// Draws outline + handles and writes straight into the clip's MaskProperties.
+// The real masking is done by MaskedLayer.
 //
 //   Stack(children: [
 //     MaskedLayer.fromProps(props: clip.maskProperties, child: video),
@@ -30,10 +32,16 @@ class MaskHandlesOverlay extends StatefulWidget {
 }
 
 class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
-  static const double _hit = 26;
+  static const double _hit = 30;
 
   _Mode _mode = _Mode.none;
   MaskXform _start = const MaskXform();
+
+  void _setMode(_Mode m) {
+    if (_mode == m) return;
+    if (m != _Mode.none && m != _Mode.move) HapticFeedback.selectionClick();
+    setState(() => _mode = m);
+  }
 
   Offset _toLocal(Offset p, MaskGeometry g) {
     final Offset d = p - g.c;
@@ -79,7 +87,7 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
         onScaleStart: (ScaleStartDetails d) {
           _start = x;
           if (d.pointerCount > 1) {
-            _mode = _Mode.move;
+            _setMode(_Mode.move);
             return;
           }
           final MaskGeometry g = MaskGeometry(name, size, x);
@@ -87,17 +95,13 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
           bool near(Offset o) => (l - o).distance < _hit;
 
           if (near(g.feather)) {
-            _mode = _Mode.feather;
+            _setMode(_Mode.feather);
           } else if (g.radius != null && near(g.radius!)) {
-            _mode = _Mode.radius;
+            _setMode(_Mode.radius);
           } else if (near(g.rotate)) {
-            _mode = _Mode.rotate;
-          } else if (g.mirror && g.corners.any(near)) {
-            _mode = _Mode.band;
-          } else if (g.closed && g.corners.any(near)) {
-            _mode = _Mode.corner;
+            _setMode(_Mode.rotate);
           } else {
-            _mode = _Mode.move;
+            _setMode(_Mode.move);
           }
         },
         onScaleUpdate: (ScaleUpdateDetails d) {
@@ -156,10 +160,15 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
               break;
           }
         },
-        onScaleEnd: (_) => _mode = _Mode.none,
+        onScaleEnd: (_) => _setMode(_Mode.none),
         child: CustomPaint(
           size: size,
-          painter: _HandlesPainter(name: name, feather: p.feather, x: x),
+          painter: _HandlesPainter(
+            name: name,
+            feather: p.feather,
+            x: x,
+            mode: _mode,
+          ),
         ),
       );
     });
@@ -167,114 +176,185 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
 }
 
 class _HandlesPainter extends CustomPainter {
-  _HandlesPainter({required this.name, required this.feather, required this.x});
+  _HandlesPainter({
+    required this.name,
+    required this.feather,
+    required this.x,
+    required this.mode,
+  });
+
   final String name;
   final double feather;
   final MaskXform x;
+  final _Mode mode;
 
-  void _dot(Canvas canvas, Offset p) {
-    canvas.drawCircle(p, 8, Paint()..color = Colors.black.withValues(alpha: 0.5));
-    canvas.drawCircle(p, 6, Paint()..color = Colors.white);
+  // ---- helpers -------------------------------------------------------------
+
+  /// Round handle: soft shadow, white body, accent ring, optional glyph.
+  /// The glyph is counter-rotated so it always stays upright.
+  void _roundHandle(
+    Canvas canvas,
+    Offset p, {
+    required double radius,
+    required bool active,
+    required void Function(Canvas c) glyph,
+  }) {
+    final double r = active ? radius * 1.18 : radius;
+    canvas.drawCircle(
+      p.translate(0, 1.5),
+      r + 1,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.4)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    canvas.drawCircle(p, r, Paint()..color = active ? _accent : Colors.white);
+    canvas.drawCircle(
+      p,
+      r,
+      Paint()
+        ..color = active ? Colors.white : _accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    canvas.save();
+    canvas.translate(p.dx, p.dy);
+    canvas.rotate(-x.rot);
+    glyph(canvas);
+    canvas.restore();
   }
+
+  Paint _glyph(double w) => Paint()
+    ..color = _ink
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+
+  void _rotateGlyph(Canvas c) {
+    c.drawArc(Rect.fromCircle(center: Offset.zero, radius: 4.8),
+        -math.pi / 2, math.pi * 1.5, false, _glyph(1.9));
+    c.drawPath(
+      Path()
+        ..moveTo(-8, 0.8)
+        ..lineTo(-1.6, 0.8)
+        ..lineTo(-4.8, -3.6)
+        ..close(),
+      Paint()..color = _ink,
+    );
+  }
+
+  void _featherGlyph(Canvas c) {
+    final Paint p = _glyph(1.9);
+    c.drawLine(const Offset(-5, 0), const Offset(5, 0), p);
+    c.drawPath(
+      Path()
+        ..moveTo(-2.6, -2.8)
+        ..lineTo(-5.4, 0)
+        ..lineTo(-2.6, 2.8),
+      p,
+    );
+    c.drawPath(
+      Path()
+        ..moveTo(2.6, -2.8)
+        ..lineTo(5.4, 0)
+        ..lineTo(2.6, 2.8),
+      p,
+    );
+  }
+
+  void _radiusGlyph(Canvas c) {
+    c.drawPath(
+      Path()
+        ..moveTo(-3.5, 3.5)
+        ..lineTo(-3.5, -0.5)
+        ..quadraticBezierTo(-3.5, -3.5, -0.5, -3.5)
+        ..lineTo(3.5, -3.5),
+      _glyph(1.9),
+    );
+  }
+
+  void _stroke(Canvas canvas, MaskGeometry g, Paint paint) {
+    if (g.line) {
+      canvas.drawLine(Offset(-g.big, 0), Offset(g.big, 0), paint);
+    } else if (g.mirror) {
+      for (final double y in <double>[-g.hh, g.hh]) {
+        canvas.drawLine(Offset(-g.big, y), Offset(g.big, y), paint);
+      }
+    } else {
+      canvas.drawPath(g.shape(), paint);
+    }
+  }
+
+  // ---- paint ---------------------------------------------------------------
 
   @override
   void paint(Canvas canvas, Size size) {
     final MaskGeometry g = MaskGeometry(name, size, x);
-
     canvas.save();
     canvas.clipRect(Offset.zero & size);
+
+    // Dim everything outside the mask.
+    if (!g.line && !g.mirror) {
+      canvas.saveLayer(Offset.zero & size, Paint());
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()..color = Colors.black.withValues(alpha: 0.38),
+      );
+      canvas.save();
+      canvas.translate(g.c.dx, g.c.dy);
+      canvas.rotate(x.rot);
+      canvas.drawPath(g.shape(), Paint()..blendMode = BlendMode.clear);
+      canvas.restore();
+      canvas.restore(); // saveLayer
+    }
+
     canvas.translate(g.c.dx, g.c.dy);
     canvas.rotate(x.rot);
 
-    final Paint shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.4
-      ..strokeJoin = StrokeJoin.round;
-    final Paint stroke = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..strokeJoin = StrokeJoin.round;
-
-    if (g.line) {
-      canvas.drawLine(Offset(-g.big, 0), Offset(g.big, 0), shadow);
-      canvas.drawLine(Offset(-g.big, 0), Offset(g.big, 0), stroke);
-    } else if (g.mirror) {
-      for (final double y in <double>[-g.hh, g.hh]) {
-        canvas.drawLine(Offset(-g.big, y), Offset(g.big, y), shadow);
-        canvas.drawLine(Offset(-g.big, y), Offset(g.big, y), stroke);
-      }
-    } else {
-      final Path s = g.shape();
-      canvas.drawPath(s, shadow);
-      canvas.drawPath(s, stroke);
-    }
-
-    final Paint guide = Paint()
-      ..color = Colors.white.withValues(alpha: 0.7)
-      ..strokeWidth = 1.4;
-
-    // rotate handle
-    final Offset rot = g.rotate;
-    canvas.drawLine(Offset(0, -g.hh), rot, guide);
-    canvas.drawCircle(rot, 13, Paint()..color = _accent.withValues(alpha: 0.25));
-    canvas.drawCircle(rot, 8, Paint()..color = Colors.white);
-    canvas.drawCircle(rot, 5.5, Paint()..color = _accent);
-
-    // feather handle  >
-    final Offset fh = g.feather;
-    canvas.drawLine(Offset(g.vhw, 0), fh, guide);
-    canvas.drawCircle(fh, 18, Paint()..color = _accent.withValues(alpha: 0.25));
-    canvas.drawCircle(fh, 12, Paint()..color = Colors.white);
-    canvas.drawPath(
-      Path()
-        ..moveTo(fh.dx - 2.5, fh.dy - 5.5)
-        ..lineTo(fh.dx + 3, fh.dy)
-        ..lineTo(fh.dx - 2.5, fh.dy + 5.5),
+    // Outline: dark halo + accent line.
+    _stroke(
+      canvas,
+      g,
       Paint()
-        ..color = Colors.black
+        ..color = Colors.black.withValues(alpha: 0.5)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 3.6
         ..strokeJoin = StrokeJoin.round,
     );
-    final TextPainter tp = TextPainter(
-      text: TextSpan(
-        text: feather.round().toString(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          shadows: <Shadow>[Shadow(blurRadius: 3)],
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(fh.dx - tp.width / 2, fh.dy + 22));
+    _stroke(
+      canvas,
+      g,
+      Paint()
+        ..color = _accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.7
+        ..strokeJoin = StrokeJoin.round,
+    );
 
-    // round-corner handle (rectangle only)
+    // 4) Stems.
+    final Paint stem = Paint()
+      ..color = Colors.white.withValues(alpha: 0.85)
+      ..strokeWidth = 1.2;
+    final Offset rot = g.rotate;
+    final Offset fh = g.feather;
+    canvas.drawLine(Offset(0, -g.hh), rot, stem);
+    canvas.drawLine(Offset(g.vhw, 0), fh, stem);
+
+    // 6) Round-corner handle (rectangle only).
     final Offset? rd = g.radius;
     if (rd != null) {
-      canvas.drawCircle(rd, 11, Paint()..color = _accent.withValues(alpha: 0.25));
-      canvas.drawCircle(rd, 7, Paint()..color = Colors.white);
-      canvas.drawPath(
-        Path()
-          ..moveTo(rd.dx - 3, rd.dy + 3)
-          ..lineTo(rd.dx - 3, rd.dy - 1)
-          ..quadraticBezierTo(rd.dx - 3, rd.dy - 3, rd.dx - 1, rd.dy - 3)
-          ..lineTo(rd.dx + 3, rd.dy - 3),
-        Paint()
-          ..color = Colors.black
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6
-          ..strokeCap = StrokeCap.round,
-      );
+      _roundHandle(canvas, rd,
+          radius: 11, active: mode == _Mode.radius, glyph: _radiusGlyph);
     }
 
-    for (final Offset o in g.corners) {
-      _dot(canvas, o);
-    }
+    // 7) Rotate handle.
+    _roundHandle(canvas, rot,
+        radius: 13, active: mode == _Mode.rotate, glyph: _rotateGlyph);
+
+    // 8) Feather handle.
+    _roundHandle(canvas, fh,
+        radius: 14, active: mode == _Mode.feather, glyph: _featherGlyph);
+
     canvas.restore();
   }
 
@@ -282,6 +362,7 @@ class _HandlesPainter extends CustomPainter {
   bool shouldRepaint(covariant _HandlesPainter o) =>
       o.name != name ||
       o.feather != feather ||
+      o.mode != mode ||
       o.x.cx != x.cx ||
       o.x.cy != x.cy ||
       o.x.w != x.w ||

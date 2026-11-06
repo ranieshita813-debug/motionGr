@@ -8,10 +8,14 @@ import 'mask_geometry.dart';
 
 const Color _mkBg = bgToken;
 const Color _mkCard = Color(0xFF1C1C1E);
-const Color _mkCardOn = Color(0xFF2C2C2E);
 const Color _mkText = Color(0xFFFFFFFF);
 const Color _mkMuted = Color(0xFF8E8E93);
 const Color _mkDim = Color(0xFF48484A);
+// Same accent as the handles overlay, so the sheet and the player feel linked.
+const Color _mkAccent = Color(0xFF25F4EE);
+
+const double _tileBox = 52;
+const double _tileW = 58;
 
 String _mkCap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
@@ -81,10 +85,11 @@ class _MaskSheetState extends State<MaskSheet> {
     return ColoredBox(
       color: _mkBg,
       child: Padding(
-        padding: EdgeInsets.only(top: 6, bottom: 6 + bottom),
+        padding: EdgeInsets.only(top: 8, bottom: 8 + bottom),
         child: SizedBox(
-          height: 72,
+          height: 78,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Padding(
                 padding: const EdgeInsets.only(left: 12),
@@ -101,41 +106,61 @@ class _MaskSheetState extends State<MaskSheet> {
               ),
               Container(
                 width: 1,
-                height: 36,
-                margin: const EdgeInsets.symmetric(horizontal: 10),
+                height: 40,
+                margin: const EdgeInsets.fromLTRB(10, 6, 4, 0),
                 color: _mkDim,
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      _MaskTile(
-                        label: 'None',
-                        name: 'none',
-                        selected: !has,
-                        onTap: () {
-                          tapFeedback();
-                          _clear();
-                        },
-                      ),
-                      for (final MaskType type in MaskType.values)
-                        if (type != MaskType.none) ...<Widget>[
-                          const SizedBox(width: 8),
+                child: Stack(
+                  children: <Widget>[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.only(left: 6, right: 28),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
                           _MaskTile(
-                            label: _mkCap(type.name),
-                            name: type.name,
-                            selected: has && type == p.type,
+                            label: 'None',
+                            name: 'none',
+                            selected: !has,
                             onTap: () {
                               tapFeedback();
-                              _select(type);
+                              _clear();
                             },
                           ),
+                          for (final MaskType type in MaskType.values)
+                            if (type != MaskType.none) ...<Widget>[
+                              const SizedBox(width: 6),
+                              _MaskTile(
+                                label: _mkCap(type.name),
+                                name: type.name,
+                                selected: has && type == p.type,
+                                onTap: () {
+                                  tapFeedback();
+                                  _select(type);
+                                },
+                              ),
+                            ],
                         ],
-                    ],
-                  ),
+                      ),
+                    ),
+                    // Soft fade on the right edge: hints that the list scrolls.
+                    Positioned(
+                      top: 0,
+                      bottom: 0,
+                      right: 0,
+                      width: 28,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: <Color>[_mkBg.withValues(alpha: 0), _mkBg],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -165,43 +190,52 @@ class _MaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color fg = !enabled ? _mkDim : (selected ? _mkText : _mkMuted);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: enabled ? onTap : null,
-      child: SizedBox(
-        width: 50,
-        child: Column(
-          children: <Widget>[
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: selected ? _mkCardOn : _mkCard,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: selected ? _mkText : Colors.transparent, width: 1.5),
+    final Color fg = !enabled ? _mkDim : (selected ? _mkAccent : _mkMuted);
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: enabled ? onTap : null,
+        child: SizedBox(
+          width: _tileW,
+          child: Column(
+            children: <Widget>[
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: _tileBox,
+                height: _tileBox,
+                decoration: BoxDecoration(
+                  color: selected ? _mkAccent.withValues(alpha: 0.14) : _mkCard,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: selected ? _mkAccent : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(13),
+                  child: CustomPaint(painter: _IconPainter(name: name, color: fg)),
+                ),
               ),
-              child: name == 'invert'
-                  ? Icon(Icons.invert_colors_rounded, size: 22, color: fg)
-                  : Padding(
-                      padding: const EdgeInsets.all(11),
-                      child: CustomPaint(painter: _IconPainter(name: name, color: fg)),
-                    ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: fg,
-                fontSize: 11,
-                fontFamily: 'HelveticaNeue',
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              const SizedBox(height: 5),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.fade,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: selected ? _mkText : fg,
+                  fontSize: 11,
+                  fontFamily: 'HelveticaNeue',
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -222,11 +256,18 @@ class _IconPainter extends CustomPainter {
       ..strokeWidth = 1.8
       ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round;
-    final Paint fill = Paint()..color = color.withValues(alpha: 0.2);
+    final Paint fill = Paint()..color = color.withValues(alpha: 0.22);
 
     if (name == 'none') {
       canvas.drawOval(r, line);
       canvas.drawLine(r.bottomLeft + const Offset(3, -3), r.topRight + const Offset(-3, 3), line);
+      return;
+    }
+
+    if (name == 'invert') {
+      // Circle with one filled half, drawn in the same stroke style as the rest.
+      canvas.drawOval(r, line);
+      canvas.drawArc(r, -1.5707963, 3.1415926, true, Paint()..color = color);
       return;
     }
 
