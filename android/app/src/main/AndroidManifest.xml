@@ -49,11 +49,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
-        <!-- Impeller থাকবে, কিন্তু Vulkan এর বদলে OpenGLES ব্যবহার হবে -->
-        <meta-data
-            android:name="io.flutter.embedding.android.ImpellerBackend"
-            android:value="opengles" />
     </application>
 
     <queries>
