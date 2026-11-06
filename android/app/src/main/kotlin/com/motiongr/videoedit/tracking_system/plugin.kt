@@ -25,6 +25,20 @@ class TrackingPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChan
     private var sink: EventChannel.EventSink? = null
     private var engine: TrackerEngine? = null
 
+    companion object {
+        // OpenCV একবারই লোড করা হয়
+        @Volatile
+        private var opencvReady = false
+
+        @Synchronized
+        private fun ensureOpenCv() {
+            if (!opencvReady) {
+                if (!OpenCVLoader.initLocal()) throw IllegalStateException("OpenCV লোড হয়নি")
+                opencvReady = true
+            }
+        }
+    }
+
     constructor()
 
     constructor(context: Context, messenger: BinaryMessenger) {
@@ -72,8 +86,9 @@ class TrackingPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChan
             result.error("BAD_ARGS", "path, x, y, w, h দরকার", null); return
         }
         val startMs = call.argument<Number>("startMs")?.toLong() ?: 0L
-        val intervalMs = call.argument<Number>("intervalMs")?.toLong() ?: 100L
-        val maxSide = call.argument<Number>("maxSide")?.toInt() ?: 320
+        // ডিফল্ট ১০০ms (১০ fps); Flutter পাশে ইন্টারপোলেট হয় তাই মসৃণতা প্রায় একই থাকে
+        val intervalMs = (call.argument<Number>("intervalMs")?.toLong() ?: 100L).coerceAtLeast(10L)
+        val maxSide = (call.argument<Number>("maxSide")?.toInt() ?: 360).coerceIn(160, 960)
         val kind = call.argument<String>("tracker") ?: "nano"
 
         if (!running.compareAndSet(false, true)) {
@@ -83,15 +98,22 @@ class TrackingPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChan
 
         executor.execute {
             try {
-                if (!OpenCVLoader.initLocal()) throw IllegalStateException("OpenCV লোড হয়নি")
+                ensureOpenCv()
                 val activeEngine = engine ?: TrackerEngine(context ?: throw IllegalStateException("Context null"))
+
+                // প্রতি ফ্রেমে নয়, শুধু ১% বদলালে progress পাঠানো হয়
+                var lastSent = -1.0
                 val res = activeEngine.track(
                     videoPath = path, startMs = startMs,
                     bbox = doubleArrayOf(x, y, w, h), kind = kind,
-                    intervalMs = intervalMs,
-                    maxSide = maxSide,
+                    intervalMs = intervalMs, maxSide = maxSide,
                     isCancelled = { cancelFlag.get() },
-                    onProgress = { p -> main.post { sink?.success(p) } },
+                    onProgress = { p ->
+                        if (p - lastSent >= 0.01 || p >= 1.0) {
+                            lastSent = p
+                            main.post { sink?.success(p) }
+                        }
+                    },
                 )
                 main.post { result.success(mapOf("tracker" to res.tracker, "points" to res.points)) }
             } catch (e: TrackerEngine.Cancelled) {

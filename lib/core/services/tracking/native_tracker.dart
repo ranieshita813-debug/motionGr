@@ -1,3 +1,4 @@
+import 'dart:ui' show Rect;
 import 'package:flutter/services.dart';
 
 class TrackPoint {
@@ -31,15 +32,15 @@ class NativeTracker {
       _events.receiveBroadcastStream().map((e) => (e as num).toDouble());
 
   /// [bbox] 0..1 নরমালাইজড (left, top, width, height)।
-  /// [intervalMs] কত মিলিসেকেন্ড পরপর ফ্রেম ট্র্যাক হবে (ছোট = নিখুঁত কিন্তু ধীর)।
-  /// [maxSide] ভিডিও প্রসেসিং ফ্রেমের সর্বোচ্চ দৈর্ঘ্য/প্রস্থ (ছোট = দ্রুত ট্র্যাকিং)।
+  /// [intervalMs] কত মিলিসেকেন্ড পরপর ফ্রেম ট্র্যাক হবে (ছোট = নিখুঁত কিন্তু ধীর)। ডিফল্ট ১০০।
+  /// [maxSide] ট্র্যাকিংয়ের জন্য ফ্রেমের বড় পাশ কত পিক্সেলে নামানো হবে (ছোট = দ্রুত)। ডিফল্ট ৩৬০।
   Future<TrackResult> track({
     required String videoPath,
     required Rect bbox,
     Duration start = Duration.zero,
     String tracker = 'nano',
     int intervalMs = 100,
-    int maxSide = 320,
+    int maxSide = 360,
   }) async {
     final res = await _method.invokeMethod<Map>('track', {
       'path': videoPath,
@@ -75,7 +76,9 @@ TrackPoint? pointAt(List<TrackPoint> pts, double seconds) {
     }
   }
   final a = pts[lo], b = pts[hi];
-  final k = (seconds - a.t) / (b.t - a.t);
+  final dt = b.t - a.t;
+  if (dt <= 0) return a;
+  final k = (seconds - a.t) / dt;
   double l(double p, double q) => p + (q - p) * k;
   return TrackPoint(seconds, l(a.cx, b.cx), l(a.cy, b.cy), l(a.w, b.w), l(a.h, b.h), a.found);
 }
