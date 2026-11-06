@@ -1885,7 +1885,7 @@ class EditorController extends ChangeNotifier {
       // If no actual video file is found (e.g. test environment or empty project),
       // simulate tracking points based on target point
       for (int i = 1; i <= 10; i++) {
-        await Future.delayed(const Duration(milliseconds: 20));
+        await Future.delayed(const Duration(milliseconds: 10));
         _trackingProgress = i / 10.0;
         onProgress?.call(_trackingProgress);
         notifyListeners();
@@ -1894,7 +1894,7 @@ class EditorController extends ChangeNotifier {
       final List<Map<String, dynamic>> simulatedPoints = [];
       final double startSec = clip.start.inMilliseconds / 1000.0;
       final double endSec = clip.end.inMilliseconds / 1000.0;
-      const double step = 0.05;
+      const double step = 0.1;
       for (double t = startSec; t <= endSec; t += step) {
         simulatedPoints.add({
           't': t,
@@ -1941,6 +1941,8 @@ class EditorController extends ChangeNotifier {
         videoPath: videoPath,
         bbox: bbox,
         start: clip.start,
+        intervalMs: 100,
+        maxSide: 320,
       );
 
       final points = trackResult.points.map((p) => <String, dynamic>{

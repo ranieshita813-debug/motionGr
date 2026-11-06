@@ -32,12 +32,14 @@ class NativeTracker {
 
   /// [bbox] 0..1 নরমালাইজড (left, top, width, height)।
   /// [intervalMs] কত মিলিসেকেন্ড পরপর ফ্রেম ট্র্যাক হবে (ছোট = নিখুঁত কিন্তু ধীর)।
+  /// [maxSide] ভিডিও প্রসেসিং ফ্রেমের সর্বোচ্চ দৈর্ঘ্য/প্রস্থ (ছোট = দ্রুত ট্র্যাকিং)।
   Future<TrackResult> track({
     required String videoPath,
     required Rect bbox,
     Duration start = Duration.zero,
     String tracker = 'nano',
-    int intervalMs = 50,
+    int intervalMs = 100,
+    int maxSide = 320,
   }) async {
     final res = await _method.invokeMethod<Map>('track', {
       'path': videoPath,
@@ -48,6 +50,7 @@ class NativeTracker {
       'h': bbox.height,
       'tracker': tracker,
       'intervalMs': intervalMs,
+      'maxSide': maxSide,
     });
     final pts = (res!['points'] as List)
         .map((p) => TrackPoint.fromMap(Map.from(p as Map)))
