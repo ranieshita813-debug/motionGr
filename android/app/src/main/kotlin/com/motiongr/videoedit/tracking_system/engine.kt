@@ -33,7 +33,7 @@ class TrackerEngine(private val context: Context) {
         bbox: DoubleArray,
         kind: String,
         intervalMs: Long,
-        maxSide: Int = 480,
+        maxSide: Int = 320,
         smooth: Double = 0.5,
         isCancelled: () -> Boolean,
         onProgress: (Double) -> Unit,
