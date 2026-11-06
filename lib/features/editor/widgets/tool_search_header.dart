@@ -79,14 +79,14 @@ class _ToolSearchHeaderState extends State<ToolSearchHeader> {
                   style: const TextStyle(
                     color: EditorTokens.text,
                     fontSize: 15,
-                    fontFamily: 'HelveticaNeue',
+                    fontFamily: 'Fredoka',
                   ),
                   decoration: InputDecoration(
                     hintText: widget.placeholder,
                     hintStyle: const TextStyle(
                       color: EditorTokens.muted,
                       fontSize: 15,
-                      fontFamily: 'HelveticaNeue',
+                      fontFamily: 'Fredoka',
                     ),
                     border: InputBorder.none,
                     isDense: true,
@@ -136,7 +136,7 @@ class _ToolSearchHeaderState extends State<ToolSearchHeader> {
                     color: isSelected ? EditorTokens.bg : EditorTokens.text,
                     fontSize: 12,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                    fontFamily: 'HelveticaNeue',
+                    fontFamily: 'Fredoka',
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),

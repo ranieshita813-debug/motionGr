@@ -273,7 +273,7 @@ class ClipDto {
             (k, v) => MapEntry(k, (v as num).toDouble()),
           ) ??
           const <String, double>{},
-      fontFamily: json['fontFamily'] as String? ?? 'HelveticaNeue',
+      fontFamily: json['fontFamily'] as String? ?? 'Fredoka',
       textAnimationStyle: json['textAnimationStyle'] as String? ?? 'none',
       textStyle: json['textStyle'] as Map<String, dynamic>? ?? <String, dynamic>{},
       inAnimation: json['inAnimation'] as String? ?? 'none',

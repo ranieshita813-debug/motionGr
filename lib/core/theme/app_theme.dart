@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_video_editor/core/theme/app_colors.dart';
 
 class AppTheme {
-  static const String defaultFontFamily = 'HelveticaNeue';
+  static const String defaultFontFamily = 'Fredoka';
 
   static ThemeData get darkTheme {
     final baseTextTheme = ThemeData.dark().textTheme;
-    final helveticaTheme = baseTextTheme.apply(
+    final appTextTheme = baseTextTheme.apply(
       fontFamily: defaultFontFamily,
       bodyColor: AppColors.textPrimary,
       displayColor: AppColors.textPrimary,
@@ -75,7 +75,7 @@ class AppTheme {
         thickness: 1,
         space: 1,
       ),
-      textTheme: helveticaTheme,
+      textTheme: appTextTheme,
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         modalBackgroundColor: AppColors.surface,

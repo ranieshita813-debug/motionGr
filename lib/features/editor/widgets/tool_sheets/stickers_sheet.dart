@@ -246,7 +246,7 @@ class _StickersSheetState extends State<StickersSheet> {
       itemBuilder: (context, i) {
         final emoji = filtered[i]['emoji']!;
         return _Pressable(
-          onTap: () => editor.addTextOverlay(emoji, fontFamily: 'HelveticaNeue'),
+          onTap: () => editor.addTextOverlay(emoji, fontFamily: 'Fredoka'),
           child: Container(
             decoration: BoxDecoration(
               color: EditorTokens.elevated,

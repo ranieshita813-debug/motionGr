@@ -116,7 +116,7 @@ class _EditorPageState extends State<EditorPage> {
               SnackBar(
                 content: Text(
                   '${isVideo ? 'AI Video' : 'AI Image'} added to timeline!',
-                  style: const TextStyle(fontFamily: 'HelveticaNeue'),
+                  style: const TextStyle(fontFamily: 'Fredoka'),
                 ),
                 duration: const Duration(seconds: 2),
               ),

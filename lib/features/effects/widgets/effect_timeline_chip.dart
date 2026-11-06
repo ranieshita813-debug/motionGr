@@ -59,7 +59,7 @@ class EffectTimelineChip extends StatelessWidget {
                     : EditorTokens.muted,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'HelveticaNeue',
+                fontFamily: 'Fredoka',
               ),
             ),
             if (effectClip.keyframeAnimations.isNotEmpty) ...[

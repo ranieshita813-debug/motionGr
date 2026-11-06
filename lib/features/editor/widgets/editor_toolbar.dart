@@ -86,7 +86,7 @@ class EditorToolbar extends StatelessWidget {
                       color: EditorTokens.text.withValues(alpha: 0.9),
                       fontSize: 12.0,
                       fontWeight: FontWeight.w600,
-                      fontFamily: 'HelveticaNeue',
+                      fontFamily: 'Fredoka',
                     ),
                   ),
                 ],

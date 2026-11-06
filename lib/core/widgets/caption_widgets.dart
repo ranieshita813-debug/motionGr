@@ -9,7 +9,7 @@ class CaptionMono {
   static const double radius = 999;
   static const Color ink = Colors.white;
   static const Color onInk = Colors.black;
-  static const String font = 'HelveticaNeue';
+  static const String font = 'Fredoka';
 }
 
 /// Sheet title row with an optional trailing action.

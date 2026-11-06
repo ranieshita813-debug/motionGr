@@ -21,7 +21,8 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/clip_an
 import 'package:flutter_video_editor/core/models/color_grade.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/color_grading_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart'
-    hide AudioToolsSheet, MaskSheet;
+    hide AudioToolsSheet, MaskSheet, StickersSheet;
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/stickers_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/face_tracking_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/text_style_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_sheet.dart';
@@ -223,7 +224,7 @@ enum EditorTool {
                     icon: const PhosphorIcon(PhosphorIconsFill.sparkle, size: 20),
                     label: const Text(
                       'Open AI Generator',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'HelveticaNeue'),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Fredoka'),
                     ),
                   ),
                 ),
@@ -268,7 +269,7 @@ class ToolPanel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'HelveticaNeue')),
+                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka')),
         ),
         const SizedBox(width: 8),
       ],
@@ -295,7 +296,7 @@ class ToolPanel extends StatelessWidget {
             Text(
               tool.title,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'HelveticaNeue'),
+                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka'),
             ),
             const Spacer(),
             IconButton(

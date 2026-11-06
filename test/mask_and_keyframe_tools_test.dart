@@ -92,10 +92,10 @@ void main() {
       expect(updatedClip?.maskProperties.type, equals(MaskType.circle));
     });
 
-    test('AppTheme defaults to HelveticaNeue font', () {
-      expect(AppTheme.defaultFontFamily, equals('HelveticaNeue'));
-      expect(AppTheme.darkTheme.textTheme.bodyLarge?.fontFamily, equals('HelveticaNeue'));
-      expect(AppTheme.darkTheme.textTheme.headlineMedium?.fontFamily, equals('HelveticaNeue'));
+    test('AppTheme defaults to Fredoka font', () {
+      expect(AppTheme.defaultFontFamily, equals('Fredoka'));
+      expect(AppTheme.darkTheme.textTheme.bodyLarge?.fontFamily, equals('Fredoka'));
+      expect(AppTheme.darkTheme.textTheme.headlineMedium?.fontFamily, equals('Fredoka'));
     });
 
     testWidgets('EditorPage keeps TransportBar and TimelineWidget visible when Mask tool is active', (WidgetTester tester) async {

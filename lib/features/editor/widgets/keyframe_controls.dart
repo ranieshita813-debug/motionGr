@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart';
@@ -107,9 +108,14 @@ class KeyframeControls extends StatelessWidget {
               prev == null ? null : () => seekPlayhead(editor, secondsOf(prev!)),
             ),
             _btn(
-              _pIcon(
-                has ? PhosphorIconsRegular.minus : PhosphorIconsRegular.plus,
-                active: has,
+              SvgPicture.asset(
+                has ? 'asset/svg/keyframes_minus.svg' : 'asset/svg/keyframes_plus.svg',
+                width: 20,
+                height: 20,
+                colorFilter: ColorFilter.mode(
+                  has ? accentToken : Colors.white,
+                  BlendMode.srcIn,
+                ),
               ),
               has ? 'Remove keyframe' : 'Add keyframe',
               !inRange
