@@ -7,7 +7,7 @@ import 'package:flutter_video_editor/features/editor/controllers/editor_controll
 import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 
 const Color _accent = Color(0xFF25F4EE); // CapCut cyan, same as the TTS sheet
-const String _font = 'HelveticaNeue';
+const String _font = 'Fredoka';
 
 String _fmtSpeed(double v) {
   final s = v.toStringAsFixed(2);

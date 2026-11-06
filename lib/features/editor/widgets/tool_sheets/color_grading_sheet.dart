@@ -72,7 +72,6 @@ IconData _paramIcon(GradeParam p) => switch (p) {
       GradeParam.sharpen => Icons.change_history_rounded,
       GradeParam.vignette => Icons.vignette_rounded,
       GradeParam.grain => Icons.grain_rounded,
-      _ => Icons.tune_rounded,
     };
 
 List<Color>? _gradient(GradeParam p) => switch (p) {

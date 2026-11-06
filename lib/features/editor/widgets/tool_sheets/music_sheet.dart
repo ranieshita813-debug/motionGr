@@ -394,14 +394,14 @@ class _MusicSheetState extends State<MusicSheet> {
             child: TextField(
               onChanged: _onSearch,
               style: const TextStyle(
-                  color: EditorTokens.text, fontSize: 13, fontFamily: 'HelveticaNeue'),
+                  color: EditorTokens.text, fontSize: 13, fontFamily: 'Fredoka'),
               cursorColor: _accent,
               decoration: const InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
                 hintText: 'Search music...',
                 hintStyle: TextStyle(
-                    color: EditorTokens.muted, fontSize: 13, fontFamily: 'HelveticaNeue'),
+                    color: EditorTokens.muted, fontSize: 13, fontFamily: 'Fredoka'),
               ),
             ),
           ),
@@ -441,7 +441,7 @@ class _MusicSheetState extends State<MusicSheet> {
                   color: on ? _accent : EditorTokens.muted,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'HelveticaNeue',
+                  fontFamily: 'Fredoka',
                 ),
               ),
             ),
@@ -460,7 +460,7 @@ class _MusicSheetState extends State<MusicSheet> {
           const SizedBox(height: 10),
           Text(text,
               style: const TextStyle(
-                  color: EditorTokens.muted, fontSize: 13, fontFamily: 'HelveticaNeue')),
+                  color: EditorTokens.muted, fontSize: 13, fontFamily: 'Fredoka')),
           if (action != null) ...[
             const SizedBox(height: 12),
             OutlinedButton(
@@ -601,7 +601,7 @@ class _TrackRow extends StatelessWidget {
                     color: playing ? _accent : EditorTokens.text,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'HelveticaNeue',
+                    fontFamily: 'Fredoka',
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -615,7 +615,7 @@ class _TrackRow extends StatelessWidget {
                         style: const TextStyle(
                             color: EditorTokens.muted,
                             fontSize: 11,
-                            fontFamily: 'HelveticaNeue'),
+                            fontFamily: 'Fredoka'),
                       ),
                     ),
                     if (track.nonCommercial) ...[
@@ -631,7 +631,7 @@ class _TrackRow extends StatelessWidget {
                                 color: EditorTokens.muted,
                                 fontSize: 9,
                                 fontWeight: FontWeight.w600,
-                                fontFamily: 'HelveticaNeue')),
+                                fontFamily: 'Fredoka')),
                       ),
                     ],
                   ],

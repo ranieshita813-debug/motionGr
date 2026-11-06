@@ -1097,7 +1097,7 @@ class EditorController extends ChangeNotifier {
   // ---------------------------------------------------------------------------
   void addTextOverlay(
     String text, {
-    String fontFamily = 'HelveticaNeue',
+    String fontFamily = 'Fredoka',
     TextAnimationStyle animationStyle = TextAnimationStyle.fadeIn,
   }) {
     _saveState();
@@ -1129,7 +1129,7 @@ class EditorController extends ChangeNotifier {
 
   List<String> get availableFonts {
     final list = <String>[
-      'HelveticaNeue',
+      'Fredoka',
       'Roboto',
       'Montserrat',
       'Playfair Display',
@@ -2150,7 +2150,7 @@ class EditorController extends ChangeNotifier {
         end: cue.end,
         clipType: ClipType.caption,
         layerIndex: _freeOverlayLayer(4, cue.start, cue.end),
-        fontFamily: 'HelveticaNeue',
+        fontFamily: 'Fredoka',
         words: cue.words,
       );
       _project.addClip(clip);
@@ -2177,7 +2177,7 @@ class EditorController extends ChangeNotifier {
         end: cue.end,
         clipType: ClipType.caption,
         layerIndex: _freeOverlayLayer(4, cue.start, cue.end),
-        fontFamily: 'HelveticaNeue',
+        fontFamily: 'Fredoka',
         words: cue.words,
       );
       _project.addClip(clip);
@@ -2227,7 +2227,7 @@ class EditorController extends ChangeNotifier {
       end: cue.end,
       clipType: ClipType.caption,
       layerIndex: _freeOverlayLayer(4, cue.start, cue.end),
-      fontFamily: 'HelveticaNeue',
+      fontFamily: 'Fredoka',
       words: cue.words,
     );
     _project.addClip(clip);

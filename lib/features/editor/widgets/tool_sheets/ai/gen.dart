@@ -617,7 +617,7 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
               icon: _busy
                   ? const TextShimmerWave(
                       'Generating…',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'HelveticaNeue'),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Fredoka'),
                       baseColor: Colors.black45,
                       waveColor: Colors.black,
                     )
@@ -626,7 +626,7 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
                   ? const SizedBox.shrink()
                   : Text(
                       'Generate · $_credits credits',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'HelveticaNeue'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Fredoka'),
                     ),
             ),
           ),
@@ -808,7 +808,7 @@ class _ModelPickerState extends State<_ModelPicker> {
                         style: TextStyle(
                           color: EditorTokens.muted,
                           fontSize: 12,
-                          fontFamily: 'HelveticaNeue',
+                          fontFamily: 'Fredoka',
                         ),
                       ),
                     )
@@ -873,7 +873,7 @@ class _ModelTile extends StatelessWidget {
                           color: EditorTokens.text,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          fontFamily: 'HelveticaNeue',
+                          fontFamily: 'Fredoka',
                         ),
                       ),
                       if (model.badge != null) _Badge(model.badge!),
@@ -885,7 +885,7 @@ class _ModelTile extends StatelessWidget {
                     style: const TextStyle(
                       color: EditorTokens.muted,
                       fontSize: 11,
-                      fontFamily: 'HelveticaNeue',
+                      fontFamily: 'Fredoka',
                     ),
                   ),
                   if (model.capabilities.isNotEmpty) ...[
@@ -910,7 +910,7 @@ class _ModelTile extends StatelessWidget {
                   style: const TextStyle(
                     color: EditorTokens.muted,
                     fontSize: 11,
-                    fontFamily: 'HelveticaNeue',
+                    fontFamily: 'Fredoka',
                   ),
                 ),
                 if (selected) ...[
@@ -962,7 +962,7 @@ class _ModelRow extends StatelessWidget {
                       color: EditorTokens.text,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      fontFamily: 'HelveticaNeue',
+                      fontFamily: 'Fredoka',
                     ),
                   ),
                   Text(
@@ -972,7 +972,7 @@ class _ModelRow extends StatelessWidget {
                     style: const TextStyle(
                       color: EditorTokens.muted,
                       fontSize: 11,
-                      fontFamily: 'HelveticaNeue',
+                      fontFamily: 'Fredoka',
                     ),
                   ),
                 ],
@@ -984,7 +984,7 @@ class _ModelRow extends StatelessWidget {
               style: TextStyle(
                 color: EditorTokens.muted,
                 fontSize: 11,
-                fontFamily: 'HelveticaNeue',
+                fontFamily: 'Fredoka',
               ),
             ),
             const SizedBox(width: 4),
@@ -1005,12 +1005,12 @@ class _ModelRow extends StatelessWidget {
 const _fieldStyle = TextStyle(
   color: EditorTokens.text,
   fontSize: 13,
-  fontFamily: 'HelveticaNeue',
+  fontFamily: 'Fredoka',
 );
 
 InputDecoration _decoration(String hint) => InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(color: EditorTokens.muted, fontSize: 13, fontFamily: 'HelveticaNeue'),
+      hintStyle: const TextStyle(color: EditorTokens.muted, fontSize: 13, fontFamily: 'Fredoka'),
       filled: true,
       fillColor: EditorTokens.elevated,
       isDense: true,
@@ -1054,7 +1054,7 @@ class _Avatar extends StatelessWidget {
             color: EditorTokens.text,
             fontSize: size * 0.4,
             fontWeight: FontWeight.bold,
-            fontFamily: 'HelveticaNeue',
+            fontFamily: 'Fredoka',
           ),
         ),
       );
@@ -1077,7 +1077,7 @@ class _Badge extends StatelessWidget {
             color: EditorTokens.bg,
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            fontFamily: 'HelveticaNeue',
+            fontFamily: 'Fredoka',
           ),
         ),
       );
@@ -1099,7 +1099,7 @@ class _Tag extends StatelessWidget {
           style: const TextStyle(
             color: EditorTokens.muted,
             fontSize: 10,
-            fontFamily: 'HelveticaNeue',
+            fontFamily: 'Fredoka',
           ),
         ),
       );
@@ -1136,7 +1136,7 @@ class _TypeToggle extends StatelessWidget {
                     color: on ? EditorTokens.bg : EditorTokens.text,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    fontFamily: 'HelveticaNeue',
+                    fontFamily: 'Fredoka',
                   ),
                 ),
               ],
@@ -1188,7 +1188,7 @@ class _PillBody extends StatelessWidget {
                 color: EditorTokens.text,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'HelveticaNeue',
+                fontFamily: 'Fredoka',
               ),
             ),
             const SizedBox(width: 4),
@@ -1231,7 +1231,7 @@ class _Pill<T> extends StatelessWidget {
                 style: const TextStyle(
                   color: EditorTokens.text,
                   fontSize: 13,
-                  fontFamily: 'HelveticaNeue',
+                  fontFamily: 'Fredoka',
                 ),
               ),
             ),
@@ -1293,7 +1293,7 @@ class _RefPill extends StatelessWidget {
                 color: EditorTokens.text,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'HelveticaNeue',
+                fontFamily: 'Fredoka',
               ),
             ),
             if (has) ...[
@@ -1331,7 +1331,7 @@ class _Chip extends StatelessWidget {
               color: selected ? EditorTokens.bg : EditorTokens.text,
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              fontFamily: 'HelveticaNeue',
+              fontFamily: 'Fredoka',
             ),
           ),
         ),
@@ -1368,7 +1368,7 @@ class _Advanced extends StatelessWidget {
                 color: EditorTokens.text,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                fontFamily: 'HelveticaNeue',
+                fontFamily: 'Fredoka',
               ),
             ),
             expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1407,7 +1407,7 @@ class _LabeledSlider extends StatelessWidget {
                   color: EditorTokens.text,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'HelveticaNeue',
+                  fontFamily: 'Fredoka',
                 ),
               ),
               Text(
@@ -1415,7 +1415,7 @@ class _LabeledSlider extends StatelessWidget {
                 style: const TextStyle(
                   color: EditorTokens.muted,
                   fontSize: 12,
-                  fontFamily: 'HelveticaNeue',
+                  fontFamily: 'Fredoka',
                 ),
               ),
             ],

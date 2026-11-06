@@ -230,7 +230,7 @@ class _MaskTile extends StatelessWidget {
                 style: TextStyle(
                   color: selected ? _mkText : fg,
                   fontSize: 11,
-                  fontFamily: 'HelveticaNeue',
+                  fontFamily: 'Fredoka',
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
