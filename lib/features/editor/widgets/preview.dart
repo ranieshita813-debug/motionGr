@@ -85,6 +85,12 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
   double _speed = -1;
   double _vol = -1;
 
+  // Preloaded controller for the next clip (avoids a blank gap at cuts).
+  VideoPlayerController? _nextVc;
+  String? _nextPath;
+  bool _nextLoading = false;
+  DateTime _lastSeek = DateTime.fromMillisecondsSinceEpoch(0);
+
   EditorController get _e => widget.editor;
 
   static const Map<VideoEffect, List<double>> _fxMatrices = <VideoEffect, List<double>>{
@@ -169,7 +175,82 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     _token++;
     _vc?.dispose();
     _vc = null;
+    _nextVc?.dispose();
+    _nextVc = null;
+    _nextPath = null;
     super.dispose();
+  }
+
+  /// First video/image clip on the main track that starts after the playhead.
+  TimelineClip? _upcomingClip() {
+    final Duration ph = _e.playhead;
+    TimelineClip? best;
+    for (final c in _e.clips) {
+      if ((c.clipType == ClipType.video || c.clipType == ClipType.image) &&
+          !c.isModifier &&
+          c.layerIndex == 0 &&
+          c.start > ph &&
+          (best == null || c.start < best.start)) {
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  void _maybePreloadNext() {
+    if (!_e.isPlaying || _loading) return;
+    final TimelineClip? next = _upcomingClip();
+    final String? path = next?.sourcePath;
+    final bool wanted = next != null &&
+        path != null &&
+        path.isNotEmpty &&
+        path != _path &&
+        !isImagePath(path) &&
+        (next.start - _e.playhead) <= const Duration(milliseconds: 2000);
+
+    if (!wanted) {
+      if (_nextVc != null && !_nextLoading && (next == null || next.sourcePath != _nextPath)) {
+        final VideoPlayerController stale = _nextVc!;
+        _nextVc = null;
+        _nextPath = null;
+        stale.dispose();
+      }
+      return;
+    }
+    if (_nextPath == path || _nextLoading) return;
+
+    final VideoPlayerController? stale = _nextVc;
+    _nextVc = null;
+    _nextPath = null;
+    stale?.dispose();
+    _preloadNext(path);
+  }
+
+  Future<void> _preloadNext(String path) async {
+    _nextLoading = true;
+    VideoPlayerController? c;
+    try {
+      final file = File(path);
+      if (!await file.exists()) return;
+      c = VideoPlayerController.file(
+        file,
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      await c.initialize();
+      await c.setLooping(false);
+      await c.setVolume(0);
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
+      _nextVc = c;
+      _nextPath = path;
+      c = null;
+    } catch (_) {
+      await c?.dispose();
+    } finally {
+      _nextLoading = false;
+    }
   }
 
   void _onEditor() {
@@ -234,16 +315,25 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     final Duration drift = (c.value.position - local).abs();
 
-    if (_e.isPlaying) {
-      if (!c.value.isPlaying) {
-        await c.seekTo(local);
-        await c.play();
-      } else if (drift > const Duration(milliseconds: 400)) {
-        await c.seekTo(local);
+    try {
+      if (_e.isPlaying) {
+        if (!c.value.isPlaying) {
+          await c.seekTo(local);
+          await c.play();
+          _lastSeek = DateTime.now();
+        } else if (drift > const Duration(milliseconds: 400) &&
+            DateTime.now().difference(_lastSeek) > const Duration(milliseconds: 1000)) {
+          // Throttled: a seek itself causes lag, which would trigger more seeks.
+          _lastSeek = DateTime.now();
+          await c.seekTo(local);
+        }
+        _maybePreloadNext();
+      } else {
+        if (c.value.isPlaying) await c.pause();
+        if (drift > const Duration(milliseconds: 40)) await c.seekTo(local);
       }
-    } else {
-      if (c.value.isPlaying) await c.pause();
-      if (drift > const Duration(milliseconds: 40)) await c.seekTo(local);
+    } catch (_) {
+      // Controller may have been disposed while a call was in flight.
     }
   }
 
@@ -274,6 +364,15 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     if (empty || _isImg) {
       await _swap(null);
+      return;
+    }
+
+    // Use the preloaded controller when it is ready for this exact file.
+    final VideoPlayerController? pre = _nextVc;
+    if (pre != null && _nextPath == path && pre.value.isInitialized) {
+      _nextVc = null;
+      _nextPath = null;
+      await _swap(pre);
       return;
     }
 
@@ -449,7 +548,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
           child: SizedBox(
             width: vs.width <= 0 ? 16 : vs.width,
             height: vs.height <= 0 ? 9 : vs.height,
-            child: VideoPlayer(c),
+            child: RepaintBoundary(child: VideoPlayer(c, key: ObjectKey(c))),
           ),
         ),
       );
@@ -487,12 +586,12 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     }
 
     ColorGradingSettings activeCg = clip?.colorGrading ?? const ColorGradingSettings();
-    for (final c in _e.clips) {
-      if (c.isVisible &&
-          (c.label == 'Adjustment' || c.id.endsWith('_adj') || c.layerIndex == -2) &&
-          _e.playhead >= c.start &&
-          _e.playhead <= c.end) {
-        activeCg = c.colorGrading;
+    for (final m in _e.clips) {
+      if (m.isVisible &&
+          (m.label == 'Adjustment' || m.id.endsWith('_adj') || m.layerIndex == -2) &&
+          _e.playhead >= m.start &&
+          _e.playhead <= m.end) {
+        activeCg = m.colorGrading;
         break;
       }
     }
@@ -546,13 +645,13 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     VideoEffect activeFx = clip?.effect ?? VideoEffect.none;
     List<ShaderEffectClip> activeShaderEffects = clip?.shaderEffects ?? const [];
-    for (final c in _e.clips) {
-      if (c.isVisible &&
-          (c.label == 'Filter' || c.label == 'Effect' || c.id.endsWith('_fx') || c.layerIndex == -3) &&
-          _e.playhead >= c.start &&
-          _e.playhead <= c.end) {
-        if (c.effect != VideoEffect.none) activeFx = c.effect;
-        if (c.shaderEffects.isNotEmpty) activeShaderEffects = c.shaderEffects;
+    for (final m in _e.clips) {
+      if (m.isVisible &&
+          (m.label == 'Filter' || m.label == 'Effect' || m.id.endsWith('_fx') || m.layerIndex == -3) &&
+          _e.playhead >= m.start &&
+          _e.playhead <= m.end) {
+        if (m.effect != VideoEffect.none) activeFx = m.effect;
+        if (m.shaderEffects.isNotEmpty) activeShaderEffects = m.shaderEffects;
         break;
       }
     }
@@ -858,9 +957,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
   final GlobalKey _boundaryKey = GlobalKey();
   final ValueNotifier<_GuideState> _guides =
       ValueNotifier<_GuideState>(const _GuideState());
-  final bool _grid = false;
   final bool _fill = false;
-  String _selectedQuality = 'HD';
 
   @override
   void dispose() {
@@ -918,59 +1015,6 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                     () => Navigator.of(context).maybePop(),
                     size: btn, iconSize: 16 * s),
                 const Spacer(),
-                PopupMenuButton<String>(
-                  tooltip: 'Quality',
-                  color: surfaceToken,
-                  initialValue: _selectedQuality,
-                  onSelected: (v) {
-                    tapFeedback();
-                    setState(() => _selectedQuality = v);
-                  },
-                  itemBuilder: (_) => <PopupMenuEntry<String>>[
-                    for (final q in const <String>['HD', '4M', 'UHD'])
-                      PopupMenuItem<String>(
-                        value: q,
-                        child: Text(
-                          q,
-                          style: TextStyle(
-                            color: q == _selectedQuality ? Colors.white : Colors.white54,
-                            fontWeight: q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
-                            fontFamily: 'HelveticaNeue',
-                          ),
-                        ),
-                      ),
-                  ],
-                  child: Container(
-                    height: 30 * s,
-                    alignment: Alignment.center,
-                    padding: EdgeInsets.symmetric(horizontal: 10 * s),
-                    decoration: BoxDecoration(
-                      color: _chipBg,
-                      borderRadius: BorderRadius.circular(6 * s),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          _selectedQuality,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.5 * s,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: 'HelveticaNeue',
-                          ),
-                        ),
-                        SizedBox(width: 4 * s),
-                        PhosphorIcon(
-                          PhosphorIconsRegular.caretDown,
-                          size: 12 * s,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8 * s),
                 Material(
                   color: const Color(0xFFFFD700),
                   borderRadius: BorderRadius.circular(999),
@@ -1111,9 +1155,6 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                           child: Stack(
                                             fit: StackFit.expand,
                                             children: <Widget>[
-                                              if (_grid)
-                                                const Positioned.fill(
-                                                    child: CustomPaint(painter: _GuidePainter())),
                                               if (e.activeDrawingStrokes.isNotEmpty)
                                                 Positioned.fill(
                                                   child: CustomPaint(
@@ -2364,6 +2405,7 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
       widget.editor.playheadListenable.addListener(_onEditor);
     }
     if (old.clip.sourcePath != widget.clip.sourcePath) {
+      _failed = false;
       _load(widget.clip.sourcePath);
     }
   }
@@ -2378,59 +2420,76 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
     super.dispose();
   }
 
+  double _overlayVolume() {
+    final clip = widget.clip;
+    final Duration rel = _e.playhead - clip.start;
+    final double base =
+        getInterpolatedKeyframeValue(clip, KeyframeProperty.volume, rel, clip.volume);
+    final double tSec = math.max(0.0, rel.inMilliseconds / 1000.0);
+    final double pPlayback =
+        clip.audioProperties.playbackSeconds(clip.trimmedDurationSeconds);
+    return (base * clip.audioProperties.gainAt(tSec, pPlayback))
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
   Future<void> _onEditor() async {
     final c = _vc;
     if (!mounted || c == null || !c.value.isInitialized) return;
 
-    final double speed = widget.clip.speed.clamp(0.1, 10.0).toDouble();
-    if (speed != _speed) {
-      _speed = speed;
-      c.setPlaybackSpeed(speed);
-    }
-    final double vol = widget.clip.volume.clamp(0.0, 1.0).toDouble();
-    if (vol != _vol) {
-      _vol = vol;
-      c.setVolume(vol);
-    }
+    try {
+      final double speed = widget.clip.speed.clamp(0.1, 10.0).toDouble();
+      if (speed != _speed) {
+        _speed = speed;
+        await c.setPlaybackSpeed(speed);
+      }
+      final double vol = _overlayVolume();
+      if ((vol - _vol).abs() > 0.005) {
+        _vol = vol;
+        await c.setVolume(vol);
+      }
 
-    Duration local = Duration(
-        milliseconds: (widget.clip.trimIn.inMilliseconds +
-                (_e.playhead - widget.clip.start).inMilliseconds * speed)
-            .round());
-    if (local.isNegative) local = Duration.zero;
-    final Duration dur = c.value.duration;
-    if (local > dur) local = dur;
+      Duration local = Duration(
+          milliseconds: (widget.clip.trimIn.inMilliseconds +
+                  (_e.playhead - widget.clip.start).inMilliseconds * speed)
+              .round());
+      if (local.isNegative) local = Duration.zero;
+      final Duration dur = c.value.duration;
+      if (local > dur) local = dur;
 
-    final Duration drift = (c.value.position - local).abs();
+      final Duration drift = (c.value.position - local).abs();
 
-    if (_seeking) return;
-    if (_e.isPlaying) {
-      if (!c.value.isPlaying) {
-        _seeking = true;
-        try {
-          await c.seekTo(local);
-          if (mounted && _e.isPlaying) await c.play();
-        } finally {
-          _seeking = false;
+      if (_seeking) return;
+      if (_e.isPlaying) {
+        if (!c.value.isPlaying) {
+          _seeking = true;
+          try {
+            await c.seekTo(local);
+            if (mounted && _vc == c && _e.isPlaying) await c.play();
+          } finally {
+            _seeking = false;
+          }
+        } else if (drift > const Duration(milliseconds: 400)) {
+          _seeking = true;
+          try {
+            await c.seekTo(local);
+          } finally {
+            _seeking = false;
+          }
         }
-      } else if (drift > const Duration(milliseconds: 400)) {
-        _seeking = true;
-        try {
-          await c.seekTo(local);
-        } finally {
-          _seeking = false;
+      } else {
+        if (c.value.isPlaying) await c.pause();
+        if (drift > const Duration(milliseconds: 40)) {
+          _seeking = true;
+          try {
+            await c.seekTo(local);
+          } finally {
+            _seeking = false;
+          }
         }
       }
-    } else {
-      if (c.value.isPlaying) c.pause();
-      if (drift > const Duration(milliseconds: 40)) {
-        _seeking = true;
-        try {
-          await c.seekTo(local);
-        } finally {
-          _seeking = false;
-        }
-      }
+    } catch (_) {
+      // Controller disposed while a call was in flight.
     }
   }
 
@@ -2462,7 +2521,7 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
     try {
       await c.initialize();
       await c.setLooping(false);
-      await c.setVolume(widget.clip.volume.clamp(0.0, 1.0).toDouble());
+      await c.setVolume(_overlayVolume());
     } catch (_) {
       await c.dispose();
       if (mounted && token == _token) setState(() => _failed = true);
@@ -2514,24 +2573,6 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
 
     return playerWidget;
   }
-}
-
-class _GuidePainter extends CustomPainter {
-  const _GuidePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint p = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..strokeWidth = 0.5;
-    for (final double f in const <double>[1 / 3, 2 / 3]) {
-      canvas.drawLine(Offset(size.width * f, 0), Offset(size.width * f, size.height), p);
-      canvas.drawLine(Offset(0, size.height * f), Offset(size.width, size.height * f), p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
 class _DashedRectPainter extends CustomPainter {
@@ -2607,6 +2648,10 @@ class _AudioClipsPreview extends StatefulWidget {
 class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
   final Map<String, VideoPlayerController> _audioControllers =
       <String, VideoPlayerController>{};
+  final Map<String, double> _speeds = <String, double>{};
+  final Map<String, double> _vols = <String, double>{};
+  final Set<String> _initializing = <String>{};
+  final Set<String> _failedIds = <String>{};
   bool _busy = false;
   bool _dirty = false;
   bool _disposed = false;
@@ -2663,6 +2708,32 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
     }
   }
 
+  /// Initializes a controller in the background so one slow file never
+  /// blocks syncing of the other audio clips.
+  Future<void> _startController(String id, String path) async {
+    _initializing.add(id);
+    final controller = VideoPlayerController.file(
+      File(path),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+    } catch (_) {
+      await controller.dispose();
+      _initializing.remove(id);
+      _failedIds.add(id);
+      return;
+    }
+    _initializing.remove(id);
+    if (_disposed) {
+      await controller.dispose();
+      return;
+    }
+    _audioControllers[id] = controller;
+    _onEditorChange();
+  }
+
   Future<void> _syncAudioPlayers() async {
     final activeAudioClips = _e.clips.where((c) {
       return c.isVisible &&
@@ -2679,70 +2750,73 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
         _audioControllers.keys.where((id) => !activeClipIds.contains(id)).toList();
     for (final id in toRemove) {
       final controller = _audioControllers.remove(id);
-      await controller?.pause();
+      _speeds.remove(id);
+      _vols.remove(id);
+      try {
+        await controller?.pause();
+      } catch (_) {}
       await controller?.dispose();
     }
+    _failedIds.removeWhere((id) => !activeClipIds.contains(id));
 
     for (final clip in activeAudioClips) {
       if (_disposed) return;
       final path = clip.sourcePath!;
-      VideoPlayerController? controller = _audioControllers[clip.id];
+      final VideoPlayerController? controller = _audioControllers[clip.id];
 
       if (controller == null) {
+        if (_initializing.contains(clip.id) || _failedIds.contains(clip.id)) continue;
         if (!_fileExists(path)) continue;
-
-        controller = VideoPlayerController.file(
-          File(path),
-          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-        );
-        try {
-          await controller.initialize();
-          await controller.setLooping(false);
-        } catch (_) {
-          await controller.dispose();
-          continue;
-        }
-        if (_disposed) {
-          await controller.dispose();
-          return;
-        }
-        _audioControllers[clip.id] = controller;
+        _startController(clip.id, path);
+        continue;
       }
 
       if (!controller.value.isInitialized) continue;
 
-      final double speed = clip.speed.clamp(0.1, 10.0).toDouble();
-      final relTime = _e.playhead - clip.start;
-      final double kVol = getInterpolatedKeyframeValue(clip, KeyframeProperty.volume, relTime, clip.volume);
-      final double tSec = math.max(0.0, relTime.inMilliseconds / 1000.0);
-      final double durSec = clip.trimmedDurationSeconds;
-      final double pPlayback = clip.audioProperties.playbackSeconds(durSec);
-      final double vol =
-          (kVol * clip.audioProperties.gainAt(tSec, pPlayback)).clamp(0.0, 1.0).toDouble();
-      await controller.setPlaybackSpeed(speed);
-      await controller.setVolume(vol);
+      try {
+        final double speed = clip.speed.clamp(0.1, 10.0).toDouble();
+        final relTime = _e.playhead - clip.start;
+        final double kVol = getInterpolatedKeyframeValue(clip, KeyframeProperty.volume, relTime, clip.volume);
+        final double tSec = math.max(0.0, relTime.inMilliseconds / 1000.0);
+        final double durSec = clip.trimmedDurationSeconds;
+        final double pPlayback = clip.audioProperties.playbackSeconds(durSec);
+        final double vol =
+            (kVol * clip.audioProperties.gainAt(tSec, pPlayback)).clamp(0.0, 1.0).toDouble();
 
-      Duration local = Duration(
-        milliseconds: (clip.trimIn.inMilliseconds +
-                (_e.playhead - clip.start).inMilliseconds * speed)
-            .round(),
-      );
-      if (local.isNegative) local = Duration.zero;
-      final Duration dur = controller.value.duration;
-      if (local > dur) local = dur;
-
-      final Duration drift = (controller.value.position - local).abs();
-
-      if (_e.isPlaying) {
-        if (!controller.value.isPlaying) {
-          await controller.seekTo(local);
-          await controller.play();
-        } else if (drift > const Duration(milliseconds: 400)) {
-          await controller.seekTo(local);
+        if (_speeds[clip.id] != speed) {
+          _speeds[clip.id] = speed;
+          await controller.setPlaybackSpeed(speed);
         }
-      } else {
-        if (controller.value.isPlaying) await controller.pause();
-        if (drift > const Duration(milliseconds: 40)) await controller.seekTo(local);
+        final double? lastVol = _vols[clip.id];
+        if (lastVol == null || (lastVol - vol).abs() > 0.005) {
+          _vols[clip.id] = vol;
+          await controller.setVolume(vol);
+        }
+
+        Duration local = Duration(
+          milliseconds: (clip.trimIn.inMilliseconds +
+                  (_e.playhead - clip.start).inMilliseconds * speed)
+              .round(),
+        );
+        if (local.isNegative) local = Duration.zero;
+        final Duration dur = controller.value.duration;
+        if (local > dur) local = dur;
+
+        final Duration drift = (controller.value.position - local).abs();
+
+        if (_e.isPlaying) {
+          if (!controller.value.isPlaying) {
+            await controller.seekTo(local);
+            await controller.play();
+          } else if (drift > const Duration(milliseconds: 400)) {
+            await controller.seekTo(local);
+          }
+        } else {
+          if (controller.value.isPlaying) await controller.pause();
+          if (drift > const Duration(milliseconds: 40)) await controller.seekTo(local);
+        }
+      } catch (_) {
+        // Controller disposed mid-call; the next sync will rebuild state.
       }
     }
   }

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 class FxParam {
@@ -110,6 +111,31 @@ abstract final class FxShaders {
     }
   }
 
+  // Shaders are created every frame while playing. Dispose them a few frames
+  // later (never the same frame: the layer tree may still reference them).
+  static final List<(ui.FragmentShader, int)> _live = <(ui.FragmentShader, int)>[];
+  static int _gen = 0;
+  static bool _sweepScheduled = false;
+
+  static void _track(ui.FragmentShader shader) {
+    _live.add((shader, _gen));
+    if (_sweepScheduled) return;
+    _sweepScheduled = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _sweepScheduled = false;
+      _gen++;
+      _live.removeWhere((e) {
+        if (e.$2 <= _gen - 4) {
+          try {
+            e.$1.dispose();
+          } catch (_) {}
+          return true;
+        }
+        return false;
+      });
+    });
+  }
+
   static double _val(FxParam p, Map<String, double> m) {
     final double v = m[p.name] ?? m[_legacy[p.name]] ?? p.def;
     return v.clamp(p.min, p.max).toDouble();
@@ -164,6 +190,7 @@ abstract final class FxShaders {
     Duration time,
   ) {
     final ui.FragmentShader shader = program.fragmentShader();
+    _track(shader);
     final double w = math.max(1.0, size.width);
     final double h = math.max(1.0, size.height);
     shader.setFloat(0, w);
