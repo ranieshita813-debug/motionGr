@@ -958,6 +958,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
   final ValueNotifier<_GuideState> _guides =
       ValueNotifier<_GuideState>(const _GuideState());
   final bool _fill = false;
+  String _selectedQuality = 'HD';
 
   @override
   void dispose() {
@@ -1015,6 +1016,59 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                     () => Navigator.of(context).maybePop(),
                     size: btn, iconSize: 16 * s),
                 const Spacer(),
+                PopupMenuButton<String>(
+                  tooltip: 'Quality',
+                  color: surfaceToken,
+                  initialValue: _selectedQuality,
+                  onSelected: (v) {
+                    tapFeedback();
+                    setState(() => _selectedQuality = v);
+                  },
+                  itemBuilder: (_) => <PopupMenuEntry<String>>[
+                    for (final q in const <String>['HD', '4M', 'UHD'])
+                      PopupMenuItem<String>(
+                        value: q,
+                        child: Text(
+                          q,
+                          style: TextStyle(
+                            color: q == _selectedQuality ? Colors.white : Colors.white54,
+                            fontWeight: q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
+                            fontFamily: 'HelveticaNeue',
+                          ),
+                        ),
+                      ),
+                  ],
+                  child: Container(
+                    height: 30 * s,
+                    alignment: Alignment.center,
+                    padding: EdgeInsets.symmetric(horizontal: 10 * s),
+                    decoration: BoxDecoration(
+                      color: _chipBg,
+                      borderRadius: BorderRadius.circular(6 * s),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          _selectedQuality,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5 * s,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'HelveticaNeue',
+                          ),
+                        ),
+                        SizedBox(width: 4 * s),
+                        PhosphorIcon(
+                          PhosphorIconsRegular.caretDown,
+                          size: 12 * s,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8 * s),
                 Material(
                   color: const Color(0xFFFFD700),
                   borderRadius: BorderRadius.circular(999),
