@@ -155,7 +155,7 @@ void main() {
   });
 
   group('ToolPanel Keyframe Controls Tests', () {
-    testWidgets('ToolPanel renders KeyframeControls for all tools when clip is selected', (WidgetTester tester) async {
+    testWidgets('ToolPanel does not duplicate KeyframeControls when clip is selected', (WidgetTester tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -199,59 +199,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // KeyframeControls is present in ToolPanel
-        expect(find.byType(KeyframeControls), findsOneWidget);
-
-        // Add keyframe tooltip should be available
-        expect(find.byTooltip('Add keyframe'), findsOneWidget);
+        // KeyframeControls is NOT in ToolPanel header to avoid duplicates
+        expect(find.byType(KeyframeControls), findsNothing);
       }
       await tester.pump(const Duration(milliseconds: 700));
-    });
-
-    testWidgets('Adding keyframe from ToolPanel updates clip keyframes', (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(800, 1200);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      final controller = EditorController();
-      final clip = TimelineClip(
-        id: 'clip_kf',
-        label: 'Clip KF',
-        start: Duration.zero,
-        end: const Duration(seconds: 10),
-        clipType: ClipType.video,
-      );
-      controller.addClip(clip);
-      controller.selectClip('clip_kf');
-      seekPlayhead(controller, 2.0);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ChangeNotifierProvider<EditorController>.value(
-            value: controller,
-            child: Scaffold(
-              body: ToolPanel(
-                tool: EditorTool.mask,
-                onClose: () {},
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(controller.selectedClip!.keyframes.isEmpty, isTrue);
-
-      // Tap 'Add keyframe'
-      await tester.tap(find.byTooltip('Add keyframe'));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 700));
-
-      expect(controller.selectedClip!.keyframes.isNotEmpty, isTrue);
-      expect(find.byTooltip('Remove keyframe'), findsOneWidget);
     });
 
     test('Mask keyframes interpolation and updateMaskProperties with keyframes', () {

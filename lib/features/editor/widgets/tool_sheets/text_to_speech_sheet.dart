@@ -26,7 +26,7 @@ class TextToSpeechSheet extends StatefulWidget {
 class _TextToSpeechSheetState extends State<TextToSpeechSheet> {
   static const int _maxChars = 500;
   static const Color _accent = Color(0xFF25F4EE); // CapCut cyan
-  static const String _font = 'Google Sans';
+  static const String _font = 'HelveticaNeue';
 
   final TextEditingController _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -335,7 +335,7 @@ class _SectionLabel extends StatelessWidget {
             color: Colors.white70,
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Google Sans',
+            fontFamily: 'HelveticaNeue',
           ),
         ),
       );
@@ -393,7 +393,7 @@ class _VoiceTile extends StatelessWidget {
                 color: selected ? accent : Colors.white,
                 fontSize: 12,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                fontFamily: 'Google Sans',
+                fontFamily: 'HelveticaNeue',
               ),
             ),
           ],

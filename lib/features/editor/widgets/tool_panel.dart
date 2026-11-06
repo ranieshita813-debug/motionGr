@@ -5,7 +5,6 @@ import 'package:flutter_video_editor/core/models/chroma_key.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/widgets/chroma_key_sheet.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
-import 'package:flutter_video_editor/features/editor/widgets/keyframe_controls.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/captions_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/order_tool_view.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
@@ -252,7 +251,6 @@ class ToolPanel extends StatelessWidget {
   final ValueChanged<bool>? onDrag;
 
   Widget _header(BuildContext context) {
-    final editor = context.read<EditorController>();
     return Row(
       children: <Widget>[
         const SizedBox(width: 16),
@@ -272,7 +270,6 @@ class ToolPanel extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'HelveticaNeue')),
         ),
-        KeyframeControls(editor: editor),
         const SizedBox(width: 8),
       ],
     );
