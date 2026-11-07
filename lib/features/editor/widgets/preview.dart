@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -26,20 +27,34 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/masked_
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask_handles_overlay.dart';
 
 // ----------------------------------------------------------------------------
-// Monochrome palette
+// Palette / constants
 // ----------------------------------------------------------------------------
 const Color _chipBg = Color(0xFF1C1C1C);
 const Color _stageBg = Color(0xFF0C1014);
+const Color _gold = Color(0xFFFFD700);
+const String _font = 'Fredoka';
 
 // ----------------------------------------------------------------------------
 // Shared helpers
 // ----------------------------------------------------------------------------
 
-/// File existence is checked once per path instead of every frame.
-final Map<String, bool> _existsCache = <String, bool>{};
+/// File existence is cached briefly instead of hitting the disk every frame.
+/// Entries expire, so a file that appears (or disappears) later is noticed.
+final Map<String, ({bool ok, int at})> _existsCache = <String, ({bool ok, int at})>{};
+const int _existsTtlMs = 4000;
+
 bool _fileExists(String? path) {
   if (path == null || path.isEmpty) return false;
-  return _existsCache.putIfAbsent(path, () => File(path).existsSync());
+  final int now = DateTime.now().millisecondsSinceEpoch;
+  final hit = _existsCache[path];
+  if (hit != null && now - hit.at < _existsTtlMs) return hit.ok;
+  final bool ok = File(path).existsSync();
+  _existsCache[path] = (ok: ok, at: now);
+  return ok;
+}
+
+void _markMissing(String path) {
+  _existsCache[path] = (ok: false, at: DateTime.now().millisecondsSinceEpoch);
 }
 
 Widget applyVideoEffectPreset(Widget child, VideoEffect fx, Duration playhead, TimelineClip? clip) {
@@ -223,7 +238,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     _nextVc = null;
     _nextPath = null;
     stale?.dispose();
-    _preloadNext(path);
+    unawaited(_preloadNext(path));
   }
 
   Future<void> _preloadNext(String path) async {
@@ -241,6 +256,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       await c.setVolume(0);
       if (!mounted) {
         await c.dispose();
+        c = null;
         return;
       }
       _nextVc = c;
@@ -259,7 +275,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       _dirty = true;
       return;
     }
-    _run();
+    unawaited(_run());
   }
 
   Future<void> _run() async {
@@ -317,7 +333,12 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     try {
       if (_e.isPlaying) {
-        if (!c.value.isPlaying) {
+        // The file can end before the timeline clip does. Without this guard
+        // every editor tick would seek + play again and make the frame stutter.
+        final bool atEnd = dur > Duration.zero && local >= dur;
+        if (atEnd) {
+          if (c.value.isPlaying) await c.pause();
+        } else if (!c.value.isPlaying) {
           await c.seekTo(local);
           await c.play();
           _lastSeek = DateTime.now();
@@ -410,7 +431,9 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
   }
 
   Widget _applyTransition(Widget child, TimelineClip clip, Duration playhead) {
-    if (clip.transitionType.isEmpty || clip.transitionType.toLowerCase() == 'none' || clip.transitionDurationMs <= 0) {
+    if (clip.transitionType.isEmpty ||
+        clip.transitionType.toLowerCase() == 'none' ||
+        clip.transitionDurationMs <= 0) {
       return child;
     }
 
@@ -419,19 +442,22 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       return child;
     }
 
-    final double p = ((playhead - (clip.end - transDur)).inMilliseconds / transDur.inMilliseconds).clamp(0.0, 1.0);
+    final double p =
+        ((playhead - (clip.end - transDur)).inMilliseconds / transDur.inMilliseconds)
+            .clamp(0.0, 1.0)
+            .toDouble();
     final String type = clip.transitionType.toLowerCase();
 
     switch (type) {
       case 'fade':
       case 'dissolve':
-        return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child);
+        return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child);
       case 'flash':
-        final double flashIntensity = (1.0 - (p - 0.5).abs() * 2.0).clamp(0.0, 1.0);
+        final double flashIntensity = (1.0 - (p - 0.5).abs() * 2.0).clamp(0.0, 1.0).toDouble();
         return Stack(
           fit: StackFit.expand,
           children: [
-            Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child),
+            Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child),
             ColoredBox(color: Colors.white.withValues(alpha: flashIntensity)),
           ],
         );
@@ -444,37 +470,52 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
       case 'slidedown':
         return Transform.translate(offset: Offset(0, p * 360.0), child: child);
       case 'zoomin':
-        return Transform.scale(scale: 1.0 + p * 0.8, child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child));
+        return Transform.scale(
+            scale: 1.0 + p * 0.8,
+            child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child));
       case 'zoomout':
-        return Transform.scale(scale: math.max(0.01, 1.0 - p * 0.8), child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child));
+        return Transform.scale(
+            scale: math.max(0.01, 1.0 - p * 0.8),
+            child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child));
       case 'blur':
-        return ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: p * 15.0, sigmaY: p * 15.0), child: child);
+        return ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(sigmaX: p * 15.0, sigmaY: p * 15.0), child: child);
       case 'glitch':
-        return FxShaders.applyVideo(child: child, effectId: 'digital_glitch', params: <String, double>{'amount': p, 'speed': 2.0}, time: playhead);
+        return FxShaders.applyVideo(
+            child: child,
+            effectId: 'digital_glitch',
+            params: <String, double>{'amount': p, 'speed': 2.0},
+            time: playhead);
       case 'wipe':
         return ClipRect(
           child: Align(
             alignment: Alignment.centerLeft,
-            widthFactor: (1.0 - p).clamp(0.0, 1.0),
+            widthFactor: (1.0 - p).clamp(0.0, 1.0).toDouble(),
             child: child,
           ),
         );
       case 'spin':
-        return Transform.rotate(angle: p * math.pi, child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child));
+        return Transform.rotate(
+            angle: p * math.pi,
+            child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child));
       case 'fliphorizontal':
         return Transform(
           alignment: Alignment.center,
-          transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateY(p * math.pi / 2),
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(p * math.pi / 2),
           child: child,
         );
       case 'flipvertical':
         return Transform(
           alignment: Alignment.center,
-          transform: Matrix4.identity()..setEntry(3, 2, 0.001)..rotateX(p * math.pi / 2),
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateX(p * math.pi / 2),
           child: child,
         );
       default:
-        return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child);
+        return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child);
     }
   }
 
@@ -507,10 +548,6 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
             )
           : const SizedBox.expand(),
     );
-  }
-
-  Widget _applyVideoEffectPreset(Widget child, VideoEffect fx, Duration playhead, TimelineClip? clip) {
-    return applyVideoEffectPreset(child, fx, playhead, clip);
   }
 
   @override
@@ -612,7 +649,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
         child = ColorFiltered(colorFilter: filter, child: child);
       }
       if (activeCg.vignette > 0.0) {
-        final double vig = activeCg.vignette.clamp(0.0, 1.0);
+        final double vig = activeCg.vignette.clamp(0.0, 1.0).toDouble();
         child = Stack(
           fit: StackFit.expand,
           children: [
@@ -637,7 +674,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
         child = FxShaders.applyVideo(
           child: child,
           effectId: 'crisp_sharpen',
-          params: <String, double>{'amount': activeCg.clarity.clamp(0.0, 1.0)},
+          params: <String, double>{'amount': activeCg.clarity.clamp(0.0, 1.0).toDouble()},
           time: _e.playhead,
         );
       }
@@ -657,7 +694,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     }
 
     if (activeFx != VideoEffect.none && clip != null) {
-      child = _applyVideoEffectPreset(child, activeFx, _e.playhead, clip);
+      child = applyVideoEffectPreset(child, activeFx, _e.playhead, clip);
     }
 
     for (final fx in activeShaderEffects) {
@@ -702,7 +739,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 }
 
 // ----------------------------------------------------------------------------
-// Tracking overlay
+// Tracking: legacy box API (kept so other files that import it still compile)
 // ----------------------------------------------------------------------------
 class TrackingBox {
   const TrackingBox(this.x, this.y, this.w, this.h);
@@ -712,84 +749,124 @@ class TrackingBox {
 typedef TrackingBoxResolver = TrackingBox? Function(dynamic tracking);
 TrackingBoxResolver? resolveTrackingBox;
 
-TrackingBox? _trackingBox(dynamic tracking) {
-  if (tracking == null) return null;
-  final TrackingBox? custom = resolveTrackingBox?.call(tracking);
-  if (custom != null) return custom;
-  try {
-    if ((tracking as dynamic).isEnabled != true) return null;
-    final dynamic r = (tracking as dynamic).rect;
-    if (r is Rect) return TrackingBox(r.left, r.top, r.width, r.height);
-  } catch (_) {}
-  return null;
+// ----------------------------------------------------------------------------
+// Tracking path overlay (shown after tracking finishes; no box, no input)
+// ----------------------------------------------------------------------------
+class _TrackingPathOverlay extends StatefulWidget {
+  const _TrackingPathOverlay({super.key, required this.rawPoints});
+
+  /// The clip's raw tracking points (list of maps, as stored on the model).
+  final List<dynamic> rawPoints;
+
+  @override
+  State<_TrackingPathOverlay> createState() => _TrackingPathOverlayState();
 }
 
-class _TrackingOverlay extends StatelessWidget {
-  const _TrackingOverlay({required this.box, required this.label});
-  final TrackingBox box;
-  final String label;
+class _TrackingPathOverlayState extends State<_TrackingPathOverlay> {
+  List<Offset> _pts = const <Offset>[];
+  Object? _src;
+  int _len = -1;
+
+  /// Converts the raw maps once (not every frame) and thins very long
+  /// recordings so painting stays cheap.
+  void _refreshCache() {
+    final List<dynamic> raw = widget.rawPoints;
+    if (identical(raw, _src) && raw.length == _len) return;
+    _src = raw;
+    _len = raw.length;
+    final int stride = math.max(1, (raw.length / 240).ceil());
+    final List<Offset> out = <Offset>[];
+    for (int i = 0; i < raw.length; i += stride) {
+      final TrackPoint tp = TrackPoint.fromMap(raw[i]);
+      out.add(Offset(tp.cx, tp.cy));
+    }
+    if (stride > 1 && raw.isNotEmpty && (raw.length - 1) % stride != 0) {
+      final TrackPoint last = TrackPoint.fromMap(raw.last);
+      out.add(Offset(last.cx, last.cy));
+    }
+    _pts = out;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) {
-        final Rect r = Rect.fromLTWH(box.x * c.maxWidth, box.y * c.maxHeight,
-            box.w * c.maxWidth, box.h * c.maxHeight);
-        return CustomPaint(
-          painter: _TrackingPainter(rect: r, label: label),
-          child: const SizedBox.expand(),
-        );
-      },
+    _refreshCache();
+    if (_pts.length < 2) return const SizedBox.shrink();
+    final bool reduce = MediaQuery.disableAnimationsOf(context);
+    return RepaintBoundary(
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0.0, end: 1.0),
+        duration: reduce ? Duration.zero : const Duration(milliseconds: 700),
+        curve: Curves.easeOutCubic,
+        builder: (_, t, __) => CustomPaint(
+          painter: _TrackingPathPainter(_pts, progress: t),
+          size: Size.infinite,
+        ),
+      ),
     );
   }
 }
 
-class _TrackingPainter extends CustomPainter {
-  _TrackingPainter({required this.rect, required this.label});
-  final Rect rect;
-  final String label;
+/// Smooth trail: quadratic curves through segment midpoints, older parts
+/// thinner and fainter, hollow ring at the start, glowing dot at the end.
+class _TrackingPathPainter extends CustomPainter {
+  _TrackingPathPainter(this.pts, {this.progress = 1.0});
+  final List<Offset> pts; // normalized 0..1
+  final double progress; // 0..1 draw-in animation
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(
-        rect,
-        Paint()
-          ..color = Colors.white
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5);
-    // Accent is white now, so the label text is black for contrast.
-    final tp = TextPainter(
-      text: TextSpan(
-          text: label,
-          style: const TextStyle(
-              fontSize: 10, color: Colors.black, fontWeight: FontWeight.w700)),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: math.max(40, rect.width));
-    final double lw = tp.width + 12;
-    final double top = math.max(0, rect.top - 16);
-    canvas.drawRect(Rect.fromLTWH(rect.left, top, lw, 16), Paint()..color = Colors.white);
-    tp.paint(canvas, Offset(rect.left + 6, top + 2));
-    tp.dispose();
+    final int n = (pts.length * progress).round().clamp(0, pts.length).toInt();
+    if (n < 2) return;
+
+    final List<Offset> p = <Offset>[
+      for (int i = 0; i < n; i++) Offset(pts[i].dx * size.width, pts[i].dy * size.height),
+    ];
+    Offset mid(Offset a, Offset b) => Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2);
+
+    final Paint stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (int i = 1; i < n; i++) {
+      final double t = i / (n - 1); // 0 = oldest, 1 = newest
+      stroke
+        ..color = Colors.white.withValues(alpha: 0.2 + 0.8 * t)
+        ..strokeWidth = 1.2 + 1.8 * t;
+      final Offset a = i == 1 ? p[0] : mid(p[i - 1], p[i]);
+      final Offset b = i == n - 1 ? p[i] : mid(p[i], p[i + 1]);
+      canvas.drawPath(
+        Path()
+          ..moveTo(a.dx, a.dy)
+          ..quadraticBezierTo(p[i].dx, p[i].dy, b.dx, b.dy),
+        stroke,
+      );
+    }
+
+    canvas.drawCircle(
+      p.first,
+      4,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = Colors.white60,
+    );
+    canvas.drawCircle(p.last, 9, Paint()..color = Colors.white24);
+    canvas.drawCircle(p.last, 4.5, Paint()..color = Colors.white);
   }
 
   @override
-  bool shouldRepaint(covariant _TrackingPainter old) =>
-      old.rect != rect || old.label != label;
+  bool shouldRepaint(covariant _TrackingPathPainter old) =>
+      !identical(old.pts, pts) || old.progress != progress;
 }
 
 // ----------------------------------------------------------------------------
 // Face Tracking Effects Overlay
 // ----------------------------------------------------------------------------
 class _FaceTrackingEffectsOverlay extends StatelessWidget {
-  const _FaceTrackingEffectsOverlay({
-    required this.editor,
-    required this.unit,
-  });
+  const _FaceTrackingEffectsOverlay({required this.editor});
 
   final EditorController editor;
-  final double unit;
 
   @override
   Widget build(BuildContext context) {
@@ -835,8 +912,8 @@ class _FaceTrackingEffectsOverlay extends StatelessWidget {
                       borderRadius: BorderRadius.circular(scaledRect.width * 0.2),
                       child: BackdropFilter(
                         filter: ui.ImageFilter.blur(
-                          sigmaX: effect.intensity.clamp(1.0, 30.0),
-                          sigmaY: effect.intensity.clamp(1.0, 30.0),
+                          sigmaX: effect.intensity.clamp(1.0, 30.0).toDouble(),
+                          sigmaY: effect.intensity.clamp(1.0, 30.0).toDouble(),
                         ),
                         child: Container(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -931,7 +1008,8 @@ class _MosaicPainter extends CustomPainter {
     for (double y = 0; y < size.height; y += step) {
       for (double x = 0; x < size.width; x += step) {
         final bool alt = (((x / step).floor() + (y / step).floor()) % 2) == 0;
-        final Rect r = Rect.fromLTWH(x, y, math.min(step, size.width - x), math.min(step, size.height - y));
+        final Rect r = Rect.fromLTWH(
+            x, y, math.min(step, size.width - x), math.min(step, size.height - y));
         canvas.drawRect(r, alt ? paint1 : paint2);
       }
     }
@@ -953,17 +1031,15 @@ class PreviewCanvas extends StatefulWidget {
 }
 
 class _PreviewCanvasState extends State<PreviewCanvas> {
-  final TransformationController _tf = TransformationController();
   final GlobalKey _boundaryKey = GlobalKey();
   final ValueNotifier<_GuideState> _guides =
       ValueNotifier<_GuideState>(const _GuideState());
-  final bool _fill = false;
+  static const bool _fill = false;
   String _selectedQuality = 'HD';
 
   @override
   void dispose() {
     _guides.dispose();
-    _tf.dispose();
     super.dispose();
   }
 
@@ -1032,8 +1108,9 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                           q,
                           style: TextStyle(
                             color: q == _selectedQuality ? Colors.white : Colors.white54,
-                            fontWeight: q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
-                            fontFamily: 'Fredoka',
+                            fontWeight:
+                                q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
+                            fontFamily: _font,
                           ),
                         ),
                       ),
@@ -1055,7 +1132,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                             color: Colors.white,
                             fontSize: 11.5 * s,
                             fontWeight: FontWeight.w600,
-                            fontFamily: 'Fredoka',
+                            fontFamily: _font,
                           ),
                         ),
                         SizedBox(width: 4 * s),
@@ -1070,7 +1147,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                 ),
                 SizedBox(width: 8 * s),
                 Material(
-                  color: const Color(0xFFFFD700),
+                  color: _gold,
                   borderRadius: BorderRadius.circular(999),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(999),
@@ -1096,7 +1173,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                     color: Colors.black,
                                     fontSize: 12.5 * s,
                                     fontWeight: FontWeight.w800,
-                                    fontFamily: 'Fredoka')),
+                                    fontFamily: _font)),
                           ],
                         ),
                       ),
@@ -1159,9 +1236,6 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                               builder: (ctx, playhead, _) {
                                 return Consumer<EditorController>(
                                   builder: (ctx, e, _) {
-                                    final dynamic tracking = e.selectedClip?.trackingData;
-                                    final TrackingBox? box = _trackingBox(tracking);
-
                                     final activeOverlays = e.clips.where((c) {
                                       return !c.isModifier &&
                                           c.isVisible &&
@@ -1175,6 +1249,17 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                     }).toList()
                                       ..sort((a, b) => a.layerIndex.compareTo(b.layerIndex));
 
+                                    // Tracking result: only the path, and only once
+                                    // tracking is finished and the playhead is on the clip.
+                                    final TimelineClip? sel = e.selectedClip;
+                                    final bool showPath = sel != null &&
+                                        !e.isTrackingRunning &&
+                                        !e.isTrackingPointerMode &&
+                                        sel.trackingData.isEnabled &&
+                                        sel.trackingData.points.isNotEmpty &&
+                                        playhead >= sel.start &&
+                                        playhead <= sel.end;
+
                                     return Stack(
                                       fit: StackFit.expand,
                                       children: <Widget>[
@@ -1184,7 +1269,6 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                             clip: clip,
                                             unit: unit,
                                             designH: designH,
-                                            viewScale: () => _tf.value.getMaxScaleOnAxis(),
                                             othersOf: () => <Rect>[
                                               for (final o in activeOverlays)
                                                 if (o.id != clip.id) _overlayRect(o)
@@ -1217,18 +1301,17 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                                         unit: unit),
                                                   ),
                                                 ),
-                                              if (box != null)
+                                              if (showPath)
                                                 Positioned.fill(
-                                                  child: _TrackingOverlay(
-                                                    box: box,
-                                                    label:
-                                                        '${(tracking as dynamic)?.targetName ?? 'Target'}',
+                                                  child: _TrackingPathOverlay(
+                                                    key: ValueKey<String>(
+                                                        '${sel.id}_${sel.trackingData.points.length}'),
+                                                    rawPoints: sel.trackingData.points,
                                                   ),
                                                 ),
                                               Positioned.fill(
                                                 child: _FaceTrackingEffectsOverlay(
                                                   editor: editor,
-                                                  unit: unit,
                                                 ),
                                               ),
                                             ],
@@ -1292,62 +1375,17 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: editor.togglePlayback,
-                      child: InteractiveViewer(
-                        transformationController: _tf,
-                        minScale: 1,
-                        maxScale: 1,
-                        scaleEnabled: false,
-                        panEnabled: false,
-                        child: SizedBox.expand(
-                          child: Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(pad),
-                              child: ValueListenableBuilder<CanvasRatio>(
-                                valueListenable: canvasRatioNotifier,
-                                builder: (_, r, __) => _canvas(editor, r.value),
-                              ),
-                            ),
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(pad),
+                          child: ValueListenableBuilder<CanvasRatio>(
+                            valueListenable: canvasRatioNotifier,
+                            builder: (_, r, __) => _canvas(editor, r.value),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: ListenableBuilder(
-                  listenable: _tf,
-                  builder: (_, __) => _tf.value.getMaxScaleOnAxis() > 1.01
-                      ? Material(
-                          color: _chipBg,
-                          borderRadius: BorderRadius.circular(16),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              tapFeedback();
-                              _tf.value = Matrix4.identity();
-                            },
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Icon(PhosphorIconsRegular.arrowsOut,
-                                      size: 14, color: Colors.white),
-                                  SizedBox(width: 4),
-                                  Text('Reset',
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
                 ),
               ),
               ListenableBuilder(
@@ -1369,7 +1407,7 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
 }
 
 // ----------------------------------------------------------------------------
-// Tracking Progress Modal Overlay (similar to video optimize dialog, with %)
+// Tracking progress overlay (blocks touches while tracking runs)
 // ----------------------------------------------------------------------------
 class _TrackingProgressOverlay extends StatelessWidget {
   const _TrackingProgressOverlay({required this.progress});
@@ -1377,68 +1415,56 @@ class _TrackingProgressOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int percent = (progress.clamp(0.0, 1.0) * 100).round();
-    return Container(
-      color: Colors.black.withValues(alpha: 0.8),
-      child: Center(
-        child: Dialog(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
+    final double value = progress.clamp(0.0, 1.0).toDouble();
+    final int percent = (value * 100).round();
+    return AbsorbPointer(
+      child: ColoredBox(
+        color: Colors.black.withValues(alpha: 0.8),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              SizedBox(
+                width: 72,
+                height: 72,
+                child: Stack(
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 54,
-                        height: 54,
-                        child: CircularProgressIndicator(
-                          value: progress > 0 ? progress.clamp(0.0, 1.0) : null,
-                          strokeWidth: 4.0,
-                          strokeCap: StrokeCap.round,
-                          backgroundColor: const Color(0xFF3B3B3B),
-                          color: const Color(0xFFFFD700),
-                        ),
+                  children: <Widget>[
+                    SizedBox(
+                      width: 54,
+                      height: 54,
+                      child: CircularProgressIndicator(
+                        value: value > 0 ? value : null,
+                        strokeWidth: 4.0,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: const Color(0xFF3B3B3B),
+                        color: _gold,
                       ),
-                      Text(
-                        '$percent%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'Fredoka',
-                        ),
+                    ),
+                    Text(
+                      '$percent%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: _font,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                const TextShimmerWave(
-                  'Tracking...',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: 'Fredoka',
-                  ),
-                  baseColor: Color(0xFF888888),
-                  waveColor: Colors.white,
+              ),
+              const SizedBox(height: 20),
+              const TextShimmerWave(
+                'Tracking...',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: _font,
                 ),
-              ],
-            ),
+                baseColor: Color(0xFF888888),
+                waveColor: Colors.white,
+              ),
+            ],
           ),
         ),
       ),
@@ -1447,7 +1473,7 @@ class _TrackingProgressOverlay extends StatelessWidget {
 }
 
 // ----------------------------------------------------------------------------
-// Interactive Target Pointer Overlay for Object Tracking
+// Interactive target pointer overlay for object tracking
 // ----------------------------------------------------------------------------
 class _TrackingPointerOverlay extends StatefulWidget {
   const _TrackingPointerOverlay({required this.editor});
@@ -1458,52 +1484,53 @@ class _TrackingPointerOverlay extends StatefulWidget {
 }
 
 class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
-  Offset? _localPos;
+  /// Last picked point (normalized, already clamped), so the crosshair and the
+  /// value sent to the editor are always the same.
+  Offset? _pt;
+
+  static const double _edge = 20.0;
+
+  Offset _normalize(Offset local, double w, double h) {
+    final double mx = math.min(_edge, w / 2);
+    final double my = math.min(_edge, h / 2);
+    return Offset(
+      local.dx.clamp(mx, w - mx).toDouble() / w,
+      local.dy.clamp(my, h - my).toDouble() / h,
+    );
+  }
+
+  void _pick(Offset local, double w, double h) {
+    final Offset n = _normalize(local, w, h);
+    setState(() => _pt = n);
+    widget.editor.updateTrackingTargetPoint(n);
+  }
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final h = constraints.maxHeight;
-        final currentPoint = widget.editor.trackingTargetPoint;
-        final double curX = (_localPos?.dx ?? (currentPoint.dx * w)).clamp(20.0, w - 20.0);
-        final double curY = (_localPos?.dy ?? (currentPoint.dy * h)).clamp(20.0, h - 20.0);
+        final double w = constraints.maxWidth;
+        final double h = constraints.maxHeight;
+        if (w <= 0 || h <= 0) return const SizedBox.shrink();
+
+        final Offset src = _pt ?? widget.editor.trackingTargetPoint;
+        final Offset shown = _normalize(Offset(src.dx * w, src.dy * h), w, h);
+        final double curX = shown.dx * w;
+        final double curY = shown.dy * h;
 
         return Stack(
           fit: StackFit.expand,
           children: [
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onPanStart: (details) {
-                setState(() {
-                  _localPos = details.localPosition;
-                });
-                widget.editor.updateTrackingTargetPoint(
-                  Offset(_localPos!.dx / w, _localPos!.dy / h),
-                );
-              },
-              onPanUpdate: (details) {
-                setState(() {
-                  _localPos = details.localPosition;
-                });
-                widget.editor.updateTrackingTargetPoint(
-                  Offset(_localPos!.dx / w, _localPos!.dy / h),
-                );
-              },
-              onPanEnd: (_) {
-                _localPos = null;
-              },
-              onTapUp: (details) {
-                widget.editor.updateTrackingTargetPoint(
-                  Offset(details.localPosition.dx / w, details.localPosition.dy / h),
-                );
-              },
+              onPanStart: (d) => _pick(d.localPosition, w, h),
+              onPanUpdate: (d) => _pick(d.localPosition, w, h),
+              onTapUp: (d) => _pick(d.localPosition, w, h),
               child: Container(
                 color: Colors.black.withValues(alpha: 0.35),
               ),
             ),
-            // Crosshair Target Pointer
+            // Crosshair target pointer
             Positioned(
               left: curX - 32,
               top: curY - 32,
@@ -1513,7 +1540,7 @@ class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
                   height: 64,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFFFD700), width: 2),
+                    border: Border.all(color: _gold, width: 2),
                     boxShadow: const [
                       BoxShadow(color: Colors.black45, blurRadius: 8),
                     ],
@@ -1526,7 +1553,7 @@ class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
                           width: 8,
                           height: 8,
                           decoration: const BoxDecoration(
-                            color: Color(0xFFFFD700),
+                            color: _gold,
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -1556,15 +1583,19 @@ class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(PhosphorIconsRegular.crosshair, color: Color(0xFFFFD700), size: 16),
+                      Icon(PhosphorIconsRegular.crosshair, color: _gold, size: 16),
                       SizedBox(width: 8),
-                      Text(
-                        'Drag or tap on target point to track',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontFamily: 'Fredoka',
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          'Drag or tap on target point to track',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontFamily: _font,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -1587,14 +1618,14 @@ class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
                   const SizedBox(width: 12),
                   FloatingActionButton.extended(
                     elevation: 4,
-                    backgroundColor: const Color(0xFFFFD700),
+                    backgroundColor: _gold,
                     foregroundColor: Colors.black,
                     icon: const Icon(PhosphorIconsRegular.check, color: Colors.black),
                     label: const Text(
                       'Track',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontFamily: 'Fredoka',
+                        fontFamily: _font,
                         color: Colors.black,
                       ),
                     ),
@@ -1614,7 +1645,7 @@ class _CrosshairPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = const Color(0xFFFFD700)
+      ..color = _gold
       ..strokeWidth = 1.5;
 
     final cx = size.width / 2;
@@ -1866,7 +1897,7 @@ class _SnapGuidePainter extends CustomPainter {
 }
 
 // ----------------------------------------------------------------------------
-// Overlay clip
+// Overlay clip (text, caption, sticker, element, image, video, drawing)
 // ----------------------------------------------------------------------------
 class _OverlayClip extends StatefulWidget {
   const _OverlayClip({
@@ -1874,7 +1905,6 @@ class _OverlayClip extends StatefulWidget {
     required this.clip,
     required this.unit,
     required this.designH,
-    required this.viewScale,
     required this.othersOf,
     required this.isSelected,
     required this.onSelect,
@@ -1886,7 +1916,6 @@ class _OverlayClip extends StatefulWidget {
   final TimelineClip clip;
   final double unit;
   final double designH;
-  final double Function() viewScale;
   final List<Rect> Function() othersOf;
   final bool isSelected;
   final VoidCallback onSelect;
@@ -1898,12 +1927,48 @@ class _OverlayClip extends StatefulWidget {
   State<_OverlayClip> createState() => _OverlayClipState();
 }
 
-class _OverlayClipState extends State<_OverlayClip> {
+class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderStateMixin {
   final GlobalKey _k = GlobalKey();
   double _baseScale = 1;
   double _rx = 0, _ry = 0;
   List<double> _ox = <double>[], _oy = <double>[];
   String _sig = '';
+
+  // Drives the running (marching) selection outline. Only ticks while selected.
+  late final AnimationController _march =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  // Converted tracking points, rebuilt only when the source list changes.
+  List<TrackPoint> _trackPts = const <TrackPoint>[];
+  Object? _trackSrc;
+  int _trackLen = -1;
+
+  void _syncMarch() {
+    final bool run = widget.isSelected && !MediaQuery.disableAnimationsOf(context);
+    if (run && !_march.isAnimating) {
+      _march.repeat();
+    } else if (!run && _march.isAnimating) {
+      _march.stop();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMarch();
+  }
+
+  @override
+  void didUpdateWidget(covariant _OverlayClip old) {
+    super.didUpdateWidget(old);
+    _syncMarch();
+  }
+
+  @override
+  void dispose() {
+    _march.dispose();
+    super.dispose();
+  }
 
   Widget _applyEffectsAndGrading(Widget content, TimelineClip clip) {
     Widget child = content;
@@ -1917,7 +1982,7 @@ class _OverlayClipState extends State<_OverlayClip> {
       child = ColorFiltered(colorFilter: filter, child: child);
     }
     if (cg.vignette > 0.0) {
-      final double vig = cg.vignette.clamp(0.0, 1.0);
+      final double vig = cg.vignette.clamp(0.0, 1.0).toDouble();
       child = Stack(
         fit: StackFit.expand,
         children: [
@@ -1942,7 +2007,7 @@ class _OverlayClipState extends State<_OverlayClip> {
       child = FxShaders.applyVideo(
         child: child,
         effectId: 'crisp_sharpen',
-        params: <String, double>{'amount': cg.clarity.clamp(0.0, 1.0)},
+        params: <String, double>{'amount': cg.clarity.clamp(0.0, 1.0).toDouble()},
         time: playhead,
       );
     }
@@ -2186,7 +2251,7 @@ class _OverlayClipState extends State<_OverlayClip> {
       }
     }
 
-    if (activeIndex == -1 && words.isNotEmpty) {
+    if (activeIndex == -1) {
       final clipDurationMs = clip.duration.inMilliseconds;
       if (clipDurationMs > 0) {
         final elapsedMs = (playhead - clip.start).inMilliseconds.clamp(0, clipDurationMs);
@@ -2235,7 +2300,9 @@ class _OverlayClipState extends State<_OverlayClip> {
     final playhead = editor.playhead;
     final int durInMs = math.max(1, math.min(500, clip.duration.inMilliseconds ~/ 2));
 
-    double opacity = clip.opacity;
+    // Starts at 1.0: the clip's own opacity already comes in through kOpacity
+    // below. (Starting from clip.opacity applied it twice, i.e. squared.)
+    double opacity = 1.0;
     double scaleMult = 1.0;
     double transX = 0.0;
     double rot = 0.0;
@@ -2353,9 +2420,14 @@ class _OverlayClipState extends State<_OverlayClip> {
     // If clip has tracking enabled with tracked points, follow the target point
     final tracking = clip.trackingData;
     if (tracking.isEnabled && tracking.points.isNotEmpty) {
+      final raw = tracking.points;
+      if (!identical(raw, _trackSrc) || raw.length != _trackLen) {
+        _trackSrc = raw;
+        _trackLen = raw.length;
+        _trackPts = raw.map((p) => TrackPoint.fromMap(p)).toList();
+      }
       final double sec = editor.playhead.inMilliseconds / 1000.0;
-      final pts = tracking.points.map((p) => TrackPoint.fromMap(p)).toList();
-      final p = pointAt(pts, sec);
+      final p = pointAt(_trackPts, sec);
       if (p != null) {
         // p.cx, p.cy are normalized coordinates (0..1) relative to canvas
         // Convert to canvas design coordinates
@@ -2388,14 +2460,12 @@ class _OverlayClipState extends State<_OverlayClip> {
             widget.onScale((_baseScale * d.scale).clamp(0.2, 5.0).toDouble());
           }
           if (d.pointerCount < 2) {
-            // Divide by the InteractiveViewer zoom so the overlay tracks the finger.
-            final double vs = math.max(1.0, widget.viewScale());
-            _rx += d.focalPointDelta.dx / u / vs;
-            _ry += d.focalPointDelta.dy / u / vs;
+            _rx += d.focalPointDelta.dx / u;
+            _ry += d.focalPointDelta.dy / u;
             final Size? sz = _k.currentContext?.size;
             final double w = (sz?.width ?? 0) / u;
             final double h = (sz?.height ?? 0) / u;
-            final double th = 8 / u / vs;
+            final double th = 8 / u;
             final (double x, List<_SnapLine> lx) = _snapAxis(_rx, w, designWToken, true, _ox, th);
             final (double y, List<_SnapLine> ly) =
                 _snapAxis(_ry, h, widget.designH, false, _oy, th);
@@ -2409,13 +2479,25 @@ class _OverlayClipState extends State<_OverlayClip> {
           }
         },
         onScaleEnd: (_) => widget.onGuides(const _GuideState()),
-        child: CustomPaint(
+        // The outline is a sibling layer, so the running animation repaints only
+        // the dashes and never the clip content (text, image, video).
+        child: Stack(
           key: _k,
-          foregroundPainter: widget.isSelected ? const _DashedRectPainter() : null,
-          child: Padding(
-            padding: EdgeInsets.all(6 * u),
-            child: _content(),
-          ),
+          clipBehavior: Clip.none,
+          children: <Widget>[
+            Padding(
+              padding: EdgeInsets.all(6 * u),
+              child: RepaintBoundary(child: _content()),
+            ),
+            if (widget.isSelected)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(
+                    child: CustomPaint(painter: _DashedRectPainter(_march)),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -2452,7 +2534,7 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
     super.initState();
     _e.addListener(_onEditor);
     _e.playheadListenable.addListener(_onEditor);
-    _load(widget.clip.sourcePath);
+    unawaited(_load(widget.clip.sourcePath));
   }
 
   @override
@@ -2466,7 +2548,7 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
     }
     if (old.clip.sourcePath != widget.clip.sourcePath) {
       _failed = false;
-      _load(widget.clip.sourcePath);
+      unawaited(_load(widget.clip.sourcePath));
     }
   }
 
@@ -2521,7 +2603,10 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
 
       if (_seeking) return;
       if (_e.isPlaying) {
-        if (!c.value.isPlaying) {
+        final bool atEnd = dur > Duration.zero && local >= dur;
+        if (atEnd) {
+          if (c.value.isPlaying) await c.pause();
+        } else if (!c.value.isPlaying) {
           _seeking = true;
           try {
             await c.seekTo(local);
@@ -2568,7 +2653,7 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
 
     final file = File(path);
     if (!await file.exists()) {
-      _existsCache[path] = false;
+      _markMissing(path);
       if (mounted && token == _token) setState(() => _failed = true);
       return;
     }
@@ -2596,7 +2681,7 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
       _vc = c;
       _failed = false;
     });
-    _onEditor();
+    unawaited(_onEditor());
   }
 
   @override
@@ -2635,40 +2720,44 @@ class _OverlayVideoPlayerState extends State<_OverlayVideoPlayer> {
   }
 }
 
+/// Selection outline for overlay clips. The dashes run around the rectangle
+/// while [animation] repeats; with reduced motion the animation is stopped and
+/// the outline stays static.
 class _DashedRectPainter extends CustomPainter {
-  const _DashedRectPainter();
+  _DashedRectPainter(this.animation) : super(repaint: animation);
+
+  final Animation<double> animation;
+
+  static const double _dash = 5.0;
+  static const double _gap = 4.0;
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+
     final Paint p = Paint()
-      ..color = const Color(0xFFFFD700)
+      ..color = _gold
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    final Rect r = Offset.zero & size;
-    const double dashWidth = 5.0;
-    const double dashSpace = 4.0;
+    final Rect r = (Offset.zero & size).deflate(0.75);
+    final Path outline = Path()..addRect(r);
 
-    void drawDashedLine(Offset p1, Offset p2) {
-      final double distance = (p2 - p1).distance;
-      if (distance <= 0) return;
-      final Offset dir = (p2 - p1) / distance;
-      double start = 0;
-      while (start < distance) {
-        final double end = math.min(start + dashWidth, distance);
-        canvas.drawLine(p1 + dir * start, p1 + dir * end, p);
-        start += dashWidth + dashSpace;
+    // Starting one period early makes the dashes travel clockwise.
+    final double phase = animation.value * (_dash + _gap);
+    for (final ui.PathMetric m in outline.computeMetrics()) {
+      double d = phase - (_dash + _gap);
+      while (d < m.length) {
+        final double s = math.max(0.0, d);
+        final double e = math.min(d + _dash, m.length);
+        if (e > s) canvas.drawPath(m.extractPath(s, e), p);
+        d += _dash + _gap;
       }
     }
-
-    drawDashedLine(r.topLeft, r.topRight);
-    drawDashedLine(r.topRight, r.bottomRight);
-    drawDashedLine(r.bottomRight, r.bottomLeft);
-    drawDashedLine(r.bottomLeft, r.topLeft);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant _DashedRectPainter old) => old.animation != animation;
 }
 
 class _DrawingPainter extends CustomPainter {
@@ -2690,6 +2779,7 @@ class _DrawingPainter extends CustomPainter {
     }
   }
 
+  // Strokes are mutated in place while drawing, so identity checks are unsafe.
   @override
   bool shouldRepaint(covariant CustomPainter old) => true;
 }
@@ -2747,6 +2837,8 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
       controller.dispose();
     }
     _audioControllers.clear();
+    _speeds.clear();
+    _vols.clear();
     super.dispose();
   }
 
@@ -2791,7 +2883,7 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
       return;
     }
     _audioControllers[id] = controller;
-    _onEditorChange();
+    unawaited(_onEditorChange());
   }
 
   Future<void> _syncAudioPlayers() async {
@@ -2827,7 +2919,7 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
       if (controller == null) {
         if (_initializing.contains(clip.id) || _failedIds.contains(clip.id)) continue;
         if (!_fileExists(path)) continue;
-        _startController(clip.id, path);
+        unawaited(_startController(clip.id, path));
         continue;
       }
 
@@ -2865,7 +2957,10 @@ class _AudioClipsPreviewState extends State<_AudioClipsPreview> {
         final Duration drift = (controller.value.position - local).abs();
 
         if (_e.isPlaying) {
-          if (!controller.value.isPlaying) {
+          final bool atEnd = dur > Duration.zero && local >= dur;
+          if (atEnd) {
+            if (controller.value.isPlaying) await controller.pause();
+          } else if (!controller.value.isPlaying) {
             await controller.seekTo(local);
             await controller.play();
           } else if (drift > const Duration(milliseconds: 400)) {
@@ -2947,6 +3042,12 @@ class _EyedropperOverlayState extends State<_EyedropperOverlay> {
     });
   }
 
+  void _commit() {
+    // The frame snapshot may not be ready yet; never complete with no color.
+    final Color? c = _sampledColor;
+    if (c != null) widget.editor.completeEyedropper(c);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -2960,7 +3061,7 @@ class _EyedropperOverlayState extends State<_EyedropperOverlay> {
           onPanUpdate: (d) => _sampleAt(d.localPosition, size),
           onTapUp: (d) {
             _sampleAt(d.localPosition, size);
-            widget.editor.completeEyedropper(_sampledColor);
+            _commit();
           },
           child: Stack(
             fit: StackFit.expand,
@@ -3051,7 +3152,7 @@ class _EyedropperOverlayState extends State<_EyedropperOverlay> {
                         icon: const Icon(PhosphorIconsRegular.check),
                         label: const Text('Apply Color',
                             style: TextStyle(fontWeight: FontWeight.bold)),
-                        onPressed: () => widget.editor.completeEyedropper(_sampledColor),
+                        onPressed: _commit,
                       ),
                     ],
                   ],
