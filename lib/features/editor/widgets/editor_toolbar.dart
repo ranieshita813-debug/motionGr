@@ -267,6 +267,12 @@ class EditorToolbar extends StatelessWidget {
           onTap: () => onSelectToolSheet('captions'),
         ),
         EditorToolbarItem(
+          id: 'blend',
+          title: 'Blend',
+          icon: PhosphorIconsRegular.intersect,
+          onTap: () => onSelectToolSheet('blend'),
+        ),
+        EditorToolbarItem(
           id: 'ai_generate',
           title: 'AI Generate',
           icon: PhosphorIconsFill.sparkle,
@@ -311,6 +317,12 @@ class EditorToolbar extends StatelessWidget {
             title: 'Canvas',
             icon: PhosphorIconsRegular.crop,
             onTap: () => onSelectToolSheet('crop'),
+          ),
+          EditorToolbarItem(
+            id: 'blend',
+            title: 'Blend',
+            icon: PhosphorIconsRegular.intersect,
+            onTap: () => onSelectToolSheet('blend'),
           ),
           EditorToolbarItem(
             id: 'adjust',
@@ -461,6 +473,12 @@ class EditorToolbar extends StatelessWidget {
             onTap: () => onSelectToolSheet('text'),
           ),
           EditorToolbarItem(
+            id: 'blend',
+            title: 'Blend',
+            icon: PhosphorIconsRegular.intersect,
+            onTap: () => onSelectToolSheet('blend'),
+          ),
+          EditorToolbarItem(
             id: 'effects',
             title: 'Effects',
             icon: PhosphorIconsRegular.magicWand,
@@ -503,6 +521,12 @@ class EditorToolbar extends StatelessWidget {
               icon: PhosphorIconsRegular.path,
               onTap: () => onSelectToolSheet('tracking_data'),
             ),
+          EditorToolbarItem(
+            id: 'blend',
+            title: 'Blend',
+            icon: PhosphorIconsRegular.intersect,
+            onTap: () => onSelectToolSheet('blend'),
+          ),
           EditorToolbarItem(
             id: 'effects',
             title: 'Effects',

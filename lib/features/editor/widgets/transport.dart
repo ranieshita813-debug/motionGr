@@ -32,6 +32,24 @@ class TransportBar extends StatelessWidget {
       child: Row(
         children: <Widget>[
           KeyframeControls(editor: editor),
+          Selector<EditorController, int>(
+            selector: (_, e) => e.selectedLayerCount,
+            builder: (_, count, __) {
+              if (count < 1) return const SizedBox.shrink();
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(width: 4 * s),
+                  _icon(
+                    PhosphorIconsRegular.circlesThreePlus,
+                    'Group',
+                    editor.groupSelectedClips,
+                    s,
+                  ),
+                ],
+              );
+            },
+          ),
           const Spacer(),
           _icon(PhosphorIconsRegular.skipBack, 'Previous frame',
               () => seekPlayhead(editor, secondsOf(editor.playhead) - 1 / fpsToken), s),

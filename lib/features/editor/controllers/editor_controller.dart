@@ -83,6 +83,77 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Multi-clip selection & Grouping
+  final Set<String> _selectedClipIds = <String>{};
+  Set<String> get selectedClipIds {
+    if (_selectedClipIds.isNotEmpty) return Set<String>.unmodifiable(_selectedClipIds);
+    if (_selectedClipId != null) return Set<String>.unmodifiable(<String>{_selectedClipId!});
+    return const <String>{};
+  }
+
+  int get selectedLayerCount => selectedClipIds.length;
+
+  void toggleClipSelection(String id) {
+    if (_selectedClipIds.contains(id)) {
+      _selectedClipIds.remove(id);
+      if (_selectedClipId == id) {
+        _selectedClipId = _selectedClipIds.isNotEmpty ? _selectedClipIds.last : null;
+      }
+    } else {
+      _selectedClipIds.add(id);
+      _selectedClipId = id;
+    }
+    notifyListeners();
+  }
+
+  void setMultiSelectedClips(Iterable<String> ids) {
+    _selectedClipIds.clear();
+    _selectedClipIds.addAll(ids);
+    if (_selectedClipIds.isNotEmpty && (_selectedClipId == null || !_selectedClipIds.contains(_selectedClipId))) {
+      _selectedClipId = _selectedClipIds.first;
+    }
+    notifyListeners();
+  }
+
+  void clearMultiSelection() {
+    _selectedClipIds.clear();
+    notifyListeners();
+  }
+
+  void groupSelectedClips() {
+    final ids = selectedClipIds;
+    if (ids.isEmpty) return;
+    _saveState();
+    final newGroupId = 'group_${DateTime.now().millisecondsSinceEpoch}';
+    for (int i = 0; i < _project.clips.length; i++) {
+      if (ids.contains(_project.clips[i].id)) {
+        _project.clips[i] = _project.clips[i].copyWith(groupId: newGroupId);
+      }
+    }
+    _autosave();
+    notifyListeners();
+  }
+
+  void updateBlendProperties(BlendProperties blendProperties) {
+    if (_selectedClipId == null) return;
+    final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
+    if (index == -1) return;
+
+    _saveStateCoalesced('blend:$_selectedClipId');
+    _project.clips[index] = _project.clips[index].copyWith(
+      blendProperties: blendProperties,
+    );
+    _autosave();
+    notifyListeners();
+  }
+
+  // Style Undo / Redo helpers
+  void pushStyleUndo() => _saveState();
+  bool get canUndoStyle => canUndo;
+  bool get canRedoStyle => canRedo;
+  void undoStyle() => undo();
+  void redoStyle() => redo();
+
   void notifyProjectUpdated() {
     _autosave();
     notifyListeners();
@@ -841,13 +912,20 @@ class EditorController extends ChangeNotifier {
   }
 
   void selectClip(String? id) {
-    if (_selectedClipId == id) return;
+    if (_selectedClipId == id && _selectedClipIds.length <= 1) return;
     _selectedClipId = id;
+    _selectedClipIds.clear();
+    if (id != null) {
+      _selectedClipIds.add(id);
+    }
     notifyListeners();
   }
 
   /// Deselect every clip (tap on empty timeline space).
-  void clearSelection() => selectClip(null);
+  void clearSelection() {
+    _selectedClipIds.clear();
+    selectClip(null);
+  }
 
   void setZoom(double value) {
     _playback.setZoom(value);
@@ -2356,7 +2434,8 @@ class EditorController extends ChangeNotifier {
   @override
   void dispose() {
     _playback.dispose();
-    if (_saveTimer?.isActive ?? false) _flushSave();
+    _saveTimer?.cancel();
+    _saveTimer = null;
     super.dispose();
   }
 }
