@@ -70,7 +70,7 @@ class TrackingDataSheet extends StatelessWidget {
                 ),
                 Switch(
                   value: tracking.isEnabled,
-                  activeColor: accentToken,
+                  activeThumbColor: accentToken,
                   onChanged: (val) {
                     tapFeedback();
                     editor.updateTrackingData(tracking.copyWith(isEnabled: val));
