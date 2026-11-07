@@ -37,6 +37,7 @@ class NativeTracker {
     required String videoPath,
     required Rect bbox,
     Duration start = Duration.zero,
+    Duration? duration,
     String tracker = 'nano',
     int intervalMs = 100,
     int maxSide = 320,
@@ -44,6 +45,7 @@ class NativeTracker {
     final res = await _method.invokeMethod<Map>('track', {
       'path': videoPath,
       'startMs': start.inMilliseconds,
+      if (duration != null) 'durationMs': duration.inMilliseconds,
       'x': bbox.left,
       'y': bbox.top,
       'w': bbox.width,

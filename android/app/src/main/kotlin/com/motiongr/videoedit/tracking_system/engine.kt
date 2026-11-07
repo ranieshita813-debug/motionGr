@@ -35,6 +35,7 @@ class TrackerEngine(private val context: Context) {
         intervalMs: Long,
         maxSide: Int = 320,
         smooth: Double = 0.5,
+        durationLimitMs: Long? = null,
         isCancelled: () -> Boolean,
         onProgress: (Double) -> Unit,
     ): Result {
@@ -43,8 +44,13 @@ class TrackerEngine(private val context: Context) {
         val bgr = Mat()
         try {
             mmr.setDataSource(videoPath)
-            val durationMs = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val fullVideoDurationMs = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull() ?: throw IllegalStateException("ভিডিওর দৈর্ঘ্য পাওয়া যায়নি")
+            val targetEndMs = if (durationLimitMs != null && durationLimitMs > 0) {
+                min(fullVideoDurationMs, startMs + durationLimitMs)
+            } else {
+                fullVideoDurationMs
+            }
             var vw = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
             var vh = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
             val rot = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
@@ -85,9 +91,9 @@ class TrackerEngine(private val context: Context) {
             points.add(point(startMs, state, true))
 
             var t = startMs + intervalMs
-            val span = max(durationMs - startMs, 1L).toDouble()
+            val span = max(targetEndMs - startMs, 1L).toDouble()
             val box = Rect()
-            while (t < durationMs) {
+            while (t < targetEndMs) {
                 if (isCancelled()) throw Cancelled()
                 val bmp = frameAt(t)
                 var found = false

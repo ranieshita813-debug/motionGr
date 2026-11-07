@@ -150,11 +150,11 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
               _writeFeather((now.feather + dl * 0.35).clamp(0.0, kMaskMaxFeather).toDouble());
               break;
             case _Mode.move:
-              double targetCx = (cur.cx + d.focalPointDelta.dx / size.width).clamp(0.0, 1.0).toDouble();
-              double targetCy = (cur.cy + d.focalPointDelta.dy / size.height).clamp(0.0, 1.0).toDouble();
+              double targetCx = (cur.cx + d.focalPointDelta.dx / size.width).clamp(-0.5, 1.5).toDouble();
+              double targetCy = (cur.cy + d.focalPointDelta.dy / size.height).clamp(-0.5, 1.5).toDouble();
 
               // Magnetic snap targets in normalized coordinates (0..1)
-              const double snapDistThreshold = 14.0; // pixels
+              const double snapDistThreshold = 10.0; // pixels
               final double thX = snapDistThreshold / size.width;
               final double thY = snapDistThreshold / size.height;
 
@@ -163,9 +163,13 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
 
               final List<_MaskSnapLine> activeLines = <_MaskSnapLine>[];
 
+              // Only snap if drag delta is small / settling near snap target
+              double snappedCx = targetCx;
+              double snappedCy = targetCy;
+
               for (final double tx in snapTargetsX) {
                 if ((targetCx - tx).abs() < thX) {
-                  targetCx = tx;
+                  snappedCx = tx;
                   activeLines.add(_MaskSnapLine(true, tx * size.width));
                   break;
                 }
@@ -173,7 +177,7 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
 
               for (final double ty in snapTargetsY) {
                 if ((targetCy - ty).abs() < thY) {
-                  targetCy = ty;
+                  snappedCy = ty;
                   activeLines.add(_MaskSnapLine(false, ty * size.height));
                   break;
                 }
@@ -190,8 +194,8 @@ class _MaskHandlesOverlayState extends State<MaskHandlesOverlay> {
               }
 
               MaskXform n = cur.copyWith(
-                cx: targetCx,
-                cy: targetCy,
+                cx: snappedCx,
+                cy: snappedCy,
               );
               if (d.pointerCount > 1) {
                 final bool line = maskIsLine(name);
