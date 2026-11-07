@@ -155,6 +155,7 @@ void main() {
 
     testWidgets('PreviewCanvas renders with non-zero dimensions and displays media and overlays', (WidgetTester tester) async {
       final customEditor = EditorController();
+      addTearDown(customEditor.dispose);
       customEditor.addTextOverlay('Preview Sample Text');
 
       await tester.pumpWidget(
@@ -189,7 +190,6 @@ void main() {
 
       // Let autosave timer settle
       await tester.pump(const Duration(milliseconds: 700));
-      await tester.pumpAndSettle();
     });
   });
 }

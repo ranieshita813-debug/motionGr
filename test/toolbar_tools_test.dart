@@ -55,6 +55,7 @@ void main() {
 
     testWidgets('EditorPage toolbar shows clip tools for Caption clip', (WidgetTester tester) async {
       final controller = EditorController();
+      addTearDown(controller.dispose);
       final captionClip = TimelineClip(
         id: 'c1',
         label: 'Sample Caption',
@@ -66,7 +67,7 @@ void main() {
       controller.selectClip('c1');
 
       await tester.pumpWidget(buildEditorApp(controller));
-      await tester.pumpAndSettle(const Duration(milliseconds: 700));
+      await tester.pump(const Duration(milliseconds: 700));
 
       expect(find.text('Edit Caption'), findsOneWidget);
       expect(find.text('Translate'), findsOneWidget);
