@@ -72,6 +72,7 @@ class TrackingPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChan
             result.error("BAD_ARGS", "path, x, y, w, h দরকার", null); return
         }
         val startMs = call.argument<Number>("startMs")?.toLong() ?: 0L
+        val durationMs = call.argument<Number>("durationMs")?.toLong()
         val intervalMs = call.argument<Number>("intervalMs")?.toLong() ?: 100L
         val maxSide = call.argument<Number>("maxSide")?.toInt() ?: 320
         val kind = call.argument<String>("tracker") ?: "nano"
@@ -90,6 +91,7 @@ class TrackingPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChan
                     bbox = doubleArrayOf(x, y, w, h), kind = kind,
                     intervalMs = intervalMs,
                     maxSide = maxSide,
+                    durationLimitMs = durationMs,
                     isCancelled = { cancelFlag.get() },
                     onProgress = { p -> main.post { sink?.success(p) } },
                 )

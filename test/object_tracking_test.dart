@@ -10,7 +10,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Object Tracking Toolbar & State Tests', () {
-    testWidgets('EditorToolbar shows Tracking tool for text clip', (tester) async {
+    testWidgets('EditorToolbar shows Tracking tool for text clip and Tracking Data when completed', (tester) async {
       final editor = EditorController();
       final textClip = TimelineClip(
         id: 'c_text',
@@ -38,6 +38,16 @@ void main() {
       );
 
       expect(find.text('Tracking'), findsOneWidget);
+      expect(find.text('Tracking Data'), findsNothing);
+
+      // Now set tracking points
+      editor.updateTrackingData(const TrackingData(
+        isEnabled: true,
+        points: [{'t': 0.0, 'cx': 0.5, 'cy': 0.5, 'w': 0.1, 'h': 0.1, 'found': true}],
+      ));
+      await tester.pump();
+
+      expect(find.text('Tracking Data'), findsOneWidget);
       await tester.pumpAndSettle(const Duration(milliseconds: 700));
     });
 

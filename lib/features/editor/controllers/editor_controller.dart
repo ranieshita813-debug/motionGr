@@ -1118,7 +1118,7 @@ class EditorController extends ChangeNotifier {
       positionY: offsetY,
       fontFamily: fontFamily,
       textAnimationStyle: animationStyle,
-      effect: VideoEffect.vibrant,
+      effect: VideoEffect.none,
     );
 
     _project.addClip(clip);
@@ -1941,6 +1941,7 @@ class EditorController extends ChangeNotifier {
         videoPath: videoPath,
         bbox: bbox,
         start: clip.start,
+        duration: clip.duration,
         intervalMs: 100,
         maxSide: 320,
       );

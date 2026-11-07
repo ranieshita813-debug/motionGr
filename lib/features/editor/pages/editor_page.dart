@@ -63,6 +63,7 @@ class _EditorPageState extends State<EditorPage> {
       case 'color_grading': target = EditorTool.colorGrading; break;
       case 'color_grade': target = EditorTool.colorGrading; break;
       case 'crop': target = EditorTool.crop; break;
+      case 'tracking_data': target = EditorTool.trackingData; break;
       case 'speed': target = EditorTool.speed; break;
       case 'elements': target = EditorTool.elements; break;
       case 'draw': target = EditorTool.draw; break;

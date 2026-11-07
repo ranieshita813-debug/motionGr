@@ -1295,7 +1295,9 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                       child: InteractiveViewer(
                         transformationController: _tf,
                         minScale: 1,
-                        maxScale: 4,
+                        maxScale: 1,
+                        scaleEnabled: false,
+                        panEnabled: false,
                         child: SizedBox.expand(
                           child: Center(
                             child: Padding(
@@ -2382,28 +2384,29 @@ class _OverlayClipState extends State<_OverlayClip> {
           widget.onSelect();
         },
         onScaleUpdate: (d) {
-          if (d.pointerCount >= 2) {
+          if (d.pointerCount >= 2 || (d.scale - 1.0).abs() > 0.05) {
             widget.onScale((_baseScale * d.scale).clamp(0.2, 5.0).toDouble());
-            return;
           }
-          // Divide by the InteractiveViewer zoom so the overlay tracks the finger.
-          final double vs = math.max(1.0, widget.viewScale());
-          _rx += d.focalPointDelta.dx / u / vs;
-          _ry += d.focalPointDelta.dy / u / vs;
-          final Size? sz = _k.currentContext?.size;
-          final double w = (sz?.width ?? 0) / u;
-          final double h = (sz?.height ?? 0) / u;
-          final double th = 8 / u / vs;
-          final (double x, List<_SnapLine> lx) = _snapAxis(_rx, w, designWToken, true, _ox, th);
-          final (double y, List<_SnapLine> ly) =
-              _snapAxis(_ry, h, widget.designH, false, _oy, th);
-          final List<_SnapLine> lines = <_SnapLine>[...lx, ...ly];
-          final String sig =
-              lines.map((l) => '${l.vertical}${l.pos.toStringAsFixed(1)}').join('|');
-          if (sig.isNotEmpty && sig != _sig) tapFeedback();
-          _sig = sig;
-          widget.onPosition(x, y);
-          widget.onGuides(_GuideState(dragging: true, lines: lines));
+          if (d.pointerCount < 2) {
+            // Divide by the InteractiveViewer zoom so the overlay tracks the finger.
+            final double vs = math.max(1.0, widget.viewScale());
+            _rx += d.focalPointDelta.dx / u / vs;
+            _ry += d.focalPointDelta.dy / u / vs;
+            final Size? sz = _k.currentContext?.size;
+            final double w = (sz?.width ?? 0) / u;
+            final double h = (sz?.height ?? 0) / u;
+            final double th = 8 / u / vs;
+            final (double x, List<_SnapLine> lx) = _snapAxis(_rx, w, designWToken, true, _ox, th);
+            final (double y, List<_SnapLine> ly) =
+                _snapAxis(_ry, h, widget.designH, false, _oy, th);
+            final List<_SnapLine> lines = <_SnapLine>[...lx, ...ly];
+            final String sig =
+                lines.map((l) => '${l.vertical}${l.pos.toStringAsFixed(1)}').join('|');
+            if (sig.isNotEmpty && sig != _sig) tapFeedback();
+            _sig = sig;
+            widget.onPosition(x, y);
+            widget.onGuides(_GuideState(dragging: true, lines: lines));
+          }
         },
         onScaleEnd: (_) => widget.onGuides(const _GuideState()),
         child: CustomPaint(

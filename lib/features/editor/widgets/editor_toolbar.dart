@@ -427,6 +427,7 @@ class EditorToolbar extends StatelessWidget {
         ];
 
       case ClipType.text:
+        final bool hasTrackingPoints = clip.trackingData.points.isNotEmpty;
         return [
           EditorToolbarItem(
             id: 'tracking',
@@ -434,6 +435,13 @@ class EditorToolbar extends StatelessWidget {
             icon: PhosphorIconsRegular.crosshair,
             onTap: () => editor.startTrackingPointerMode(),
           ),
+          if (hasTrackingPoints)
+            EditorToolbarItem(
+              id: 'tracking_data',
+              title: 'Tracking Data',
+              icon: PhosphorIconsRegular.path,
+              onTap: () => onSelectToolSheet('tracking_data'),
+            ),
           EditorToolbarItem(
             id: 'text_to_speech',
             title: 'Text to Speech',
@@ -480,6 +488,7 @@ class EditorToolbar extends StatelessWidget {
 
       case ClipType.element:
       case ClipType.sticker:
+        final bool hasTrackingData = clip.trackingData.points.isNotEmpty;
         return [
           EditorToolbarItem(
             id: 'tracking',
@@ -487,6 +496,13 @@ class EditorToolbar extends StatelessWidget {
             icon: PhosphorIconsRegular.crosshair,
             onTap: () => editor.startTrackingPointerMode(),
           ),
+          if (hasTrackingData)
+            EditorToolbarItem(
+              id: 'tracking_data',
+              title: 'Tracking Data',
+              icon: PhosphorIconsRegular.path,
+              onTap: () => onSelectToolSheet('tracking_data'),
+            ),
           EditorToolbarItem(
             id: 'effects',
             title: 'Effects',
