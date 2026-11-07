@@ -79,6 +79,7 @@ class _EditorPageState extends State<EditorPage> {
       case 'captions_style': target = EditorTool.captionsStyle; break;
       case 'caption_translate': target = EditorTool.captionsTranslate; break;
       case 'captions_translate': target = EditorTool.captionsTranslate; break;
+      case 'blend': target = EditorTool.blend; break;
     }
     if (target != null) {
       _open(target);
@@ -142,6 +143,7 @@ class _EditorPageState extends State<EditorPage> {
   void _clearMulti() {
     _multiOn.value = false;
     _multi.value = <String>{};
+    context.read<EditorController>().clearMultiSelection();
   }
 
   @override

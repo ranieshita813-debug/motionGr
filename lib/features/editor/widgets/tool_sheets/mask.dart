@@ -47,7 +47,11 @@ class _MaskSheetState extends State<MaskSheet> {
   @override
   void dispose() {
     // notifyListeners must not run while the tree is being torn down
-    Future<void>.microtask(() => _editor.setMaskEditing(false));
+    Future<void>.microtask(() {
+      try {
+        _editor.setMaskEditing(false);
+      } catch (_) {}
+    });
     super.dispose();
   }
 
