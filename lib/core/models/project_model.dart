@@ -126,6 +126,60 @@ enum CurveType {
   random,
 }
 
+enum BlendType {
+  normal,
+  darken,
+  multiply,
+  colorBurn,
+  lighten,
+  screen,
+  colorDodge,
+  overlay,
+  softLight,
+  hardLight,
+  difference,
+  exclusion,
+}
+
+class BlendProperties {
+  const BlendProperties({
+    this.type = BlendType.normal,
+    this.opacity = 1.0,
+  });
+
+  final BlendType type;
+  final double opacity; // 0..1
+
+  bool get isActive => type != BlendType.normal;
+
+  BlendProperties copyWith({
+    BlendType? type,
+    double? opacity,
+  }) {
+    return BlendProperties(
+      type: type ?? this.type,
+      opacity: opacity ?? this.opacity,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'type': type.name,
+      'opacity': opacity,
+    };
+  }
+
+  factory BlendProperties.fromJson(Map<String, dynamic> json) {
+    return BlendProperties(
+      type: BlendType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => BlendType.normal,
+      ),
+      opacity: (json['opacity'] as num?)?.toDouble() ?? 1.0,
+    );
+  }
+}
+
 class Keyframe {
   const Keyframe({
     required this.id,
@@ -257,6 +311,14 @@ class TextStyleProperties {
     this.highlightBackgroundColor = Colors.transparent,
     this.highlightStyle = 'color',
     this.enableHighlight = true,
+    this.fontFamily = '',
+    this.bold = false,
+    this.shadow = false,
+    this.glowRadius = 0.0,
+    this.glowColor = Colors.transparent,
+    this.boxOpacity = 0.0,
+    this.animation = 'none',
+    this.position = 'bottom',
   });
 
   final double fontSize;
@@ -276,6 +338,14 @@ class TextStyleProperties {
   final Color highlightBackgroundColor;
   final String highlightStyle; // 'color', 'badge', 'scale', 'outline'
   final bool enableHighlight;
+  final String fontFamily;
+  final bool bold;
+  final bool shadow;
+  final double glowRadius;
+  final Color glowColor;
+  final double boxOpacity;
+  final String animation;
+  final String position;
 
   TextStyleProperties copyWith({
     double? fontSize,
@@ -295,6 +365,14 @@ class TextStyleProperties {
     Color? highlightBackgroundColor,
     String? highlightStyle,
     bool? enableHighlight,
+    String? fontFamily,
+    bool? bold,
+    bool? shadow,
+    double? glowRadius,
+    Color? glowColor,
+    double? boxOpacity,
+    String? animation,
+    String? position,
   }) {
     return TextStyleProperties(
       fontSize: fontSize ?? this.fontSize,
@@ -314,6 +392,14 @@ class TextStyleProperties {
       highlightBackgroundColor: highlightBackgroundColor ?? this.highlightBackgroundColor,
       highlightStyle: highlightStyle ?? this.highlightStyle,
       enableHighlight: enableHighlight ?? this.enableHighlight,
+      fontFamily: fontFamily ?? this.fontFamily,
+      bold: bold ?? this.bold,
+      shadow: shadow ?? this.shadow,
+      glowRadius: glowRadius ?? this.glowRadius,
+      glowColor: glowColor ?? this.glowColor,
+      boxOpacity: boxOpacity ?? this.boxOpacity,
+      animation: animation ?? this.animation,
+      position: position ?? this.position,
     );
   }
 
@@ -336,6 +422,14 @@ class TextStyleProperties {
       'highlightBackgroundColor': highlightBackgroundColor.toARGB32(),
       'highlightStyle': highlightStyle,
       'enableHighlight': enableHighlight,
+      'fontFamily': fontFamily,
+      'bold': bold,
+      'shadow': shadow,
+      'glowRadius': glowRadius,
+      'glowColor': glowColor.toARGB32(),
+      'boxOpacity': boxOpacity,
+      'animation': animation,
+      'position': position,
     };
   }
 
@@ -361,6 +455,14 @@ class TextStyleProperties {
       highlightBackgroundColor: Color(json['highlightBackgroundColor'] as int? ?? 0x00000000),
       highlightStyle: json['highlightStyle'] as String? ?? 'color',
       enableHighlight: json['enableHighlight'] as bool? ?? true,
+      fontFamily: json['fontFamily'] as String? ?? '',
+      bold: json['bold'] as bool? ?? false,
+      shadow: json['shadow'] as bool? ?? false,
+      glowRadius: (json['glowRadius'] as num?)?.toDouble() ?? 0.0,
+      glowColor: Color(json['glowColor'] as int? ?? 0x00000000),
+      boxOpacity: (json['boxOpacity'] as num?)?.toDouble() ?? 0.0,
+      animation: json['animation'] as String? ?? 'none',
+      position: json['position'] as String? ?? 'bottom',
     );
   }
 }
@@ -1345,6 +1447,8 @@ class TimelineClip {
     this.elementProperties = const ElementProperties(),
     this.cameraProperties = const CameraProperties(),
     this.maskProperties = const MaskProperties(),
+    this.blendProperties = const BlendProperties(),
+    this.groupId,
     this.keyframes = const <Keyframe>[],
     this.shaderEffects = const <ShaderEffectClip>[],
     this.inAnimation = ClipAnimation.none,
@@ -1392,6 +1496,8 @@ class TimelineClip {
   final ElementProperties elementProperties;
   final CameraProperties cameraProperties;
   final MaskProperties maskProperties;
+  final BlendProperties blendProperties;
+  final String? groupId;
   final List<Keyframe> keyframes;
   final List<ShaderEffectClip> shaderEffects;
   final ClipAnimation inAnimation;
@@ -1453,6 +1559,8 @@ class TimelineClip {
     ElementProperties? elementProperties,
     CameraProperties? cameraProperties,
     MaskProperties? maskProperties,
+    BlendProperties? blendProperties,
+    String? groupId,
     List<Keyframe>? keyframes,
     List<ShaderEffectClip>? shaderEffects,
     ClipAnimation? inAnimation,
@@ -1500,6 +1608,8 @@ class TimelineClip {
       elementProperties: elementProperties ?? this.elementProperties,
       cameraProperties: cameraProperties ?? this.cameraProperties,
       maskProperties: maskProperties ?? this.maskProperties,
+      blendProperties: blendProperties ?? this.blendProperties,
+      groupId: groupId ?? this.groupId,
       keyframes: keyframes ?? this.keyframes,
       shaderEffects: shaderEffects ?? this.shaderEffects,
       inAnimation: inAnimation ?? this.inAnimation,
@@ -1550,6 +1660,8 @@ class TimelineClip {
       'elementProperties': elementProperties.toJson(),
       'cameraProperties': cameraProperties.toJson(),
       'maskProperties': maskProperties.toJson(),
+      'blendProperties': blendProperties.toJson(),
+      'groupId': groupId,
       'keyframes': keyframes.map((k) => k.toJson()).toList(),
       'shaderEffects': shaderEffects.map((e) => e.toJson()).toList(),
       'inAnimation': inAnimation.name,
@@ -1626,6 +1738,10 @@ class TimelineClip {
       maskProperties: json['maskProperties'] != null
           ? MaskProperties.fromJson(Map<String, dynamic>.from(json['maskProperties'] as Map))
           : const MaskProperties(),
+      blendProperties: json['blendProperties'] != null
+          ? BlendProperties.fromJson(Map<String, dynamic>.from(json['blendProperties'] as Map))
+          : const BlendProperties(),
+      groupId: json['groupId'] as String?,
       keyframes: (json['keyframes'] as List<dynamic>?)
               ?.map((e) => Keyframe.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??

@@ -28,6 +28,7 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_s
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_tools_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/music_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/blend_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/tracking_data_sheet.dart';
 
 // ----------------------------------------------------------------------------
@@ -76,6 +77,7 @@ enum EditorTool {
   captionsTranslate('Translate', PhosphorIconsRegular.translate),
   captionsStyle('Highlight Style', PhosphorIconsRegular.paintBucket),
   trackingData('Tracking Data', PhosphorIconsRegular.crosshair),
+  blend('Blend', PhosphorIconsRegular.intersect),
   ai('AI Generate', PhosphorIconsFill.sparkle);
 
   const EditorTool(this.title, this.icon);
@@ -211,6 +213,7 @@ enum EditorTool {
         EditorTool.captionsTranslate => const CaptionTranslationSheet(),
         EditorTool.captionsStyle => const CaptionStyleSheet(),
         EditorTool.trackingData => const TrackingDataSheet(),
+        EditorTool.blend => const BlendSheet(),
         EditorTool.ai => Builder(
             builder: (ctx) {
               return Center(

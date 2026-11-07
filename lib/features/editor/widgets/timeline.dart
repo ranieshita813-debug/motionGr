@@ -369,6 +369,7 @@ class _TimelineWidgetState extends State<TimelineWidget> {
   void _deselectAll() {
     if (widget.multiOn.value) {
       widget.multi.value = <String>{};
+      editor.clearMultiSelection();
     } else {
       editor.clearSelection();
     }
@@ -1677,6 +1678,7 @@ class _ClipBlockState extends State<_ClipBlock> {
                 final Set<String> next = Set<String>.of(widget.multi.value);
                 if (!next.remove(clip.id)) next.add(clip.id);
                 widget.multi.value = next;
+                widget.editor.setMultiSelectedClips(next);
               } else {
                 widget.editor.selectClip(clip.id);
               }

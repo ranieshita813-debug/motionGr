@@ -126,3 +126,18 @@ enum CurveType {
   bounce,
   random,
 }
+
+enum BlendType {
+  normal,
+  darken,
+  multiply,
+  colorBurn,
+  lighten,
+  screen,
+  colorDodge,
+  overlay,
+  softLight,
+  hardLight,
+  difference,
+  exclusion,
+}
