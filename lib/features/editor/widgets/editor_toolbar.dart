@@ -267,6 +267,12 @@ class EditorToolbar extends StatelessWidget {
           onTap: () => onSelectToolSheet('captions'),
         ),
         EditorToolbarItem(
+          id: 'blend',
+          title: 'Blend',
+          icon: PhosphorIconsRegular.intersect,
+          onTap: () => onSelectToolSheet('blend'),
+        ),
+        EditorToolbarItem(
           id: 'ai_generate',
           title: 'AI Generate',
           icon: PhosphorIconsFill.sparkle,
@@ -311,6 +317,12 @@ class EditorToolbar extends StatelessWidget {
             title: 'Canvas',
             icon: PhosphorIconsRegular.crop,
             onTap: () => onSelectToolSheet('crop'),
+          ),
+          EditorToolbarItem(
+            id: 'blend',
+            title: 'Blend',
+            icon: PhosphorIconsRegular.intersect,
+            onTap: () => onSelectToolSheet('blend'),
           ),
           EditorToolbarItem(
             id: 'adjust',
@@ -369,6 +381,12 @@ class EditorToolbar extends StatelessWidget {
             title: 'Edit Caption',
             icon: PhosphorIconsRegular.pencilSimple,
             onTap: () => onSelectToolSheet('text'),
+          ),
+          EditorToolbarItem(
+            id: 'to_svg',
+            title: 'To SVG',
+            icon: PhosphorIconsRegular.fileSvg,
+            onTap: () => editor.convertTextClipToSvg(clip.id),
           ),
           EditorToolbarItem(
             id: 'translate_captions',
@@ -461,6 +479,18 @@ class EditorToolbar extends StatelessWidget {
             onTap: () => onSelectToolSheet('text'),
           ),
           EditorToolbarItem(
+            id: 'to_svg',
+            title: 'To SVG',
+            icon: PhosphorIconsRegular.fileSvg,
+            onTap: () => editor.convertTextClipToSvg(clip.id),
+          ),
+          EditorToolbarItem(
+            id: 'blend',
+            title: 'Blend',
+            icon: PhosphorIconsRegular.intersect,
+            onTap: () => onSelectToolSheet('blend'),
+          ),
+          EditorToolbarItem(
             id: 'effects',
             title: 'Effects',
             icon: PhosphorIconsRegular.magicWand,
@@ -503,6 +533,12 @@ class EditorToolbar extends StatelessWidget {
               icon: PhosphorIconsRegular.path,
               onTap: () => onSelectToolSheet('tracking_data'),
             ),
+          EditorToolbarItem(
+            id: 'blend',
+            title: 'Blend',
+            icon: PhosphorIconsRegular.intersect,
+            onTap: () => onSelectToolSheet('blend'),
+          ),
           EditorToolbarItem(
             id: 'effects',
             title: 'Effects',

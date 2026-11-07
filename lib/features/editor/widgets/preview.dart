@@ -1077,114 +1077,179 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
     final Size size = MediaQuery.sizeOf(context);
     final double s = scaleOf(size);
     final double btn = 36 * s;
+    final editor = widget.editor;
 
-    return Container(
-      color: bgToken,
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 52 * s,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10 * s),
-            child: Row(
-              children: <Widget>[
-                _roundBtn(PhosphorIconsRegular.arrowLeft, 'Back',
-                    () => Navigator.of(context).maybePop(),
-                    size: btn, iconSize: 16 * s),
-                const Spacer(),
-                PopupMenuButton<String>(
-                  tooltip: 'Quality',
-                  color: surfaceToken,
-                  initialValue: _selectedQuality,
-                  onSelected: (v) {
-                    tapFeedback();
-                    setState(() => _selectedQuality = v);
-                  },
-                  itemBuilder: (_) => <PopupMenuEntry<String>>[
-                    for (final q in const <String>['HD', '4M', 'UHD'])
-                      PopupMenuItem<String>(
-                        value: q,
-                        child: Text(
-                          q,
-                          style: TextStyle(
-                            color: q == _selectedQuality ? Colors.white : Colors.white54,
-                            fontWeight:
-                                q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
-                            fontFamily: _font,
-                          ),
+    return ListenableBuilder(
+      listenable: editor,
+      builder: (context, _) {
+        final bool isMulti = editor.selectedLayerCount > 1;
+
+        return Container(
+          color: bgToken,
+          child: SafeArea(
+            bottom: false,
+            child: SizedBox(
+              height: 52 * s,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10 * s),
+                child: Row(
+                  children: <Widget>[
+                    if (!isMulti)
+                      _roundBtn(PhosphorIconsRegular.arrowLeft, 'Back',
+                          () => Navigator.of(context).maybePop(),
+                          size: btn, iconSize: 16 * s)
+                    else
+                      _roundBtn(PhosphorIconsRegular.x, 'Cancel',
+                          () => editor.clearMultiSelection(),
+                          size: btn, iconSize: 16 * s),
+                    if (isMulti) ...<Widget>[
+                      SizedBox(width: 10 * s),
+                      Text(
+                        '${editor.selectedLayerCount} Selected',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14 * s,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: _font,
                         ),
                       ),
-                  ],
-                  child: Container(
-                    height: 30 * s,
-                    alignment: Alignment.center,
-                    padding: EdgeInsets.symmetric(horizontal: 10 * s),
-                    decoration: BoxDecoration(
-                      color: _chipBg,
-                      borderRadius: BorderRadius.circular(6 * s),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        Text(
-                          _selectedQuality,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11.5 * s,
-                            fontWeight: FontWeight.w600,
-                            fontFamily: _font,
-                          ),
-                        ),
-                        SizedBox(width: 4 * s),
-                        PhosphorIcon(
-                          PhosphorIconsRegular.caretDown,
-                          size: 12 * s,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8 * s),
-                Material(
-                  color: _gold,
-                  borderRadius: BorderRadius.circular(999),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () {
-                      tapFeedback();
-                      ExportModal.show(context);
-                    },
-                    child: SizedBox(
-                      height: btn,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 14 * s),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            PhosphorIcon(
-                              PhosphorIconsBold.export,
-                              color: Colors.black,
-                              size: 15 * s,
-                            ),
-                            SizedBox(width: 5 * s),
-                            Text('Export',
+                    ],
+                    const Spacer(),
+                    if (!isMulti) ...<Widget>[
+                      PopupMenuButton<String>(
+                        tooltip: 'Quality',
+                        color: surfaceToken,
+                        initialValue: _selectedQuality,
+                        onSelected: (v) {
+                          tapFeedback();
+                          setState(() => _selectedQuality = v);
+                        },
+                        itemBuilder: (_) => <PopupMenuEntry<String>>[
+                          for (final q in const <String>['HD', '4M', 'UHD'])
+                            PopupMenuItem<String>(
+                              value: q,
+                              child: Text(
+                                q,
                                 style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 12.5 * s,
-                                    fontWeight: FontWeight.w800,
-                                    fontFamily: _font)),
-                          ],
+                                  color: q == _selectedQuality ? Colors.white : Colors.white54,
+                                  fontWeight:
+                                      q == _selectedQuality ? FontWeight.w700 : FontWeight.w500,
+                                  fontFamily: _font,
+                                ),
+                              ),
+                            ),
+                        ],
+                        child: Container(
+                          height: 30 * s,
+                          alignment: Alignment.center,
+                          padding: EdgeInsets.symmetric(horizontal: 10 * s),
+                          decoration: BoxDecoration(
+                            color: _chipBg,
+                            borderRadius: BorderRadius.circular(6 * s),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                _selectedQuality,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11.5 * s,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: _font,
+                                ),
+                              ),
+                              SizedBox(width: 4 * s),
+                              PhosphorIcon(
+                                PhosphorIconsRegular.caretDown,
+                                size: 12 * s,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                      SizedBox(width: 8 * s),
+                      Material(
+                        color: _gold,
+                        borderRadius: BorderRadius.circular(999),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () {
+                            tapFeedback();
+                            ExportModal.show(context);
+                          },
+                          child: SizedBox(
+                            height: btn,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14 * s),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  PhosphorIcon(
+                                    PhosphorIconsBold.export,
+                                    color: Colors.black,
+                                    size: 15 * s,
+                                  ),
+                                  SizedBox(width: 5 * s),
+                                  Text('Export',
+                                      style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 12.5 * s,
+                                          fontWeight: FontWeight.w800,
+                                          fontFamily: _font)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else ...<Widget>[
+                      Material(
+                        color: _gold,
+                        borderRadius: BorderRadius.circular(999),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () {
+                            tapFeedback();
+                            editor.groupSelectedClips();
+                          },
+                          child: SizedBox(
+                            height: btn,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14 * s),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  PhosphorIcon(
+                                    PhosphorIconsRegular.circlesThreePlus,
+                                    color: Colors.black,
+                                    size: 16 * s,
+                                  ),
+                                  SizedBox(width: 6 * s),
+                                  Text(
+                                    'Group',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 12.5 * s,
+                                      fontWeight: FontWeight.w800,
+                                      fontFamily: _font,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

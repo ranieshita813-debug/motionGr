@@ -28,6 +28,7 @@ import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_s
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/audio_tools_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/mask.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/music_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/blend_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/tracking_data_sheet.dart';
 
 // ----------------------------------------------------------------------------
@@ -76,6 +77,7 @@ enum EditorTool {
   captionsTranslate('Translate', PhosphorIconsRegular.translate),
   captionsStyle('Highlight Style', PhosphorIconsRegular.paintBucket),
   trackingData('Tracking Data', PhosphorIconsRegular.crosshair),
+  blend('Blend', PhosphorIconsRegular.intersect),
   ai('AI Generate', PhosphorIconsFill.sparkle);
 
   const EditorTool(this.title, this.icon);
@@ -211,6 +213,7 @@ enum EditorTool {
         EditorTool.captionsTranslate => const CaptionTranslationSheet(),
         EditorTool.captionsStyle => const CaptionStyleSheet(),
         EditorTool.trackingData => const TrackingDataSheet(),
+        EditorTool.blend => const BlendSheet(),
         EditorTool.ai => Builder(
             builder: (ctx) {
               return Center(
@@ -291,18 +294,139 @@ class ToolPanel extends StatelessWidget {
   final ValueChanged<double>? onResize;
   final ValueChanged<bool>? onDrag;
 
-  Widget _header(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Text(
-          tool.title,
-          maxLines: 1,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka'),
+  void _openElementMaskPicker(BuildContext context) {
+    tapFeedback();
+    final editor = context.read<EditorController>();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: bgToken,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Import Mask from Element',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Fredoka',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  children: [
+                    _elementShapeOption(ctx, editor, 'Circle', PhosphorIconsRegular.circle, MaskType.circle),
+                    _elementShapeOption(ctx, editor, 'Rectangle', PhosphorIconsRegular.square, MaskType.rectangle),
+                    _elementShapeOption(ctx, editor, 'Star', PhosphorIconsRegular.star, MaskType.star),
+                    _elementShapeOption(ctx, editor, 'Linear', PhosphorIconsRegular.lineVertical, MaskType.linear),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _elementShapeOption(
+    BuildContext ctx,
+    EditorController editor,
+    String label,
+    PhosphorIconData icon,
+    MaskType maskType,
+  ) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () {
+        tapFeedback();
+        Navigator.pop(ctx);
+        final clip = editor.selectedClip;
+        final currentProps = clip?.maskProperties ?? const MaskProperties();
+        final bool isAlreadyActive = currentProps.type != MaskType.none;
+        editor.updateMaskProperties(
+          currentProps.copyWith(
+            type: maskType,
+            feather: isAlreadyActive ? currentProps.feather : 10.0,
+          ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E2228),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white12),
         ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            PhosphorIcon(icon, color: accentToken, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontFamily: 'Fredoka',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _header(BuildContext context) {
+    final bool isMask = tool == EditorTool.mask;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: <Widget>[
+          if (isMask) const SizedBox(width: 36),
+          Expanded(
+            child: Text(
+              tool.title,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Fredoka'),
+            ),
+          ),
+          if (isMask)
+            IconButton(
+              tooltip: 'Import Element',
+              icon: const PhosphorIcon(PhosphorIconsRegular.shapes, color: accentToken, size: 22),
+              onPressed: () => _openElementMaskPicker(context),
+            ),
+        ],
       ),
     );
   }
