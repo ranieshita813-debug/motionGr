@@ -1966,7 +1966,7 @@ class _SnapGuidePainter extends CustomPainter {
 // Overlay clip (text, caption, sticker, element, image, video, drawing)
 // ----------------------------------------------------------------------------
 class _BlendedLayer extends SingleChildRenderObjectWidget {
-  const _BlendedLayer({super.key, required this.blendMode, required super.child});
+  const _BlendedLayer({required this.blendMode, required super.child});
   final BlendMode blendMode;
 
   @override
