@@ -53,6 +53,7 @@ class _EffectsSheetState extends State<EffectsSheet> {
 
   Future<void> _importCustomEffectPackage(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final editor = context.read<EditorController>();
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: EditorTokens.surface,
@@ -118,7 +119,6 @@ class _EffectsSheetState extends State<EffectsSheet> {
       );
       if (!mounted) return;
       if (imported != null) {
-        final editor = context.read<EditorController>();
         final defaultParams = <String, dynamic>{};
         for (final param in imported.parameters) {
           defaultParams[param.id] = param.value;

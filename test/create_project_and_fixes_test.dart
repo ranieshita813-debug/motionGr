@@ -32,10 +32,10 @@ void main() {
       const double s = 1.0;
       const double c = 1.2;
 
-      final double invS = 1 - s; // 0.0
-      final double rr = (rw * invS + s); // 1.0
-      final double gg = (gw * invS + s); // 1.0
-      final double bb = (bw * invS + s); // 1.0
+      const double invS = 1 - s; // 0.0
+      const double rr = (rw * invS + s); // 1.0
+      const double gg = (gw * invS + s); // 1.0
+      const double bb = (bw * invS + s); // 1.0
 
       expect(c * rr, closeTo(1.2, 0.001));
       expect(c * gg, closeTo(1.2, 0.001));
