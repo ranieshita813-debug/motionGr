@@ -1153,6 +1153,31 @@ class EditorController extends ChangeNotifier {
       trimIn: newTrimIn,
       trimOut: newTrimOut,
     );
+
+    // If clip is part of a group, and the entire clip moved (startDelta == endDelta),
+    // move all other clips in the group by the same offset, clamping by earliest start.
+    if (existing.groupId != null && existing.groupId!.isNotEmpty && startDelta == endDelta) {
+      Duration effectiveDelta = startDelta;
+      for (final clip in _project.clips) {
+        if (clip.groupId == existing.groupId) {
+          if (clip.start + effectiveDelta < Duration.zero) {
+            effectiveDelta = -clip.start;
+          }
+        }
+      }
+      for (int i = 0; i < _project.clips.length; i++) {
+        if (i != index && _project.clips[i].groupId == existing.groupId) {
+          final sibling = _project.clips[i];
+          final sNewStart = sibling.start + effectiveDelta;
+          final sNewEnd = sibling.end + effectiveDelta;
+          _project.clips[i] = sibling.copyWith(
+            start: sNewStart,
+            end: sNewEnd,
+          );
+        }
+      }
+    }
+
     _autosave();
     notifyListeners();
   }
