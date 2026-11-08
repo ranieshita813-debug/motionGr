@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:flutter_video_editor/core/controllers/auth_controller.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
-import 'package:flutter_video_editor/features/media_picker/pages/media_picker_page.dart';
 import 'package:flutter_video_editor/features/projects/controllers/projects_controller.dart';
 
 const Color _accent = Color(0xFF00C4D6); // Crisp cyan accent for light theme
@@ -42,9 +41,7 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 1; // 0: Template, 1: Home, 2: Projects
 
   void _createNewProject(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const MediaPickerPage()),
-    );
+    Navigator.of(context).pushNamed('/create_project');
   }
 
   void _openProject(BuildContext context, Project project) {

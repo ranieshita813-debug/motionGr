@@ -149,6 +149,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
       );
       if (!mounted) return;
       if (imported != null) {
+        await _effectService.refreshEffects();
         setState(() {
           _selectEffect(imported);
         });
