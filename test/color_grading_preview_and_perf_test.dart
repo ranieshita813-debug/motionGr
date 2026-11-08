@@ -6,7 +6,6 @@ import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/preview.dart';
-import 'package:flutter_video_editor/features/editor/widgets/tool_panel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
