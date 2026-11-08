@@ -94,6 +94,16 @@ enum EditorTool {
                       brightness: clip.colorGrading.brightness,
                       contrast: clip.colorGrading.contrast,
                       saturation: clip.colorGrading.saturation,
+                      temperature: clip.colorGrading.temperature,
+                      tint: clip.colorGrading.tint,
+                      exposure: clip.colorGrading.exposure,
+                      highlights: clip.colorGrading.highlights,
+                      shadows: clip.colorGrading.shadows,
+                      vignette: clip.colorGrading.vignette,
+                      fade: clip.colorGrading.fade,
+                      sepia: clip.colorGrading.sepia,
+                      brilliance: clip.colorGrading.brilliance,
+                      clarity: clip.colorGrading.clarity,
                     )
                   : ColorGrade.identity;
 
@@ -105,6 +115,13 @@ enum EditorTool {
                     brightness: legacy.brightness,
                     contrast: legacy.contrast,
                     saturation: legacy.saturation,
+                    temperature: legacy.temperature,
+                    tint: legacy.tint,
+                    exposure: legacy.exposure,
+                    highlights: legacy.highlights,
+                    shadows: legacy.shadows,
+                    vignette: legacy.vignette,
+                    fade: legacy.fade,
                   ));
                 },
                 onApply: (grade) {
@@ -113,6 +130,13 @@ enum EditorTool {
                     brightness: legacy.brightness,
                     contrast: legacy.contrast,
                     saturation: legacy.saturation,
+                    temperature: legacy.temperature,
+                    tint: legacy.tint,
+                    exposure: legacy.exposure,
+                    highlights: legacy.highlights,
+                    shadows: legacy.shadows,
+                    vignette: legacy.vignette,
+                    fade: legacy.fade,
                   ));
                 },
                 onClose: onClose,
@@ -159,6 +183,16 @@ enum EditorTool {
                       brightness: clip.colorGrading.brightness,
                       contrast: clip.colorGrading.contrast,
                       saturation: clip.colorGrading.saturation,
+                      temperature: clip.colorGrading.temperature,
+                      tint: clip.colorGrading.tint,
+                      exposure: clip.colorGrading.exposure,
+                      highlights: clip.colorGrading.highlights,
+                      shadows: clip.colorGrading.shadows,
+                      vignette: clip.colorGrading.vignette,
+                      fade: clip.colorGrading.fade,
+                      sepia: clip.colorGrading.sepia,
+                      brilliance: clip.colorGrading.brilliance,
+                      clarity: clip.colorGrading.clarity,
                     )
                   : ColorGrade.identity;
 
@@ -170,6 +204,13 @@ enum EditorTool {
                     brightness: legacy.brightness,
                     contrast: legacy.contrast,
                     saturation: legacy.saturation,
+                    temperature: legacy.temperature,
+                    tint: legacy.tint,
+                    exposure: legacy.exposure,
+                    highlights: legacy.highlights,
+                    shadows: legacy.shadows,
+                    vignette: legacy.vignette,
+                    fade: legacy.fade,
                   ));
                 },
                 onApply: (grade) {
@@ -178,6 +219,13 @@ enum EditorTool {
                     brightness: legacy.brightness,
                     contrast: legacy.contrast,
                     saturation: legacy.saturation,
+                    temperature: legacy.temperature,
+                    tint: legacy.tint,
+                    exposure: legacy.exposure,
+                    highlights: legacy.highlights,
+                    shadows: legacy.shadows,
+                    vignette: legacy.vignette,
+                    fade: legacy.fade,
                   ));
                 },
                 onClose: () {},

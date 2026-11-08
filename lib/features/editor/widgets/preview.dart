@@ -585,7 +585,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
           child: SizedBox(
             width: vs.width <= 0 ? 16 : vs.width,
             height: vs.height <= 0 ? 9 : vs.height,
-            child: RepaintBoundary(child: VideoPlayer(c, key: ObjectKey(c))),
+            child: VideoPlayer(c, key: ObjectKey(c)),
           ),
         ),
       );
@@ -637,7 +637,10 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
         activeCg.contrast != 1.0 ||
         activeCg.saturation != 1.0 ||
         activeCg.temperature != 0.0 ||
+        activeCg.tint != 0.0 ||
         activeCg.exposure != 0.0 ||
+        activeCg.highlights != 0.0 ||
+        activeCg.shadows != 0.0 ||
         activeCg.vignette != 0.0 ||
         activeCg.fade != 0.0 ||
         activeCg.sepia != 0.0 ||
