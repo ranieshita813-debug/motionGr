@@ -144,14 +144,27 @@ class AdjustSettings {
     final double sh = this[AdjustParam.shadows] / 100 * 30;
     final double ti = this[AdjustParam.hue] / 100 * 25; // tint / hue adjustment
 
-    final double rScale = c * (.213 + .787 * s) * (1 - 0.607 * sep) + 0.393 * sep;
-    final double gScale = c * (.715 - .715 * s) * (1 - 0.231 * sep) + 0.769 * sep;
-    final double bScale = c * (.072 - .072 * s) * (1 - 0.811 * sep) + 0.189 * sep;
+    const double rw = 0.2126;
+    const double gw = 0.7152;
+    const double bw = 0.0722;
+
+    final double invS = 1 - s;
+    final double rr = (rw * invS + s) * (1 - 0.607 * sep) + 0.393 * sep;
+    final double rg = (gw * invS) * (1 - 0.607 * sep) + 0.769 * sep;
+    final double rb = (bw * invS) * (1 - 0.607 * sep) + 0.189 * sep;
+
+    final double gr = (rw * invS) * (1 - 0.231 * sep) + 0.349 * sep;
+    final double gg = (gw * invS + s) * (1 - 0.231 * sep) + 0.686 * sep;
+    final double gb = (bw * invS) * (1 - 0.231 * sep) + 0.168 * sep;
+
+    final double br = (rw * invS) * (1 - 0.811 * sep) + 0.272 * sep;
+    final double bg = (gw * invS) * (1 - 0.811 * sep) + 0.534 * sep;
+    final double bb = (bw * invS + s) * (1 - 0.811 * sep) + 0.131 * sep;
 
     return ColorFilter.matrix(<double>[
-      rScale, c * (.715 - .715 * s), c * (.072 - .072 * s), 0, off + w + fd + hi + sh + ti * 0.5,
-      c * (.213 - .213 * s), gScale, c * (.072 - .072 * s), 0, off + fd + hi * 0.8 + sh * 0.8 - ti * 0.5,
-      c * (.213 - .213 * s), c * (.715 - .715 * s), bScale, 0, off - w + fd + hi * 0.5 + sh * 0.5 + ti * 0.2,
+      c * rr, c * rg, c * rb, 0, off + w + fd + hi + sh + ti * 0.5,
+      c * gr, c * gg, c * gb, 0, off + fd + hi * 0.8 + sh * 0.8 - ti * 0.5,
+      c * br, c * bg, c * bb, 0, off - w + fd + hi * 0.5 + sh * 0.5 + ti * 0.2,
       0, 0, 0, 1, 0,
     ]);
   }

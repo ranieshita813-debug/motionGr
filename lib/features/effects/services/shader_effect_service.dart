@@ -22,20 +22,28 @@ class ShaderEffectService extends ChangeNotifier {
   bool get showFavoritesOnly => _showFavoritesOnly;
   bool get showDownloadedOnly => _showDownloadedOnly;
 
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   Future<void> _initService() async {
     _isLoading = true;
-    notifyListeners();
+    if (!_disposed) notifyListeners();
 
     try {
       final seeds = _getBuiltInEffectSeeds();
       await ShaderDatabaseService.instance.initialize(seeds: seeds);
       _isLoading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     } catch (e, stack) {
       AppLogger.error('Error initializing ShaderEffectService',
           tag: 'ShaderEffectService', error: e, stackTrace: stack);
       _isLoading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -83,6 +91,10 @@ class ShaderEffectService extends ChangeNotifier {
 
   void toggleDownloadedFilter() {
     _showDownloadedOnly = !_showDownloadedOnly;
+    notifyListeners();
+  }
+
+  Future<void> refreshEffects() async {
     notifyListeners();
   }
 

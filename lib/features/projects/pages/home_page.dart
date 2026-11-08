@@ -42,9 +42,7 @@ class _HomePageState extends State<HomePage> {
   int _currentIndex = 1; // 0: Template, 1: Home, 2: Projects
 
   void _createNewProject(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const MediaPickerPage()),
-    );
+    Navigator.of(context).pushNamed('/create_project');
   }
 
   void _openProject(BuildContext context, Project project) {

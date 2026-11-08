@@ -9,6 +9,7 @@ import 'package:flutter_video_editor/features/editor/pages/editor_page.dart';
 import 'package:flutter_video_editor/features/export/controllers/export_controller.dart';
 import 'package:flutter_video_editor/features/media_picker/pages/media_picker_page.dart';
 import 'package:flutter_video_editor/features/projects/controllers/projects_controller.dart';
+import 'package:flutter_video_editor/features/projects/pages/create_project_page.dart';
 import 'package:flutter_video_editor/features/projects/pages/home_page.dart';
 import 'package:flutter_video_editor/features/settings/pages/settings_page.dart';
 import 'package:flutter_video_editor/features/splash/pages/splash_screen.dart';
@@ -32,6 +33,7 @@ class VideoEditorApp extends StatelessWidget {
         home: const SplashScreen(),
         routes: <String, WidgetBuilder>{
           '/home': (_) => const HomePage(),
+          '/create_project': (_) => const CreateProjectPage(),
           '/media_picker': (_) => const MediaPickerPage(),
           '/editor': (_) => const EditorPage(),
           '/auth': (_) => const AuthPage(),

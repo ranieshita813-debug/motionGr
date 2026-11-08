@@ -118,6 +118,22 @@ class _EffectsSheetState extends State<EffectsSheet> {
       );
       if (!mounted) return;
       if (imported != null) {
+        final editor = context.read<EditorController>();
+        final defaultParams = <String, dynamic>{};
+        for (final param in imported.parameters) {
+          defaultParams[param.id] = param.value;
+        }
+        final shaderClip = ShaderEffectClip(
+          id: 'shader_${DateTime.now().millisecondsSinceEpoch}',
+          effectId: imported.id,
+          name: imported.name,
+          start: Duration.zero,
+          end: const Duration(seconds: 5),
+          isEnabled: true,
+          parameterValues: defaultParams,
+          keyframeAnimations: <KeyframeAnimation>[],
+        );
+        editor.addShaderEffectToSelectedClip(shaderClip);
         messenger.showSnackBar(
           SnackBar(content: Text('Imported custom effect: ${imported.name}')),
         );

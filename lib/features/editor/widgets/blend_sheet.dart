@@ -103,68 +103,65 @@ class BlendSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final EditorController editor = context.watch<EditorController>();
     final BlendProperties p = _props(editor);
-    final double bottom = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
       color: _bkBg,
-      child: Padding(
-        padding: EdgeInsets.only(top: 8, bottom: 8 + bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            _OpacityRow(
-              value: p.opacity,
-              onChanged: (double v) =>
-                  editor.updateBlendProperties(p.copyWith(opacity: v)),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              height: 78,
-              child: Stack(
-                children: <Widget>[
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(left: 12, right: 28),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        for (int i = 0; i < BlendType.values.length; i++) ...<Widget>[
-                          if (i > 0) const SizedBox(width: 6),
-                          _BlendTile(
-                            label: _blendLabel(BlendType.values[i]),
-                            type: BlendType.values[i],
-                            selected: BlendType.values[i] == p.type,
-                            onTap: () {
-                              tapFeedback();
-                              editor.updateBlendProperties(
-                                  p.copyWith(type: BlendType.values[i]));
-                            },
-                          ),
-                        ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          _OpacityRow(
+            value: p.opacity,
+            onChanged: (double v) =>
+                editor.updateBlendProperties(p.copyWith(opacity: v)),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 78,
+            child: Stack(
+              children: <Widget>[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      for (int i = 0; i < BlendType.values.length; i++) ...<Widget>[
+                        if (i > 0) const SizedBox(width: 8),
+                        _BlendTile(
+                          label: _blendLabel(BlendType.values[i]),
+                          type: BlendType.values[i],
+                          selected: BlendType.values[i] == p.type,
+                          onTap: () {
+                            tapFeedback();
+                            editor.updateBlendProperties(
+                                p.copyWith(type: BlendType.values[i]));
+                          },
+                        ),
                       ],
-                    ),
+                    ],
                   ),
-                  // Soft fade on the right edge: hints that the list scrolls.
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    right: 0,
-                    width: 28,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: <Color>[_bkBg.withValues(alpha: 0), _bkBg],
-                          ),
+                ),
+                // Soft fade on the right edge: hints that the list scrolls.
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: 24,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: <Color>[_bkBg.withValues(alpha: 0), _bkBg],
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
