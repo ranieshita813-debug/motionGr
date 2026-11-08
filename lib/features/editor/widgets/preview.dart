@@ -21,6 +21,7 @@ import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'package:flutter_video_editor/features/editor/widgets/export_dialog.dart';
 import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
 import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/blend_sheet.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/chroma_key_preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/masked_layer.dart';
@@ -1964,6 +1965,41 @@ class _SnapGuidePainter extends CustomPainter {
 // ----------------------------------------------------------------------------
 // Overlay clip (text, caption, sticker, element, image, video, drawing)
 // ----------------------------------------------------------------------------
+class _BlendedLayer extends SingleChildRenderObjectWidget {
+  const _BlendedLayer({super.key, required this.blendMode, required super.child});
+  final BlendMode blendMode;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderBlendedLayer(blendMode);
+
+  @override
+  void updateRenderObject(BuildContext context, covariant _RenderBlendedLayer renderObject) {
+    renderObject.blendMode = blendMode;
+  }
+}
+
+class _RenderBlendedLayer extends RenderProxyBox {
+  _RenderBlendedLayer(this._blendMode);
+  BlendMode _blendMode;
+  BlendMode get blendMode => _blendMode;
+  set blendMode(BlendMode value) {
+    if (_blendMode == value) return;
+    _blendMode = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (child != null) {
+      final Rect bounds = offset & size;
+      final Paint paint = Paint()..blendMode = _blendMode;
+      context.canvas.saveLayer(bounds, paint);
+      context.paintChild(child!, offset);
+      context.canvas.restore();
+    }
+  }
+}
+
 class _OverlayClip extends StatefulWidget {
   const _OverlayClip({
     super.key,
@@ -2470,6 +2506,16 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
     if (opacity < 1.0) {
       result = Opacity(opacity: opacity.clamp(0.0, 1.0).toDouble(), child: result);
     }
+
+    final bp = clip.blendProperties;
+    if (bp.opacity < 1.0) {
+      result = Opacity(opacity: bp.opacity.clamp(0.0, 1.0), child: result);
+    }
+    if (bp.isActive) {
+      final mode = flutterBlendMode(bp.type);
+      result = _BlendedLayer(blendMode: mode, child: result);
+    }
+
     return result;
   }
 
