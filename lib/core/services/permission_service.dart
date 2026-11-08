@@ -51,29 +51,20 @@ class PermissionService {
   /// Requests storage permissions to access and import files/folders from device storage.
   Future<bool> requestStoragePermission() async {
     if (Platform.isAndroid) {
-      // First try standard storage permission
       final storage = await Permission.storage.request();
       if (storage.isGranted) {
         return true;
       }
 
-      // Check granular media permissions as well
-      final photos = await Permission.photos.status;
-      final videos = await Permission.videos.status;
-      final audio = await Permission.audio.status;
+      // Check granular media permissions for Android 13+
+      final photos = await Permission.photos.request();
+      final videos = await Permission.videos.request();
+      final audio = await Permission.audio.request();
       if (photos.isGranted || videos.isGranted || audio.isGranted) {
         return true;
       }
 
-      // Check manageExternalStorage if available (Android 11+)
-      final manage = await Permission.manageExternalStorage.status;
-      if (manage.isGranted) {
-        return true;
-      }
-
-      // Request manageExternalStorage if standard storage is not granted
-      final manageReq = await Permission.manageExternalStorage.request();
-      return manageReq.isGranted;
+      return false;
     } else if (Platform.isIOS) {
       final photos = await Permission.photos.request();
       return photos.isGranted || photos.isLimited;
@@ -87,12 +78,10 @@ class PermissionService {
       final storage = await Permission.storage.status;
       if (storage.isGranted) return true;
 
-      final manage = await Permission.manageExternalStorage.status;
-      if (manage.isGranted) return true;
-
       final photos = await Permission.photos.status;
       final videos = await Permission.videos.status;
-      return photos.isGranted || videos.isGranted;
+      final audio = await Permission.audio.status;
+      return photos.isGranted || videos.isGranted || audio.isGranted;
     } else if (Platform.isIOS) {
       final photos = await Permission.photos.status;
       return photos.isGranted || photos.isLimited;

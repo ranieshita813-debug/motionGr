@@ -83,6 +83,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
   }
 
   Future<void> _showImportOptions(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: EditorTokens.surface,
@@ -151,13 +152,13 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
         setState(() {
           _selectEffect(imported);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(content: Text('Imported custom effect: ${imported.name}')),
         );
       }
     } on PermissionException catch (pe) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(pe.message),
           action: SnackBarAction(
@@ -169,7 +170,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Could not import effect package: $e')),
       );
     }

@@ -52,6 +52,7 @@ class _EffectsSheetState extends State<EffectsSheet> {
   }
 
   Future<void> _importCustomEffectPackage(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
     final choice = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: EditorTokens.surface,
@@ -111,7 +112,6 @@ class _EffectsSheetState extends State<EffectsSheet> {
 
     if (choice == null || !mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final imported = await CustomEffectImportService.instance.pickAndImportPackage(
         preferFilePicker: choice == 'file',

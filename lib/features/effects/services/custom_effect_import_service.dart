@@ -30,13 +30,6 @@ class CustomEffectImportService {
   /// directory picking is cancelled or restricted by scoped storage.
   Future<ShaderEffect?> pickAndImportPackage({bool preferFilePicker = false}) async {
     try {
-      final hasPerm = await PermissionService.instance.requestStoragePermission();
-      if (!hasPerm) {
-        AppLogger.warning('Storage permission denied when picking custom effect package',
-            tag: 'CustomEffectImportService');
-        throw PermissionException('Storage permission is required to import effects from your device.');
-      }
-
       if (preferFilePicker) {
         return await pickAndImportFile();
       }
@@ -49,8 +42,8 @@ class CustomEffectImportService {
         if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
           try {
             return await importFromDirectory(selectedDirectory);
-          } on FileSystemException catch (fsErr) {
-            AppLogger.warning('Direct directory access failed ($fsErr). Falling back to file picker.',
+          } catch (fsErr) {
+            AppLogger.warning('Directory access failed ($fsErr). Falling back to file picker.',
                 tag: 'CustomEffectImportService');
             return await pickAndImportFile();
           }
@@ -71,12 +64,8 @@ class CustomEffectImportService {
   }
 
   /// Prompts user to select an individual shader (.glsl, .frag) or manifest (.json) file.
+  /// Uses SAF system picker which does not require external storage permissions.
   Future<ShaderEffect?> pickAndImportFile() async {
-    final hasPerm = await PermissionService.instance.requestStoragePermission();
-    if (!hasPerm) {
-      throw PermissionException('Storage permission is required to import effects from your device.');
-    }
-
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['glsl', 'frag', 'json', 'txt'],
