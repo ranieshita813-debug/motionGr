@@ -1,12 +1,13 @@
 // sheets/chroma_key_sheet.dart
 //
-// Chroma-key panel, Premiere-style mobile layout.
+// Chroma-key panel, styled to match EffectsSheet
+// (EditorTokens, Fredoka, Phosphor icons, 46px bars, monochrome sliders).
 //
 //   Quick mode (default): Colour / Quick swatches / Intensity / Shadow
 //                         + "Advanced controls" link
 //   Advanced mode:        Ultra-Key inspector
-//                         header (fx, enable switch, reset, done)
-//                         Output (Composite / Matte / Source) + preset dropdown
+//                         header (back, enable switch, reset)
+//                         Output (Composite / Alpha / Source) + preset dropdown
 //                         tabs: Key / Matte / Cleanup / Spill / Color
 //                         scrolling parameter rows (label, slider, value, keyframe)
 //
@@ -29,29 +30,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
+
 import 'package:flutter_video_editor/core/models/chroma_key.dart';
+import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/chroma_key_preview.dart'
     show ChromaBackground;
 
 // ---------------------------------------------------------------------------
-// Tokens
+// Shared style
 // ---------------------------------------------------------------------------
-const _deep = Color(0xFF1A1A1A); // app background, segmented tracks
-const _panel = Color(0xFF232323); // inspector background
-const _raised = Color(0xFF2D2D2D); // pills, buttons
-const _line = Color(0xFF3A3A3A); // dividers, inactive tracks
-const _divider = Color(0xFF333333);
-const _text = Color(0xFFF2F2F2);
-const _dim = Color(0xFFA8A8A8);
-const _blue = Color(0xFF4B9BFF); // active track, playhead, underline
-const _blueText = Color(0xFF6FB1FF); // scrub values, links
-const _action = Color(0xFF1F6FEB); // primary buttons
-const _fx = Color(0xFFA5A5FF); // "fx" badge
-
+const _font = 'Fredoka';
+const _labelWidth = 96.0;
 const _tabFigures = [FontFeature.tabularFigures()];
+
+TextStyle _ts(
+  double size, {
+  FontWeight w = FontWeight.w500,
+  Color c = EditorTokens.text,
+  List<FontFeature>? features,
+}) =>
+    TextStyle(
+      fontFamily: _font,
+      fontSize: size,
+      fontWeight: w,
+      color: c,
+      fontFeatures: features,
+    );
 
 String _hex(Color c) =>
     '#${(c.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
+SliderThemeData _sliderTheme(
+  BuildContext context, {
+  double track = 2,
+  double thumb = 8,
+  Color active = EditorTokens.text,
+  Color inactive = EditorTokens.border,
+}) =>
+    SliderTheme.of(context).copyWith(
+      trackHeight: track,
+      activeTrackColor: active,
+      inactiveTrackColor: inactive,
+      thumbColor: EditorTokens.text,
+      overlayColor: EditorTokens.text.withValues(alpha: 0.12),
+      thumbShape: RoundSliderThumbShape(enabledThumbRadius: thumb, elevation: 2),
+      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+      trackShape: const RoundedRectSliderTrackShape(),
+    );
 
 // ---------------------------------------------------------------------------
 // Sheet
@@ -146,21 +171,47 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _panel,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: _divider)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: _advanced ? _advancedPanel() : _quickPanel(),
-          ),
+      color: EditorTokens.bg,
+      child: SafeArea(
+        top: false,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: _advanced ? _advancedPanel() : _quickPanel(),
         ),
       ),
+    );
+  }
+
+  // =====================================================================
+  // Shared bar
+  // =====================================================================
+  Widget _bar({
+    required PhosphorIconData leadingIcon,
+    required String leadingTip,
+    required VoidCallback? onLeading,
+    required String title,
+    required List<Widget> trailing,
+    Widget? leadingSpacer,
+  }) {
+    return Container(
+      height: 46,
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: EditorTokens.border, width: 0.5)),
+      ),
+      child: Row(children: [
+        _IconBtn(tooltip: leadingTip, icon: leadingIcon, onTap: onLeading),
+        if (leadingSpacer != null) leadingSpacer,
+        Expanded(
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: _ts(15, w: FontWeight.w700),
+          ),
+        ),
+        ...trailing,
+      ]),
     );
   }
 
@@ -169,35 +220,21 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
   // =====================================================================
   Widget _quickPanel() {
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 4, 0),
-        child: SizedBox(
-          height: 48,
-          child: Row(children: [
-            const _FxBadge(),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text('Chroma key',
-                  style: TextStyle(
-                      color: _text, fontSize: 14, fontWeight: FontWeight.w600)),
-            ),
-            _IconBtn(
-              tooltip: 'Reset',
-              icon: Icons.restart_alt_rounded,
-              color: const Color(0xFFC8C8C8),
-              onTap: _reset,
-            ),
-            _IconBtn(
-              tooltip: 'Done',
-              icon: PhosphorIconsRegular.check,
-              color: _blueText,
-              onTap: widget.onClose,
-            ),
-          ]),
-        ),
+      _bar(
+        leadingIcon: PhosphorIconsRegular.caretLeft,
+        leadingTip: 'Done',
+        onLeading: widget.onClose,
+        title: 'Chroma key',
+        trailing: [
+          _IconBtn(
+            tooltip: 'Reset',
+            icon: PhosphorIconsRegular.arrowCounterClockwise,
+            onTap: _reset,
+          ),
+        ],
       ),
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
         child: Column(children: [
           _quickColourRow(),
           _quickSwatches(),
@@ -213,29 +250,27 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
             value: _k.shadow,
             onChanged: (v) => _quickSet(_k.copyWith(shadow: v)),
           ),
-          const Divider(height: 1, color: _divider),
-          InkWell(
+          Container(height: 0.5, color: EditorTokens.border),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => setState(() => _advanced = true),
-            child: const SizedBox(
-              height: 52,
+            child: SizedBox(
+              height: 48,
               child: Row(children: [
-                Icon(PhosphorIconsRegular.slidersHorizontal,
-                    color: _blueText, size: 18),
-                SizedBox(width: 10),
+                const PhosphorIcon(PhosphorIconsRegular.slidersHorizontal,
+                    color: EditorTokens.text, size: 18),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text('Advanced controls · Ultra Key',
-                      style: TextStyle(
-                          color: _blueText,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500)),
+                      style: _ts(13, w: FontWeight.w600)),
                 ),
-                Icon(Icons.chevron_right_rounded, color: _blueText, size: 20),
+                const PhosphorIcon(PhosphorIconsRegular.caretRight,
+                    color: EditorTokens.muted, size: 16),
               ]),
             ),
           ),
         ]),
       ),
-      const SizedBox(height: 4),
     ]);
   }
 
@@ -243,40 +278,20 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
     return SizedBox(
       height: 52,
       child: Row(children: [
-        const SizedBox(
-          width: 88,
-          child: Text('Colour',
-              style: TextStyle(color: _text, fontSize: 13)),
+        SizedBox(
+          width: _labelWidth,
+          child: Text('Colour', style: _ts(12, c: EditorTokens.muted)),
         ),
         _Swatch(color: _k.keyColor, size: 26),
         const SizedBox(width: 8),
         Expanded(
           child: Text(_hex(_k.keyColor),
-              style: const TextStyle(
-                  color: _blueText,
-                  fontSize: 12.5,
-                  fontFeatures: _tabFigures)),
+              style: _ts(12, w: FontWeight.w600, features: _tabFigures)),
         ),
-        GestureDetector(
+        _PillButton(
+          icon: PhosphorIconsRegular.eyedropper,
+          label: 'Pick',
           onTap: _pick,
-          child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: _action,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(children: [
-              Icon(PhosphorIconsRegular.eyedropper,
-                  color: Colors.white, size: 18),
-              SizedBox(width: 6),
-              Text('Pick',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
-            ]),
-          ),
         ),
       ]),
     );
@@ -298,9 +313,9 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
     return SizedBox(
       height: 44,
       child: Row(children: [
-        const SizedBox(
-          width: 88,
-          child: Text('Quick', style: TextStyle(color: _dim, fontSize: 13)),
+        SizedBox(
+          width: _labelWidth,
+          child: Text('Quick', style: _ts(12, c: EditorTokens.muted)),
         ),
         for (int i = 0; i < quick.length; i++)
           Semantics(
@@ -313,7 +328,8 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
                 width: 44,
                 height: 44,
                 child: Center(
-                  child: Container(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
                     width: 26,
                     height: 26,
                     decoration: BoxDecoration(
@@ -321,7 +337,7 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: _k.keyColor.toARGB32() == quick[i].toARGB32()
-                            ? Colors.white
+                            ? EditorTokens.text
                             : Colors.transparent,
                         width: 2,
                       ),
@@ -340,10 +356,24 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
   // =====================================================================
   Widget _advancedPanel() {
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      _header(),
+      _bar(
+        leadingIcon: PhosphorIconsRegular.caretLeft,
+        leadingTip: 'Back to quick mode',
+        onLeading: () => setState(() => _advanced = false),
+        leadingSpacer: const SizedBox(width: 44),
+        title: 'Ultra Key',
+        trailing: [
+          _enableSwitch(),
+          _IconBtn(
+            tooltip: 'Reset effect',
+            icon: PhosphorIconsRegular.arrowCounterClockwise,
+            onTap: _reset,
+          ),
+        ],
+      ),
       _outputRow(),
       _tabBar(),
-      const Divider(height: 1, color: _divider),
+      Container(height: 0.5, color: EditorTokens.border),
       Opacity(
         opacity: _k.enabled ? 1 : 0.4,
         child: IgnorePointer(
@@ -351,7 +381,7 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 264),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(14, 4, 14, 20),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
               child: _content(),
             ),
           ),
@@ -360,84 +390,45 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
     ]);
   }
 
-  Widget _header() => Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 4, 0),
-        child: SizedBox(
-          height: 48,
-          child: Row(children: [
-            const _FxBadge(),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Ultra Key',
-                      style: TextStyle(
-                          color: _text,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600)),
-                  Text('Selected clip',
-                      style: TextStyle(color: _dim, fontSize: 11)),
-                ],
-              ),
-            ),
-            // Enable switch (44px hit area)
-            Semantics(
-              toggled: _k.enabled,
-              label: 'Enable Ultra Key',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _toggle(!_k.enabled),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 140),
-                      width: 38,
-                      height: 22,
-                      padding: const EdgeInsets.all(2),
-                      alignment: _k.enabled
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      decoration: BoxDecoration(
-                        color: _k.enabled ? _action : const Color(0xFF4A4A4A),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Container(
-                        width: 18,
-                        height: 18,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
+  Widget _enableSwitch() => Semantics(
+        toggled: _k.enabled,
+        label: 'Enable Ultra Key',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _toggle(!_k.enabled),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                width: 38,
+                height: 22,
+                padding: const EdgeInsets.all(2),
+                alignment:
+                    _k.enabled ? Alignment.centerRight : Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: _k.enabled ? EditorTokens.text : EditorTokens.border,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: _k.enabled ? EditorTokens.bg : EditorTokens.muted,
+                    shape: BoxShape.circle,
                   ),
                 ),
               ),
             ),
-            _IconBtn(
-              tooltip: 'Reset effect',
-              icon: Icons.restart_alt_rounded,
-              color: const Color(0xFFC8C8C8),
-              onTap: _reset,
-            ),
-            _IconBtn(
-              tooltip: 'Done, back to quick mode',
-              icon: PhosphorIconsRegular.check,
-              color: _blueText,
-              onTap: () => setState(() => _advanced = false),
-            ),
-          ]),
+          ),
         ),
       );
 
   Widget _outputRow() => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
         child: SizedBox(
-          height: 48,
+          height: 36,
           child: Row(children: [
             Expanded(
               child: _Segmented<ChromaOutput>(
@@ -447,8 +438,7 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
                   ChromaOutput.matte: 'Alpha',
                   ChromaOutput.source: 'Source',
                 },
-                onChanged: (v) =>
-                    _set(_k.copyWith(output: v), keepPreset: true),
+                onChanged: (v) => _set(_k.copyWith(output: v), keepPreset: true),
               ),
             ),
             const SizedBox(width: 10),
@@ -460,7 +450,7 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
   Widget _presetMenu() {
     return PopupMenuButton<ChromaPreset>(
       tooltip: 'Setting',
-      color: _raised,
+      color: EditorTokens.elevated,
       position: PopupMenuPosition.under,
       onSelected: (p) {
         HapticFeedback.selectionClick();
@@ -474,11 +464,10 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
             height: 44,
             child: Text(
               e.value,
-              style: TextStyle(
-                color: _preset == e.key ? _blueText : _text,
-                fontSize: 13.5,
-                fontWeight:
-                    _preset == e.key ? FontWeight.w600 : FontWeight.w400,
+              style: _ts(
+                13.5,
+                w: _preset == e.key ? FontWeight.w700 : FontWeight.w500,
+                c: _preset == e.key ? EditorTokens.text : EditorTokens.muted,
               ),
             ),
           ),
@@ -487,44 +476,48 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
         height: 36,
         padding: const EdgeInsets.only(left: 12, right: 8),
         decoration: BoxDecoration(
-          color: _raised,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _line),
+          color: EditorTokens.elevated,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(_preset == null ? 'Custom' : _presetNames[_preset]!,
-              style: const TextStyle(color: _text, fontSize: 12.5)),
+              style: _ts(12.5)),
           const SizedBox(width: 4),
-          const Icon(Icons.expand_more_rounded, color: _text, size: 18),
+          const PhosphorIcon(PhosphorIconsRegular.caretDown,
+              color: EditorTokens.text, size: 14),
         ]),
       ),
     );
   }
 
   Widget _tabBar() => SizedBox(
-        height: 40,
+        height: 42,
         child: Row(children: [
           for (int i = 0; i < _tabs.length; i++)
             Expanded(
-              child: InkWell(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => _tab = i),
                 child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(_tabs[i],
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight:
-                                  _tab == i ? FontWeight.w600 : FontWeight.w400,
-                              color: _tab == i ? Colors.white : _dim)),
-                      const SizedBox(height: 5),
+                      Text(
+                        _tabs[i],
+                        style: _ts(
+                          14,
+                          w: _tab == i ? FontWeight.w700 : FontWeight.w500,
+                          c: _tab == i ? EditorTokens.text : EditorTokens.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
+                        duration: const Duration(milliseconds: 180),
                         height: 2,
-                        width: _tab == i ? 24 : 0,
+                        width: _tab == i ? 16 : 0,
                         decoration: BoxDecoration(
-                            color: _blue,
-                            borderRadius: BorderRadius.circular(1)),
+                          color: EditorTokens.text,
+                          borderRadius: BorderRadius.circular(1),
+                        ),
                       ),
                     ]),
               ),
@@ -609,19 +602,15 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
       SizedBox(
         height: 52,
         child: Row(children: [
-          const SizedBox(
-            width: 88,
-            child: Text('Key colour',
-                style: TextStyle(color: _text, fontSize: 13)),
+          SizedBox(
+            width: _labelWidth,
+            child: Text('Key colour', style: _ts(12, c: EditorTokens.muted)),
           ),
           _Swatch(color: _k.keyColor, size: 26),
           const SizedBox(width: 8),
           Expanded(
             child: Text(_hex(_k.keyColor),
-                style: const TextStyle(
-                    color: _blueText,
-                    fontSize: 12.5,
-                    fontFeatures: _tabFigures)),
+                style: _ts(12, w: FontWeight.w600, features: _tabFigures)),
           ),
           Tooltip(
             message: 'Pick key colour from preview',
@@ -629,13 +618,15 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
               onTap: _pick,
               child: Container(
                 width: 44,
-                height: 36,
+                height: 34,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _blue),
+                  color: EditorTokens.elevated,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(PhosphorIconsRegular.eyedropper,
-                    color: _blueText, size: 19),
+                child: const Center(
+                  child: PhosphorIcon(PhosphorIconsRegular.eyedropper,
+                      color: EditorTokens.text, size: 18),
+                ),
               ),
             ),
           ),
@@ -687,31 +678,14 @@ class _ChromaKeySheetState extends State<ChromaKeySheet> {
 // Small pieces
 // ======================================================================
 
-class _FxBadge extends StatelessWidget {
-  const _FxBadge();
-
-  @override
-  Widget build(BuildContext context) => const SizedBox(
-        width: 18,
-        child: Text('fx',
-            style: TextStyle(
-                color: _fx,
-                fontSize: 15,
-                fontStyle: FontStyle.italic,
-                fontWeight: FontWeight.w600)),
-      );
-}
-
 class _IconBtn extends StatelessWidget {
   const _IconBtn({
     required this.tooltip,
     required this.icon,
-    required this.color,
     required this.onTap,
   });
   final String tooltip;
-  final IconData icon;
-  final Color color;
+  final PhosphorIconData icon;
   final VoidCallback? onTap;
 
   @override
@@ -721,8 +695,37 @@ class _IconBtn extends StatelessWidget {
         child: IconButton(
           tooltip: tooltip,
           padding: EdgeInsets.zero,
-          icon: Icon(icon, color: color, size: 21),
+          icon: PhosphorIcon(icon, color: EditorTokens.text, size: 20),
           onPressed: onTap,
+        ),
+      );
+}
+
+class _PillButton extends StatelessWidget {
+  const _PillButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final PhosphorIconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: EditorTokens.text,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(children: [
+            PhosphorIcon(icon, color: EditorTokens.bg, size: 18),
+            const SizedBox(width: 6),
+            Text(label, style: _ts(13, w: FontWeight.w700, c: EditorTokens.bg)),
+          ]),
         ),
       );
 }
@@ -739,7 +742,7 @@ class _Swatch extends StatelessWidget {
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white38, width: 2),
+          border: Border.all(color: EditorTokens.border, width: 2),
         ),
       );
 }
@@ -756,28 +759,39 @@ class _KeyframeBtn extends StatelessWidget {
         child: IconButton(
           tooltip: on ? 'Stop animating' : 'Toggle animation',
           padding: EdgeInsets.zero,
-          icon: Icon(Icons.timer_outlined,
-              size: 18, color: on ? _blueText : const Color(0xFF8C8C8C)),
+          icon: PhosphorIcon(
+            on ? PhosphorIconsBold.timer : PhosphorIconsRegular.timer,
+            size: 18,
+            color: on ? EditorTokens.text : EditorTokens.muted,
+          ),
           onPressed: onTap,
         ),
       );
 }
 
-SliderThemeData _sliderTheme(BuildContext context,
-        {double track = 4, double thumb = 9, Color? active, Color? inactive}) =>
-    SliderTheme.of(context).copyWith(
-      trackHeight: track,
-      activeTrackColor: active ?? _blue,
-      inactiveTrackColor: inactive ?? _line,
-      thumbColor: Colors.white,
-      overlayColor: _blue.withValues(alpha: 0.16),
-      thumbShape: RoundSliderThumbShape(enabledThumbRadius: thumb),
-      overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-      trackShape: const RoundedRectSliderTrackShape(),
-    );
+/// Elevated value chip, same as the one in EffectsSheet.
+class _ValueChip extends StatelessWidget {
+  const _ValueChip(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 44,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: EditorTokens.elevated,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: _ts(12, w: FontWeight.w600, features: _tabFigures),
+        ),
+      );
+}
 
 // ----------------------------------------------------------------------
-// Parameter row: label · slider · blue scrub value · keyframe stopwatch.
+// Parameter row: label · slider · value chip · keyframe stopwatch.
 // Double-tap the label to reset to default.
 // ----------------------------------------------------------------------
 class _ParamRow extends StatelessWidget {
@@ -810,12 +824,14 @@ class _ParamRow extends StatelessWidget {
             onChanged(def);
           },
           child: SizedBox(
-            width: 88,
-            child: Text(label,
-                style: TextStyle(
-                    color: changed ? _text : _dim,
-                    fontSize: 13,
-                    fontWeight: changed ? FontWeight.w500 : FontWeight.w400)),
+            width: _labelWidth,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _ts(12,
+                  c: changed ? EditorTokens.text : EditorTokens.muted),
+            ),
           ),
         ),
         Expanded(
@@ -829,16 +845,7 @@ class _ParamRow extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(
-          width: 34,
-          child: Text(value.round().toString(),
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                  color: _blueText,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  fontFeatures: _tabFigures)),
-        ),
+        _ValueChip(value.round().toString()),
         _KeyframeBtn(on: keyframed, onTap: onKeyframe),
       ]),
     );
@@ -864,9 +871,8 @@ class _GradRow extends StatelessWidget {
         height: 44,
         child: Row(children: [
           SizedBox(
-            width: 88,
-            child: Text(label,
-                style: const TextStyle(color: _dim, fontSize: 13)),
+            width: _labelWidth,
+            child: Text(label, style: _ts(12, c: EditorTokens.muted)),
           ),
           Expanded(
             child: Stack(alignment: Alignment.center, children: [
@@ -882,12 +888,11 @@ class _GradRow extends StatelessWidget {
                 data: _sliderTheme(
                   context,
                   track: 6,
-                  thumb: 9,
+                  thumb: 8,
                   active: Colors.transparent,
                   inactive: Colors.transparent,
                 ),
                 child: Slider(
-                  // clamp(0, max) with an int literal returns num -> use 0.0
                   value: value.clamp(0.0, max),
                   min: 0,
                   max: max,
@@ -896,22 +901,13 @@ class _GradRow extends StatelessWidget {
               ),
             ]),
           ),
-          SizedBox(
-            width: 34,
-            child: Text(value.round().toString(),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                    color: _blueText,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                    fontFeatures: _tabFigures)),
-          ),
+          _ValueChip(value.round().toString()),
           const SizedBox(width: 36),
         ]),
       );
 }
 
-// Quick-mode slider: bigger thumb, white value.
+// Quick-mode slider: same look, label brightens when emphasised.
 class _QuickSlider extends StatelessWidget {
   const _QuickSlider({
     required this.label,
@@ -929,14 +925,16 @@ class _QuickSlider extends StatelessWidget {
         height: 48,
         child: Row(children: [
           SizedBox(
-            width: 88,
-            child: Text(label,
-                style: TextStyle(
-                    color: emphasised ? _text : _dim, fontSize: 13)),
+            width: _labelWidth,
+            child: Text(
+              label,
+              style: _ts(12,
+                  c: emphasised ? EditorTokens.text : EditorTokens.muted),
+            ),
           ),
           Expanded(
             child: SliderTheme(
-              data: _sliderTheme(context, track: 4, thumb: 10),
+              data: _sliderTheme(context),
               child: Slider(
                 value: value.clamp(0.0, 100.0),
                 min: 0,
@@ -946,21 +944,12 @@ class _QuickSlider extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(
-            width: 40,
-            child: Text(value.round().toString(),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: _tabFigures)),
-          ),
+          _ValueChip(value.round().toString()),
         ]),
       );
 }
 
-// Segmented control (dark track, raised selected segment).
+// Segmented control (elevated track, inverted selected segment).
 class _Segmented<T> extends StatelessWidget {
   const _Segmented({
     required this.value,
@@ -976,8 +965,8 @@ class _Segmented<T> extends StatelessWidget {
         height: 36,
         padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: _deep,
-          borderRadius: BorderRadius.circular(10),
+          color: EditorTokens.elevated,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(children: [
           for (final e in items.entries)
@@ -989,14 +978,17 @@ class _Segmented<T> extends StatelessWidget {
                   duration: const Duration(milliseconds: 150),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: value == e.key ? _line : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
+                    color: value == e.key ? EditorTokens.text : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(e.value,
-                      style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: value == e.key ? Colors.white : _dim)),
+                  child: Text(
+                    e.value,
+                    style: _ts(
+                      12.5,
+                      w: value == e.key ? FontWeight.w700 : FontWeight.w500,
+                      c: value == e.key ? EditorTokens.bg : EditorTokens.muted,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1044,14 +1036,16 @@ class ChromaBackgroundButton extends StatelessWidget {
                   ChromaBackground.black => Colors.black,
                   ChromaBackground.white => Colors.white,
                   ChromaBackground.gray => const Color(0xFF7F7F7F),
-                  ChromaBackground.checker => const Color(0xFF3A3A3D),
+                  ChromaBackground.checker => EditorTokens.elevated,
                 },
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: EditorTokens.text, width: 2),
               ),
               child: background == ChromaBackground.checker
-                  ? const Icon(PhosphorIconsRegular.gridNine,
-                      size: 13, color: Colors.white54)
+                  ? const Center(
+                      child: PhosphorIcon(PhosphorIconsRegular.gridNine,
+                          size: 13, color: EditorTokens.muted),
+                    )
                   : null,
             ),
           ),
@@ -1090,10 +1084,10 @@ class ChromaSampleSheet extends StatelessWidget {
     final hsv = HSVColor.fromColor(color);
 
     return Material(
-      color: _panel,
-      child: DecoratedBox(
+      color: EditorTokens.bg,
+      child: Container(
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: _divider)),
+          border: Border(top: BorderSide(color: EditorTokens.border, width: 0.5)),
         ),
         child: SafeArea(
           top: false,
@@ -1106,8 +1100,8 @@ class ChromaSampleSheet extends StatelessWidget {
                   height: 52,
                   decoration: BoxDecoration(
                     color: color,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white38, width: 2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: EditorTokens.border, width: 2),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -1116,36 +1110,31 @@ class ChromaSampleSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(_hex(color),
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w600,
-                                fontFeatures: _tabFigures)),
+                            style: _ts(17,
+                                w: FontWeight.w700, features: _tabFigures)),
                         const SizedBox(height: 2),
                         Text('R $r · G $g · B $b',
-                            style: const TextStyle(
-                                color: _dim,
-                                fontSize: 12.5,
-                                fontFeatures: _tabFigures)),
+                            style: _ts(12.5,
+                                c: EditorTokens.muted, features: _tabFigures)),
                         Text(
                             'H ${hsv.hue.round()}° · '
                             'S ${(hsv.saturation * 100).round()}% · '
                             'V ${(hsv.value * 100).round()}%',
-                            style: const TextStyle(
-                                color: _dim,
-                                fontSize: 12.5,
-                                fontFeatures: _tabFigures)),
+                            style: _ts(12.5,
+                                c: EditorTokens.muted, features: _tabFigures)),
                       ]),
                 ),
               ]),
               const SizedBox(height: 12),
-              const Row(children: [
-                _FxBadge(),
-                SizedBox(width: 8),
+              Row(children: [
+                const PhosphorIcon(PhosphorIconsRegular.info,
+                    color: EditorTokens.muted, size: 16),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                      'Tolerance jumps to a usable value after sampling.',
-                      style: TextStyle(color: _dim, fontSize: 12)),
+                    'Tolerance jumps to a usable value after sampling.',
+                    style: _ts(12, c: EditorTokens.muted),
+                  ),
                 ),
               ]),
               const SizedBox(height: 14),
@@ -1156,13 +1145,11 @@ class ChromaSampleSheet extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: onCancel,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: _text,
-                        side: const BorderSide(color: Color(0xFF4A4A4A)),
+                        foregroundColor: EditorTokens.text,
+                        side: const BorderSide(color: EditorTokens.border),
                         shape: const StadiumBorder(),
                       ),
-                      child: const Text('Cancel',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      child: Text('Cancel', style: _ts(14, w: FontWeight.w600)),
                     ),
                   ),
                 ),
@@ -1174,15 +1161,14 @@ class ChromaSampleSheet extends StatelessWidget {
                     child: FilledButton.icon(
                       onPressed: onUse,
                       style: FilledButton.styleFrom(
-                        backgroundColor: _action,
-                        foregroundColor: Colors.white,
+                        backgroundColor: EditorTokens.text,
+                        foregroundColor: EditorTokens.bg,
                         shape: const StadiumBorder(),
                       ),
-                      icon: const Icon(PhosphorIconsRegular.eyedropper,
+                      icon: const PhosphorIcon(PhosphorIconsRegular.eyedropper,
                           size: 18),
-                      label: const Text('Use this colour',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600)),
+                      label: Text('Use this colour',
+                          style: _ts(14, w: FontWeight.w700, c: EditorTokens.bg)),
                     ),
                   ),
                 ),

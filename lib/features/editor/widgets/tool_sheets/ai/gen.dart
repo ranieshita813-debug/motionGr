@@ -262,6 +262,53 @@ class _Ratio {
   final String hint;
 }
 
+// ───────────────────────── Shared style ─────────────────────────
+
+const _font = 'Fredoka';
+const _labelWidth = 96.0;
+
+TextStyle _ts(
+  double size, {
+  FontWeight w = FontWeight.w500,
+  Color c = EditorTokens.text,
+}) =>
+    TextStyle(fontFamily: _font, fontSize: size, fontWeight: w, color: c);
+
+const _fieldStyle = TextStyle(
+  color: EditorTokens.text,
+  fontSize: 13,
+  fontFamily: _font,
+);
+
+const _hairlineBottom = BoxDecoration(
+  border: Border(bottom: BorderSide(color: EditorTokens.border, width: 0.5)),
+);
+
+InputDecoration _decoration(String hint) => InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: EditorTokens.muted, fontSize: 13, fontFamily: _font),
+      filled: true,
+      fillColor: EditorTokens.elevated,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: EditorTokens.text),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+    );
+
 // ───────────────────────── Entry point ─────────────────────────
 
 /// Opens the generator as a drag-resizable bottom sheet (starts at ~55% height).
@@ -466,15 +513,34 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
 
   // ── Sections ──
 
-  Widget _header() => Row(
-        children: [
-          Expanded(child: _TypeToggle(type: _type, onChanged: _setType)),
-          const SizedBox(width: 8),
-          _IconBtn(
-            icon: PhosphorIconsRegular.x,
-            onTap: () => Navigator.of(context).maybePop(),
-          ),
-        ],
+  /// 46px top bar: underline tabs (Video / Image) and a close button.
+  Widget _header() => Container(
+        height: 46,
+        decoration: _hairlineBottom,
+        child: Row(
+          children: [
+            const SizedBox(width: 6),
+            _UnderlineTab(
+              label: 'Video',
+              icon: PhosphorIconsRegular.videoCamera,
+              active: _isVideo,
+              onTap: () => _setType(AiMediaType.video),
+            ),
+            _UnderlineTab(
+              label: 'Image',
+              icon: PhosphorIconsRegular.image,
+              active: !_isVideo,
+              onTap: () => _setType(AiMediaType.image),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: 'Close',
+              icon: const PhosphorIcon(PhosphorIconsRegular.x,
+                  color: EditorTokens.text, size: 20),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ],
+        ),
       );
 
   Widget _promptField() => TextField(
@@ -483,6 +549,7 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
         maxLines: 4,
         maxLength: 500,
         style: _fieldStyle,
+        cursorColor: EditorTokens.text,
         onChanged: (_) {
           if (_promptError != null) setState(() => _promptError = null);
         },
@@ -549,7 +616,9 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
               minLines: 1,
               maxLines: 2,
               style: _fieldStyle,
-              decoration: _decoration('Negative prompt: blurry, low quality'),
+              cursorColor: EditorTokens.text,
+              decoration: _decoration('Negative prompt: blurry, low quality')
+                  .copyWith(fillColor: EditorTokens.bg),
             ),
             const SizedBox(height: 8),
           ],
@@ -571,7 +640,7 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
           ),
           if (_isVideo)
             _LabeledSlider(
-              label: 'Motion strength',
+              label: 'Motion',
               valueLabel: '${(_motion * 100).round()}%',
               value: _motion,
               min: 0,
@@ -579,55 +648,68 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
               onChanged: (v) => setState(() => _motion = v),
             ),
           if (_model.supportsSeed)
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _seedCtl,
-                    keyboardType: TextInputType.number,
-                    style: _fieldStyle,
-                    decoration: _decoration('Seed (random)'),
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _seedCtl,
+                      keyboardType: TextInputType.number,
+                      style: _fieldStyle,
+                      cursorColor: EditorTokens.text,
+                      decoration: _decoration('Seed (random)')
+                          .copyWith(fillColor: EditorTokens.bg),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _IconBtn(
-                  icon: PhosphorIconsRegular.diceFive,
-                  onTap: () => setState(() => _seedCtl.text =
-                      (DateTime.now().microsecondsSinceEpoch % 4294967296).toString()),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  _IconBtn(
+                    icon: PhosphorIconsRegular.diceFive,
+                    onTap: () => setState(() => _seedCtl.text =
+                        (DateTime.now().microsecondsSinceEpoch % 4294967296).toString()),
+                  ),
+                ],
+              ),
             ),
         ],
       );
 
-  Widget _generateBar() => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: EditorTokens.text,
-                foregroundColor: EditorTokens.bg,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+  Widget _generateBar() => Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: EditorTokens.border, width: 0.5)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  backgroundColor: EditorTokens.text,
+                  foregroundColor: EditorTokens.bg,
+                  disabledBackgroundColor: EditorTokens.text,
+                  disabledForegroundColor: EditorTokens.bg,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                ),
+                onPressed: _busy ? null : _generate,
+                icon: _busy
+                    ? const TextShimmerWave(
+                        'Generating…',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontFamily: _font),
+                        baseColor: Colors.black45,
+                        waveColor: Colors.black,
+                      )
+                    : const PhosphorIcon(PhosphorIconsRegular.sparkle, size: 18),
+                label: _busy
+                    ? const SizedBox.shrink()
+                    : Text(
+                        'Generate · $_credits credits',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: _font),
+                      ),
               ),
-              onPressed: _busy ? null : _generate,
-              icon: _busy
-                  ? const TextShimmerWave(
-                      'Generating…',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Fredoka'),
-                      baseColor: Colors.black45,
-                      waveColor: Colors.black,
-                    )
-                  : const PhosphorIcon(PhosphorIconsRegular.sparkle, size: 18),
-              label: _busy
-                  ? const SizedBox.shrink()
-                  : Text(
-                      'Generate · $_credits credits',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Fredoka'),
-                    ),
             ),
           ),
         ),
@@ -690,10 +772,17 @@ class _AiGenerateSheetState extends State<AiGenerateSheet> {
                         ],
                       );
 
+                // Header lives inside the list so dragging it still resizes the sheet.
                 return ListView(
                   controller: widget.scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  children: [_header(), const SizedBox(height: 12), body],
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _header(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                      child: body,
+                    ),
+                  ],
                 );
               },
             ),
@@ -751,70 +840,77 @@ class _ModelPickerState extends State<_ModelPicker> {
             Container(
               width: 36,
               height: 4,
-              margin: const EdgeInsets.only(top: 8, bottom: 12),
+              margin: const EdgeInsets.only(top: 8, bottom: 8),
               decoration: BoxDecoration(
                 color: EditorTokens.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _search,
-                style: _fieldStyle,
-                onChanged: (_) => setState(() {}),
-                decoration: _decoration('Search models').copyWith(
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: PhosphorIcon(
-                      PhosphorIconsRegular.magnifyingGlass,
-                      size: 16,
-                      color: EditorTokens.muted,
-                    ),
-                  ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 34,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+            // Search bar, same as the Effects sheet search mode.
+            Container(
+              height: 46,
+              decoration: _hairlineBottom,
+              child: Row(
                 children: [
-                  _Chip(
-                    label: 'All',
-                    selected: _provider == null,
-                    onTap: () => setState(() => _provider = null),
-                  ),
-                  for (final p in providers) ...[
-                    const SizedBox(width: 8),
-                    _Chip(
-                      label: p,
-                      selected: _provider == p,
-                      onTap: () => setState(() => _provider = p),
+                  const SizedBox(width: 14),
+                  const PhosphorIcon(PhosphorIconsRegular.magnifyingGlass,
+                      color: EditorTokens.muted, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      cursorColor: EditorTokens.text,
+                      style: _ts(14),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: 'Search models',
+                        hintStyle: _ts(14, c: EditorTokens.muted),
+                      ),
                     ),
-                  ],
+                  ),
+                  if (_search.text.isNotEmpty)
+                    IconButton(
+                      icon: const PhosphorIcon(PhosphorIconsRegular.x,
+                          color: EditorTokens.text, size: 18),
+                      onPressed: () => setState(_search.clear),
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+            // Provider tabs.
+            SizedBox(
+              height: 42,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                children: [
+                  _UnderlineTab(
+                    label: 'All',
+                    active: _provider == null,
+                    onTap: () => setState(() => _provider = null),
+                  ),
+                  for (final p in providers)
+                    _UnderlineTab(
+                      label: p,
+                      active: _provider == p,
+                      onTap: () => setState(() => _provider = p),
+                    ),
+                ],
+              ),
+            ),
             Expanded(
               child: filtered.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No models match your search',
-                        style: TextStyle(
-                          color: EditorTokens.muted,
-                          fontSize: 12,
-                          fontFamily: 'Fredoka',
-                        ),
+                        style: _ts(13, c: EditorTokens.muted),
                       ),
                     )
                   : ListView.separated(
                       controller: controller,
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
                       itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
@@ -844,14 +940,16 @@ class _ModelTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: EditorTokens.elevated,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? EditorTokens.text : EditorTokens.border,
-            width: selected ? 1.5 : 1,
+            color: selected ? EditorTokens.text : Colors.transparent,
+            width: 2,
           ),
         ),
         child: Row(
@@ -867,26 +965,14 @@ class _ModelTile extends StatelessWidget {
                     spacing: 8,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        model.name,
-                        style: const TextStyle(
-                          color: EditorTokens.text,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Fredoka',
-                        ),
-                      ),
+                      Text(model.name, style: _ts(13, w: FontWeight.w700)),
                       if (model.badge != null) _Badge(model.badge!),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${model.provider} · ${model.description}',
-                    style: const TextStyle(
-                      color: EditorTokens.muted,
-                      fontSize: 11,
-                      fontFamily: 'Fredoka',
-                    ),
+                    style: _ts(11, c: EditorTokens.muted),
                   ),
                   if (model.capabilities.isNotEmpty) ...[
                     const SizedBox(height: 6),
@@ -907,17 +993,13 @@ class _ModelTile extends StatelessWidget {
               children: [
                 Text(
                   '${model.creditsPerUnit}/${model.type == AiMediaType.video ? 's' : 'img'}',
-                  style: const TextStyle(
-                    color: EditorTokens.muted,
-                    fontSize: 11,
-                    fontFamily: 'Fredoka',
-                  ),
+                  style: _ts(11, c: EditorTokens.muted),
                 ),
                 if (selected) ...[
                   const SizedBox(height: 6),
                   const PhosphorIcon(
-                    PhosphorIconsRegular.check,
-                    size: 16,
+                    PhosphorIconsBold.check,
+                    size: 14,
                     color: EditorTokens.text,
                   ),
                 ],
@@ -939,12 +1021,12 @@ class _ModelRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: EditorTokens.elevated,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: EditorTokens.border),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [
@@ -958,35 +1040,19 @@ class _ModelRow extends StatelessWidget {
                     model.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: EditorTokens.text,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'Fredoka',
-                    ),
+                    style: _ts(13, w: FontWeight.w700),
                   ),
                   Text(
                     model.provider,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: EditorTokens.muted,
-                      fontSize: 11,
-                      fontFamily: 'Fredoka',
-                    ),
+                    style: _ts(11, c: EditorTokens.muted),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Change',
-              style: TextStyle(
-                color: EditorTokens.muted,
-                fontSize: 11,
-                fontFamily: 'Fredoka',
-              ),
-            ),
+            Text('Change', style: _ts(11, c: EditorTokens.muted)),
             const SizedBox(width: 4),
             const PhosphorIcon(
               PhosphorIconsRegular.caretRight,
@@ -1001,37 +1067,6 @@ class _ModelRow extends StatelessWidget {
 }
 
 // ───────────────────────── Small components ─────────────────────────
-
-const _fieldStyle = TextStyle(
-  color: EditorTokens.text,
-  fontSize: 13,
-  fontFamily: 'Fredoka',
-);
-
-InputDecoration _decoration(String hint) => InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: EditorTokens.muted, fontSize: 13, fontFamily: 'Fredoka'),
-      filled: true,
-      fillColor: EditorTokens.elevated,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: EditorTokens.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: EditorTokens.text),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Colors.redAccent),
-      ),
-    );
 
 class _Avatar extends StatelessWidget {
   const _Avatar(this.provider, {this.size = 36});
@@ -1054,7 +1089,7 @@ class _Avatar extends StatelessWidget {
             color: EditorTokens.text,
             fontSize: size * 0.4,
             fontWeight: FontWeight.bold,
-            fontFamily: 'Fredoka',
+            fontFamily: _font,
           ),
         ),
       );
@@ -1071,15 +1106,7 @@ class _Badge extends StatelessWidget {
           color: EditorTokens.text,
           borderRadius: BorderRadius.circular(6),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: EditorTokens.bg,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Fredoka',
-          ),
-        ),
+        child: Text(text, style: _ts(10, w: FontWeight.w700, c: EditorTokens.bg)),
       );
 }
 
@@ -1094,70 +1121,60 @@ class _Tag extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: EditorTokens.border),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: EditorTokens.muted,
-            fontSize: 10,
-            fontFamily: 'Fredoka',
-          ),
-        ),
+        child: Text(text, style: _ts(10, c: EditorTokens.muted)),
       );
 }
 
-class _TypeToggle extends StatelessWidget {
-  const _TypeToggle({required this.type, required this.onChanged});
-  final AiMediaType type;
-  final ValueChanged<AiMediaType> onChanged;
+/// Underline tab, identical to the tag tabs in the Effects top bar.
+class _UnderlineTab extends StatelessWidget {
+  const _UnderlineTab({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.icon,
+  });
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final PhosphorIconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    Widget seg(AiMediaType t, String label, PhosphorIconData icon) {
-      final on = t == type;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => onChanged(t),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: 34,
-            decoration: BoxDecoration(
-              color: on ? EditorTokens.text : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+    final color = active ? EditorTokens.text : EditorTokens.muted;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                PhosphorIcon(icon, size: 16, color: on ? EditorTokens.bg : EditorTokens.text),
-                const SizedBox(width: 6),
+                if (icon != null) ...[
+                  PhosphorIcon(icon!, size: 16, color: color),
+                  const SizedBox(width: 6),
+                ],
                 Text(
                   label,
-                  style: TextStyle(
-                    color: on ? EditorTokens.bg : EditorTokens.text,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'Fredoka',
-                  ),
+                  style: _ts(14,
+                      w: active ? FontWeight.w700 : FontWeight.w500, c: color),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 4),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 2,
+              width: active ? 16 : 0,
+              decoration: BoxDecoration(
+                color: EditorTokens.text,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ],
         ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: EditorTokens.elevated,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: EditorTokens.border),
-      ),
-      child: Row(
-        children: [
-          seg(AiMediaType.video, 'Video', PhosphorIconsRegular.videoCamera),
-          seg(AiMediaType.image, 'Image', PhosphorIconsRegular.image),
-        ],
       ),
     );
   }
@@ -1174,23 +1191,14 @@ class _PillBody extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: EditorTokens.elevated,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: EditorTokens.border),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             PhosphorIcon(icon, size: 14, color: EditorTokens.text),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: EditorTokens.text,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Fredoka',
-              ),
-            ),
+            Text(label, style: _ts(12, w: FontWeight.w600)),
             const SizedBox(width: 4),
             const PhosphorIcon(
               PhosphorIconsRegular.caretDown,
@@ -1226,14 +1234,7 @@ class _Pill<T> extends StatelessWidget {
             PopupMenuItem<T>(
               value: i,
               height: 40,
-              child: Text(
-                labelOf(i),
-                style: const TextStyle(
-                  color: EditorTokens.text,
-                  fontSize: 13,
-                  fontFamily: 'Fredoka',
-                ),
-              ),
+              child: Text(labelOf(i), style: _ts(13)),
             ),
         ],
         child: _PillBody(icon: icon, label: label),
@@ -1262,13 +1263,14 @@ class _RefPill extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(5, 0, 10, 0),
         decoration: BoxDecoration(
           color: EditorTokens.elevated,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: has ? EditorTokens.text : EditorTokens.border),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: has ? EditorTokens.text : Colors.transparent),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ClipOval(
+            ClipRRect(
+              borderRadius: BorderRadius.circular(5),
               child: SizedBox(
                 width: 24,
                 height: 24,
@@ -1287,15 +1289,7 @@ class _RefPill extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: EditorTokens.text,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Fredoka',
-              ),
-            ),
+            Text(label, style: _ts(12, w: FontWeight.w600)),
             if (has) ...[
               const SizedBox(width: 6),
               const PhosphorIcon(PhosphorIconsRegular.x, size: 12, color: EditorTokens.muted),
@@ -1307,77 +1301,71 @@ class _RefPill extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? EditorTokens.text : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: selected ? EditorTokens.text : EditorTokens.border),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? EditorTokens.bg : EditorTokens.text,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'Fredoka',
-            ),
-          ),
-        ),
-      );
-}
-
-class _Advanced extends StatelessWidget {
+/// Collapsible "Advanced" block (no ExpansionTile borders or dividers).
+class _Advanced extends StatefulWidget {
   const _Advanced({required this.children});
   final List<Widget> children;
+
+  @override
+  State<_Advanced> createState() => _AdvancedState();
+}
+
+class _AdvancedState extends State<_Advanced> {
+  bool _open = false;
 
   @override
   Widget build(BuildContext context) => Container(
         decoration: BoxDecoration(
           color: EditorTokens.elevated,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: EditorTokens.border),
+          borderRadius: BorderRadius.circular(8),
         ),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            dense: true,
-            tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            iconColor: EditorTokens.text,
-            collapsedIconColor: EditorTokens.text,
-            leading: const PhosphorIcon(
-              PhosphorIconsRegular.slidersHorizontal,
-              size: 16,
-              color: EditorTokens.text,
-            ),
-            title: const Text(
-              'Advanced',
-              style: TextStyle(
-                color: EditorTokens.text,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Fredoka',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _open = !_open),
+              child: SizedBox(
+                height: 44,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      const PhosphorIcon(PhosphorIconsRegular.slidersHorizontal,
+                          size: 16, color: EditorTokens.text),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text('Advanced', style: _ts(13, w: FontWeight.w700))),
+                      AnimatedRotation(
+                        turns: _open ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 180),
+                        child: const PhosphorIcon(PhosphorIconsRegular.caretDown,
+                            size: 14, color: EditorTokens.muted),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-            children: children,
-          ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: _open
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: widget.children,
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ],
         ),
       );
 }
 
+/// Row layout from the Effects config view: label, slider, value chip.
 class _LabeledSlider extends StatelessWidget {
   const _LabeledSlider({
     required this.label,
@@ -1395,47 +1383,53 @@ class _LabeledSlider extends StatelessWidget {
   final ValueChanged<double> onChanged;
 
   @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
+  Widget build(BuildContext context) => SizedBox(
+        height: 40,
+        child: Row(
+          children: [
+            SizedBox(
+              width: _labelWidth,
+              child: Text(
                 label,
-                style: const TextStyle(
-                  color: EditorTokens.text,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Fredoka',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _ts(12, c: EditorTokens.muted),
+              ),
+            ),
+            Expanded(
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8, elevation: 2),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                  activeTrackColor: EditorTokens.text,
+                  inactiveTrackColor: EditorTokens.border,
+                  thumbColor: EditorTokens.text,
+                  overlayColor: EditorTokens.text.withValues(alpha: 0.12),
+                ),
+                child: Slider(
+                  value: value.clamp(min, max),
+                  min: min,
+                  max: max,
+                  onChanged: onChanged,
                 ),
               ),
-              Text(
+            ),
+            Container(
+              width: 44,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: EditorTokens.bg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
                 valueLabel,
-                style: const TextStyle(
-                  color: EditorTokens.muted,
-                  fontSize: 12,
-                  fontFamily: 'Fredoka',
-                ),
+                textAlign: TextAlign.center,
+                style: _ts(12, w: FontWeight.w600),
               ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: EditorTokens.text,
-              inactiveTrackColor: EditorTokens.border,
-              thumbColor: EditorTokens.text,
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             ),
-            child: Slider(
-              value: value.clamp(min, max),
-              min: min,
-              max: max,
-              onChanged: onChanged,
-            ),
-          ),
-        ],
+          ],
+        ),
       );
 }
 
@@ -1445,15 +1439,15 @@ class _IconBtn extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkResponse(
+  Widget build(BuildContext context) => GestureDetector(
         onTap: onTap,
-        radius: 22,
+        behavior: HitTestBehavior.opaque,
         child: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: EditorTokens.border),
+            color: EditorTokens.bg,
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Center(child: PhosphorIcon(icon, size: 18, color: EditorTokens.text)),
         ),
