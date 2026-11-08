@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 
+import 'package:flutter_video_editor/core/error/app_exceptions.dart';
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
 import 'package:flutter_video_editor/core/models/shader_effect_model.dart';
+import 'package:flutter_video_editor/core/services/permission_service.dart';
 import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_search_header.dart';
 import 'package:flutter_video_editor/features/effects/services/effect_download_service.dart';
@@ -78,6 +80,100 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
       );
       _isEditingParameters = false;
     });
+  }
+
+  Future<void> _showImportOptions(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: EditorTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: EditorTokens.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Import Custom Effect',
+                  style: TextStyle(
+                    color: EditorTokens.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Fredoka',
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const PhosphorIcon(PhosphorIconsRegular.fileCode,
+                    color: EditorTokens.text, size: 22),
+                title: const Text('Shader File (.glsl, .frag, .json)',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Fredoka')),
+                subtitle: const Text('Import individual shader code or manifest file',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Fredoka')),
+                onTap: () => Navigator.of(ctx).pop('file'),
+              ),
+              ListTile(
+                leading: const PhosphorIcon(PhosphorIconsRegular.folder,
+                    color: EditorTokens.text, size: 22),
+                title: const Text('Effect Package Folder',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: 'Fredoka')),
+                subtitle: const Text('Folder containing manifest.json and shader.glsl',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: 'Fredoka')),
+                onTap: () => Navigator.of(ctx).pop('folder'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (choice == null || !mounted) return;
+
+    try {
+      final imported = await CustomEffectImportService.instance.pickAndImportPackage(
+        preferFilePicker: choice == 'file',
+      );
+      if (!mounted) return;
+      if (imported != null) {
+        setState(() {
+          _selectEffect(imported);
+        });
+        messenger.showSnackBar(
+          SnackBar(content: Text('Imported custom effect: ${imported.name}')),
+        );
+      }
+    } on PermissionException catch (pe) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(pe.message),
+          action: SnackBarAction(
+            label: 'Settings',
+            textColor: Colors.amberAccent,
+            onPressed: () => PermissionService.instance.openSettings(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not import effect package: $e')),
+      );
+    }
   }
 
   @override
@@ -259,25 +355,7 @@ class _EffectsLibraryPageState extends State<EffectsLibraryPage>
               color: EditorTokens.text,
               size: 18,
             ),
-            onPressed: () async {
-              try {
-                final imported = await CustomEffectImportService.instance.pickAndImportPackage();
-                if (!mounted) return;
-                if (imported != null) {
-                  setState(() {
-                    _selectEffect(imported);
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Imported custom effect: ${imported.name}')),
-                  );
-                }
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not import effect package: $e')),
-                );
-              }
-            },
+            onPressed: () => _showImportOptions(context),
           ),
           const SizedBox(width: 12),
           IconButton(

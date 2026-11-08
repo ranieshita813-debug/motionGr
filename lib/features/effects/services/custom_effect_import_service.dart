@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_video_editor/core/error/app_exceptions.dart';
 import 'package:flutter_video_editor/core/logger/app_logger.dart';
 import 'package:flutter_video_editor/core/models/shader_effect_model.dart';
+import 'package:flutter_video_editor/core/services/permission_service.dart';
 import 'package:flutter_video_editor/features/effects/services/shader_database_service.dart';
 import 'package:path/path.dart' as p;
 
@@ -22,15 +24,37 @@ class CustomEffectImportService {
 
   /// Prompts user to select a custom effect package folder or file using file picker
   /// and imports the custom effect into the system registry.
-  Future<ShaderEffect?> pickAndImportPackage() async {
+  ///
+  /// Requests storage permissions beforehand to prevent permission denied errors,
+  /// and gracefully falls back to single-file picking (.glsl / .frag / .json) if
+  /// directory picking is cancelled or restricted by scoped storage.
+  Future<ShaderEffect?> pickAndImportPackage({bool preferFilePicker = false}) async {
     try {
-      final selectedDirectory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select Custom Effect Package Folder',
-      );
-
-      if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
-        return await importFromDirectory(selectedDirectory);
+      if (preferFilePicker) {
+        return await pickAndImportFile();
       }
+
+      try {
+        final selectedDirectory = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: 'Select Custom Effect Package Folder',
+        );
+
+        if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
+          try {
+            return await importFromDirectory(selectedDirectory);
+          } catch (fsErr) {
+            AppLogger.warning('Directory access failed ($fsErr). Falling back to file picker.',
+                tag: 'CustomEffectImportService');
+            return await pickAndImportFile();
+          }
+        }
+      } catch (e) {
+        AppLogger.warning('Directory picker failed ($e). Falling back to file picker.',
+            tag: 'CustomEffectImportService');
+        return await pickAndImportFile();
+      }
+    } on PermissionException {
+      rethrow;
     } catch (e, stack) {
       AppLogger.error('Failed picking custom effect package',
           tag: 'CustomEffectImportService', error: e, stackTrace: stack);
@@ -39,8 +63,95 @@ class CustomEffectImportService {
     return null;
   }
 
+  /// Prompts user to select an individual shader (.glsl, .frag) or manifest (.json) file.
+  /// Uses SAF system picker which does not require external storage permissions.
+  Future<ShaderEffect?> pickAndImportFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['glsl', 'frag', 'json', 'txt'],
+      withData: true,
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      return await importFromFile(result.files.first);
+    }
+    return null;
+  }
+
+  /// Imports a custom effect from a picked file (either `.glsl`/`.frag` or `.json`).
+  Future<ShaderEffect> importFromFile(PlatformFile file) async {
+    final ext = (file.extension ?? p.extension(file.name).replaceAll('.', '')).toLowerCase();
+    String content;
+
+    if (file.bytes != null && file.bytes!.isNotEmpty) {
+      content = utf8.decode(file.bytes!);
+    } else if (file.path != null && file.path!.isNotEmpty) {
+      final f = File(file.path!);
+      if (!await f.exists()) {
+        throw FileSystemException('Effect file does not exist', file.path);
+      }
+      content = await f.readAsString();
+    } else {
+      throw const FormatException('Cannot read file content for effect import.');
+    }
+
+    if (ext == 'json') {
+      // Manifest or combined package JSON
+      final Map<String, dynamic> jsonMap = jsonDecode(content) as Map<String, dynamic>;
+      final shaderSource = (jsonMap['shader'] as String?) ??
+          (jsonMap['shaderSource'] as String?) ??
+          (jsonMap['glsl'] as String?) ??
+          '';
+
+      if (shaderSource.trim().isEmpty) {
+        // If manifest points to external shader file in same directory
+        if (file.path != null) {
+          final dirPath = p.dirname(file.path!);
+          final shaderGlsl = File(p.join(dirPath, 'shader.glsl'));
+          if (await shaderGlsl.exists()) {
+            return await importFromDirectory(dirPath);
+          }
+        }
+        throw const FormatException('Manifest JSON does not contain shader source or companion shader.glsl');
+      }
+
+      return await importFromData(
+        manifestJsonStr: content,
+        shaderGlslStr: shaderSource,
+      );
+    } else {
+      // Direct shader source (.glsl, .frag)
+      final rawName = p.basenameWithoutExtension(file.name);
+      final displayName = rawName
+          .replaceAll('_', ' ')
+          .replaceAll('-', ' ')
+          .trim();
+      final capitalized = displayName.isNotEmpty
+          ? displayName[0].toUpperCase() + displayName.substring(1)
+          : 'Custom Effect';
+
+      final manifestJson = jsonEncode({
+        'id': 'custom_${rawName.toLowerCase()}_${DateTime.now().millisecondsSinceEpoch}',
+        'name': capitalized,
+        'description': 'Custom shader imported from ${file.name}',
+        'author': 'User',
+        'category': 'glow',
+      });
+
+      return await importFromData(
+        manifestJsonStr: manifestJson,
+        shaderGlslStr: content,
+      );
+    }
+  }
+
   /// Imports a custom effect from a folder containing `manifest.json` and `shader.glsl`.
   Future<ShaderEffect> importFromDirectory(String directoryPath) async {
+    final hasPerm = await PermissionService.instance.requestStoragePermission();
+    if (!hasPerm) {
+      throw PermissionException('Storage permission is required to read effect folder.');
+    }
+
     final dir = Directory(directoryPath);
     if (!await dir.exists()) {
       throw FileSystemException('Effect package directory does not exist', directoryPath);

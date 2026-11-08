@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_icons/phosphor_icons.dart';
 import 'package:provider/provider.dart';
 
+import 'package:flutter_video_editor/core/error/app_exceptions.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
+import 'package:flutter_video_editor/core/services/permission_service.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 import 'package:flutter_video_editor/features/effects/pages/effects_library_page.dart';
@@ -51,14 +53,87 @@ class _EffectsSheetState extends State<EffectsSheet> {
 
   Future<void> _importCustomEffectPackage(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: EditorTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 4),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: EditorTokens.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Import Custom Effect',
+                  style: TextStyle(
+                    color: EditorTokens.text,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: _font,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const PhosphorIcon(PhosphorIconsRegular.fileCode,
+                    color: EditorTokens.text, size: 22),
+                title: const Text('Shader File (.glsl, .frag, .json)',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: _font)),
+                subtitle: const Text('Import individual shader code or manifest file',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: _font)),
+                onTap: () => Navigator.of(ctx).pop('file'),
+              ),
+              ListTile(
+                leading: const PhosphorIcon(PhosphorIconsRegular.folder,
+                    color: EditorTokens.text, size: 22),
+                title: const Text('Effect Package Folder',
+                    style: TextStyle(color: EditorTokens.text, fontSize: 13, fontFamily: _font)),
+                subtitle: const Text('Folder containing manifest.json and shader.glsl',
+                    style: TextStyle(color: EditorTokens.muted, fontSize: 11, fontFamily: _font)),
+                onTap: () => Navigator.of(ctx).pop('folder'),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (choice == null || !mounted) return;
+
     try {
-      final imported = await CustomEffectImportService.instance.pickAndImportPackage();
+      final imported = await CustomEffectImportService.instance.pickAndImportPackage(
+        preferFilePicker: choice == 'file',
+      );
       if (!mounted) return;
       if (imported != null) {
         messenger.showSnackBar(
-          SnackBar(content: Text('Imported custom effect package: ${imported.name}')),
+          SnackBar(content: Text('Imported custom effect: ${imported.name}')),
         );
       }
+    } on PermissionException catch (pe) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(pe.message),
+          action: SnackBarAction(
+            label: 'Settings',
+            textColor: Colors.amberAccent,
+            onPressed: () => PermissionService.instance.openSettings(),
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
