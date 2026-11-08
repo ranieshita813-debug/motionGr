@@ -270,6 +270,7 @@ data class ClipSpec(
     val strokes: List<DrawingStrokeSpec>,
     val stickerAssetPath: String?,
     val effect: String,
+    val blendMode: String = "normal",
     val svgPath: String? = null,
     val keyframes: List<KeyframeSpec> = emptyList(),
     val words: List<WordSpec> = emptyList(),
@@ -509,6 +510,10 @@ object TimelineParser {
                         strokes = strokes,
                         stickerAssetPath = if (clipObj.has("stickerAssetPath") && !clipObj.isNull("stickerAssetPath")) clipObj.getString("stickerAssetPath") else null,
                         effect = clipObj.optString("effect", "none"),
+                        blendMode = run {
+                            val bp = clipObj.optJSONObject("blendProperties")
+                            bp?.optString("type", "normal") ?: "normal"
+                        },
                         svgPath = if (clipObj.has("svgPath") && !clipObj.isNull("svgPath")) clipObj.getString("svgPath") else null,
                         keyframes = run {
                             val kfArray = clipObj.optJSONArray("keyframes")

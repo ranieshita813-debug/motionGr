@@ -66,11 +66,20 @@ class CustomEffectImportService {
   /// Prompts user to select an individual shader (.glsl, .frag) or manifest (.json) file.
   /// Uses SAF system picker which does not require external storage permissions.
   Future<ShaderEffect?> pickAndImportFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: const ['glsl', 'frag', 'json', 'txt'],
-      withData: true,
-    );
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['glsl', 'frag', 'vert', 'json', 'txt'],
+        withData: true,
+      );
+    } catch (_) {
+      // Some file pickers or OS versions fail with custom types, fall back to FileType.any
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+    }
 
     if (result != null && result.files.isNotEmpty) {
       return await importFromFile(result.files.first);
@@ -98,21 +107,39 @@ class CustomEffectImportService {
     if (ext == 'json') {
       // Manifest or combined package JSON
       final Map<String, dynamic> jsonMap = jsonDecode(content) as Map<String, dynamic>;
-      final shaderSource = (jsonMap['shader'] as String?) ??
+      String shaderSource = (jsonMap['shader'] as String?) ??
           (jsonMap['shaderSource'] as String?) ??
           (jsonMap['glsl'] as String?) ??
+          (jsonMap['code'] as String?) ??
           '';
+
+      if (shaderSource.trim().isEmpty && jsonMap['assets'] is Map) {
+        final assetsMap = jsonMap['assets'] as Map;
+        final assetShader = assetsMap['shader'] as String?;
+        if (assetShader != null && assetShader.trim().isNotEmpty) {
+          shaderSource = assetShader;
+        }
+      }
 
       if (shaderSource.trim().isEmpty) {
         // If manifest points to external shader file in same directory
         if (file.path != null) {
           final dirPath = p.dirname(file.path!);
-          final shaderGlsl = File(p.join(dirPath, 'shader.glsl'));
-          if (await shaderGlsl.exists()) {
-            return await importFromDirectory(dirPath);
+          for (final candidate in ['shader.glsl', 'shader.frag', 'effect.frag', 'effect.glsl']) {
+            final f = File(p.join(dirPath, candidate));
+            if (await f.exists()) {
+              shaderSource = await f.readAsString();
+              break;
+            }
+          }
+          if (shaderSource.isNotEmpty) {
+            return await importFromData(
+              manifestJsonStr: content,
+              shaderGlslStr: shaderSource,
+            );
           }
         }
-        throw const FormatException('Manifest JSON does not contain shader source or companion shader.glsl');
+        throw const FormatException('Manifest JSON does not contain shader source or companion shader file');
       }
 
       return await importFromData(

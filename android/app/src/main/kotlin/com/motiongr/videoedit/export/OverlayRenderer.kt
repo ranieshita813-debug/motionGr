@@ -1159,6 +1159,22 @@ object OverlayRenderer {
             paint.alpha = (finalOpacity * 255).toInt().coerceIn(0, 255)
         }
 
+        if (clip.blendMode.isNotEmpty() && clip.blendMode.lowercase() != "normal") {
+            when (clip.blendMode.lowercase()) {
+                "multiply" -> paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.MULTIPLY)
+                "screen" -> paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SCREEN)
+                "lighten" -> paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.LIGHTEN)
+                "darken" -> paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DARKEN)
+                "overlay" -> {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.OVERLAY)
+                    }
+                }
+                "add" -> paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.ADD)
+                else -> {}
+            }
+        }
+
         canvas.drawBitmap(processedBmp, matrix, paint)
         canvas.restore()
 

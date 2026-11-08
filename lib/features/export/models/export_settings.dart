@@ -581,12 +581,23 @@ class ExportSettings {
     final formatStr = format is ExportFormat
         ? (format as ExportFormat).name
         : format.toString();
-    final effectiveWidth = (resolution != ExportResolution.res1080p && width == 1920)
-        ? resolution.width
-        : width;
-    final effectiveHeight = (resolution != ExportResolution.res1080p && height == 1080)
-        ? resolution.height
-        : height;
+    int effectiveWidth = width;
+    int effectiveHeight = height;
+
+    if (aspectRatioValue != null && aspectRatioValue! > 0) {
+      final ratio = aspectRatioValue!;
+      if ((effectiveWidth / effectiveHeight - ratio).abs() > 0.05) {
+        if (ratio >= 1.0) {
+          effectiveHeight = math.max(2, (effectiveWidth / ratio / 2).round() * 2);
+        } else {
+          effectiveWidth = math.max(2, (effectiveHeight * ratio / 2).round() * 2);
+        }
+      }
+    } else if (resolution != ExportResolution.res1080p && width == 1920 && height == 1080) {
+      effectiveWidth = resolution.width;
+      effectiveHeight = resolution.height;
+    }
+
     return <String, dynamic>{
       'width': effectiveWidth,
       'height': effectiveHeight,

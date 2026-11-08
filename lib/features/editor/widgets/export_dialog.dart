@@ -9,6 +9,8 @@ import 'package:flutter_video_editor/core/models/project_model.dart' hide Export
 import 'package:flutter_video_editor/core/widgets/loading_wave.dart';
 import 'package:flutter_video_editor/core/services/permission_service.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
+import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart'
+    show canvasRatioNotifier;
 import 'package:flutter_video_editor/features/export/controllers/export_controller.dart';
 import 'package:flutter_video_editor/features/export/models/export_settings.dart';
 
@@ -108,17 +110,35 @@ class _ExportModalState extends State<ExportModal> {
       duration: editor.project.totalDuration,
     );
 
-    // Seed from whatever the controllers already hold.
+    // Seed from whatever the controllers already hold, adapting to project aspect ratio.
+    final double targetRatio = (editor.project.aspectRatio.ratio > 0)
+        ? editor.project.aspectRatio.ratio
+        : canvasRatioNotifier.value.value;
+
+    int initW = 1920;
+    int initH = 1080;
+    if (targetRatio >= 1.0) {
+      initW = 1920;
+      initH = _even(1920 / targetRatio);
+    } else {
+      initH = 1920;
+      initW = _even(1920 * targetRatio);
+    }
+
     try {
       final st = context.read<ExportController>().exportSettings;
-      _seedFromLegacy(st.resolution.width, st.resolution.height, st.fps,
+      final seedW = (st.width != 1920 || st.height != 1080) ? st.width : initW;
+      final seedH = (st.width != 1920 || st.height != 1080) ? st.height : initH;
+      _seedFromLegacy(seedW, seedH, st.fps,
           st.quality.bitrateMbps.toDouble(), st.format.name, st.codec);
     } catch (_) {
       try {
         final st = editor.exportSettings;
-        _seedFromLegacy(st.resolution.width, st.resolution.height, st.fps,
+        _seedFromLegacy(initW, initH, st.fps,
             st.quality.bitrateMbps.toDouble(), st.format.name, 'h264');
-      } catch (_) {}
+      } catch (_) {
+        _seedFromLegacy(initW, initH, 30, 16.0, 'mp4', 'h264');
+      }
     }
 
     final String raw = editor.project.projectName;
@@ -128,8 +148,8 @@ class _ExportModalState extends State<ExportModal> {
 
   void _seedFromLegacy(int w, int h, int fps, double mbps, String fmt, String codec) {
     s
-      ..width = w
-      ..height = h
+      ..width = _even(w.toDouble())
+      ..height = _even(h.toDouble())
       ..fps = fps.toDouble()
       ..targetMbps = mbps.clamp(1, 100).toDouble()
       ..maxMbps = (mbps * 1.5).clamp(1, 120).toDouble();
@@ -230,12 +250,16 @@ class _ExportModalState extends State<ExportModal> {
       (f) => f.name == fmtName,
       orElse: () => ExportFormat.values.first,
     );
+    final double currentRatio = s.width / math.max(1, s.height);
     return ExportSettings(
+      width: s.width,
+      height: s.height,
       resolution: res,
       fps: s.fps.round(),
       quality: q,
       format: fmt,
       codec: s.format == VideoFormat.hevc ? 'hevc' : 'h264',
+      aspectRatioValue: currentRatio,
     );
   }
 
@@ -372,22 +396,25 @@ class _ExportModalState extends State<ExportModal> {
           const SizedBox(height: 8),
           _Seg<String>(
             values: const <String>['720p', '1080p', '4K'],
-            selected: s.width >= 3840
+            selected: math.max(s.width, s.height) >= 3840
                 ? '4K'
-                : (s.width >= 1920 ? '1080p' : '720p'),
+                : (math.max(s.width, s.height) >= 1920 ? '1080p' : '720p'),
             label: (r) => r,
             onChanged: (r) {
               _edit(() {
                 s.matchSource = false;
-                if (r == '720p') {
-                  s.width = 1280;
-                  s.height = 720;
-                } else if (r == '4K') {
-                  s.width = 3840;
-                  s.height = 2160;
+                final editor = context.read<EditorController>();
+                final double currentRatio = (editor.project.aspectRatio.ratio > 0)
+                    ? editor.project.aspectRatio.ratio
+                    : canvasRatioNotifier.value.value;
+
+                final int baseDim = (r == '720p') ? 1280 : ((r == '4K') ? 3840 : 1920);
+                if (currentRatio >= 1.0) {
+                  s.width = baseDim;
+                  s.height = _even(baseDim / currentRatio);
                 } else {
-                  s.width = 1920;
-                  s.height = 1080;
+                  s.height = baseDim;
+                  s.width = _even(baseDim * currentRatio);
                 }
                 _syncDims();
               });

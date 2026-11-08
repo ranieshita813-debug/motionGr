@@ -30,15 +30,18 @@ class _EffectsSheetState extends State<EffectsSheet> {
   VideoEffect? _configuringFx;
 
   void _openEffectsLibrary(BuildContext context, EditorController editor) async {
-    final clip = editor.selectedClip;
+    final clip = editor.selectedClip ?? editor.activeVideoClip;
     bool appliedViaCallback = false;
     final result = await Navigator.of(context).push<ShaderEffectClip>(
       MaterialPageRoute(
         builder: (_) => EffectsLibraryPage(
           selectedClipTime: editor.playhead,
           onApplyEffect: (effect, shaderClip) {
-            if (clip != null) {
-              appliedViaCallback = true;
+            appliedViaCallback = true;
+            if (editor.selectedClip != null) {
+              editor.addShaderEffectToSelectedClip(shaderClip);
+            } else if (clip != null) {
+              editor.selectClip(clip.id);
               editor.addShaderEffectToSelectedClip(shaderClip);
             }
           },
@@ -46,8 +49,13 @@ class _EffectsSheetState extends State<EffectsSheet> {
       ),
     );
 
-    if (result != null && clip != null && !appliedViaCallback) {
-      editor.addShaderEffectToSelectedClip(result);
+    if (result != null && !appliedViaCallback) {
+      if (editor.selectedClip != null) {
+        editor.addShaderEffectToSelectedClip(result);
+      } else if (clip != null) {
+        editor.selectClip(clip.id);
+        editor.addShaderEffectToSelectedClip(result);
+      }
     }
   }
 
@@ -133,7 +141,13 @@ class _EffectsSheetState extends State<EffectsSheet> {
           parameterValues: defaultParams,
           keyframeAnimations: <KeyframeAnimation>[],
         );
-        editor.addShaderEffectToSelectedClip(shaderClip);
+        final targetClip = editor.selectedClip ?? editor.activeVideoClip;
+        if (targetClip != null) {
+          if (editor.selectedClip == null) {
+            editor.selectClip(targetClip.id);
+          }
+          editor.addShaderEffectToSelectedClip(shaderClip);
+        }
         messenger.showSnackBar(
           SnackBar(content: Text('Imported custom effect: ${imported.name}')),
         );
