@@ -403,17 +403,53 @@ class ColorGrade {
     double brightness = 0,
     double contrast = 1,
     double saturation = 1,
-  }) =>
-      identity
-          .setParam(GradeParam.exposure, (brightness * 200).clamp(-100.0, 100.0).toDouble())
-          .setParam(GradeParam.contrast, ((contrast - 1) * 100).clamp(-100.0, 100.0).toDouble())
-          .setParam(GradeParam.saturation, ((saturation - 1) * 100).clamp(-100.0, 100.0).toDouble());
+    double temperature = 0,
+    double tint = 0,
+    double exposure = 0,
+    double highlights = 0,
+    double shadows = 0,
+    double vignette = 0,
+    double fade = 0,
+    double sepia = 0,
+    double brilliance = 0,
+    double clarity = 0,
+  }) {
+    var g = identity
+        .setParam(GradeParam.exposure, (exposure != 0 ? exposure * 100.0 : brightness * 200).clamp(-100.0, 100.0).toDouble())
+        .setParam(GradeParam.contrast, ((contrast - 1) * 100).clamp(-100.0, 100.0).toDouble())
+        .setParam(GradeParam.saturation, ((saturation - 1) * 100).clamp(-100.0, 100.0).toDouble());
+    if (temperature != 0) g = g.setParam(GradeParam.temperature, (temperature * 100).clamp(-100.0, 100.0).toDouble());
+    if (tint != 0) g = g.setParam(GradeParam.tint, (tint * 100).clamp(-100.0, 100.0).toDouble());
+    if (highlights != 0) g = g.setParam(GradeParam.highlights, (highlights * 100).clamp(-100.0, 100.0).toDouble());
+    if (shadows != 0) g = g.setParam(GradeParam.shadows, (shadows * 100).clamp(-100.0, 100.0).toDouble());
+    if (vignette != 0) g = g.setParam(GradeParam.vignette, (vignette * 100).clamp(0.0, 100.0).toDouble());
+    if (fade != 0) g = g.setParam(GradeParam.fade, (fade * 100).clamp(0.0, 100.0).toDouble());
+    return g;
+  }
 
-  /// Closest old-model values (loses wheels, curves, and the rest).
-  ({double brightness, double contrast, double saturation}) toLegacy() => (
+  /// Closest old-model values with full parameters mapped.
+  ({
+    double brightness,
+    double contrast,
+    double saturation,
+    double temperature,
+    double tint,
+    double exposure,
+    double highlights,
+    double shadows,
+    double vignette,
+    double fade,
+  }) toLegacy() => (
         brightness: (this[GradeParam.exposure] / 200).clamp(-0.5, 0.5).toDouble(),
         contrast: (1 + this[GradeParam.contrast] / 100).clamp(0.5, 2.0).toDouble(),
         saturation: (1 + this[GradeParam.saturation] / 100).clamp(0.0, 2.0).toDouble(),
+        temperature: (this[GradeParam.temperature] / 100.0).clamp(-1.0, 1.0).toDouble(),
+        tint: (this[GradeParam.tint] / 100.0).clamp(-1.0, 1.0).toDouble(),
+        exposure: (this[GradeParam.exposure] / 100.0).clamp(-1.0, 1.0).toDouble(),
+        highlights: (this[GradeParam.highlights] / 100.0).clamp(-1.0, 1.0).toDouble(),
+        shadows: (this[GradeParam.shadows] / 100.0).clamp(-1.0, 1.0).toDouble(),
+        vignette: (this[GradeParam.vignette] / 100.0).clamp(0.0, 1.0).toDouble(),
+        fade: (this[GradeParam.fade] / 100.0).clamp(0.0, 1.0).toDouble(),
       );
 
   // ---- json / equality ------------------------------------------------------

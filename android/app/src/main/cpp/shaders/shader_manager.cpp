@@ -11,40 +11,65 @@ ShaderManager::~ShaderManager() = default;
 void ShaderManager::applyColorGrading(
         uint32_t* pixelData, int32_t width, int32_t height,
         const ColorGradingParams& params) {
-    if (!pixelData) return;
+    if (!pixelData || width <= 0 || height <= 0) return;
 
-    float centerX = width / 2.0f;
-    float centerY = height / 2.0f;
-    float maxDist = std::sqrt(centerX * centerX + centerY * centerY);
+    // Fast bypass if color grading parameters are completely identity
+    if (params.brightness == 0.0f &&
+        params.contrast == 1.0f &&
+        params.saturation == 1.0f &&
+        params.temperature == 0.0f &&
+        params.tint == 0.0f &&
+        params.exposure == 0.0f &&
+        params.vignette == 0.0f) {
+        return;
+    }
+
+    const float expFactor = std::pow(2.0f, params.exposure);
+    const float bOffset = params.brightness * 255.0f;
+    const float rOffset = bOffset + params.temperature * 30.0f;
+    const float gOffset = bOffset + params.tint * 30.0f;
+    const float bOffsetFinal = bOffset - params.temperature * 30.0f;
+
+    const float contrast = params.contrast;
+    const float saturation = params.saturation;
+    const float invContrastMid = 128.0f * (1.0f - contrast);
+
+    const bool hasVignette = params.vignette > 0.0f;
+    const float centerX = width * 0.5f;
+    const float centerY = height * 0.5f;
+    const float invMaxDist = hasVignette ? 1.0f / std::sqrt(centerX * centerX + centerY * centerY) : 0.0f;
+    const float vignetteAmount = params.vignette;
 
     for (int y = 0; y < height; ++y) {
+        const float dy = hasVignette ? (y - centerY) : 0.0f;
+        const float dy2 = dy * dy;
+        size_t rowOffset = static_cast<size_t>(y) * static_cast<size_t>(width);
+
         for (int x = 0; x < width; ++x) {
-            size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
+            size_t idx = rowOffset + static_cast<size_t>(x);
             uint32_t color = pixelData[idx];
             uint32_t a = (color >> 24) & 0xFF;
-            uint32_t r = (color >> 16) & 0xFF;
-            uint32_t g = (color >> 8) & 0xFF;
-            uint32_t b = color & 0xFF;
+            float r = static_cast<float>((color >> 16) & 0xFF);
+            float g = static_cast<float>((color >> 8) & 0xFF);
+            float b = static_cast<float>(color & 0xFF);
 
-            float expFactor = std::pow(2.0f, params.exposure);
-            float rf = r * expFactor + params.brightness * 255.0f + params.temperature * 30.0f;
-            float gf = g * expFactor + params.brightness * 255.0f + params.tint * 30.0f;
-            float bf = b * expFactor + params.brightness * 255.0f - params.temperature * 30.0f;
+            float rf = r * expFactor + rOffset;
+            float gf = g * expFactor + gOffset;
+            float bf = b * expFactor + bOffsetFinal;
 
-            rf = (rf - 128.0f) * params.contrast + 128.0f;
-            gf = (gf - 128.0f) * params.contrast + 128.0f;
-            bf = (bf - 128.0f) * params.contrast + 128.0f;
+            rf = rf * contrast + invContrastMid;
+            gf = gf * contrast + invContrastMid;
+            bf = bf * contrast + invContrastMid;
 
             float gray = 0.299f * rf + 0.587f * gf + 0.114f * bf;
-            rf = gray + (rf - gray) * params.saturation;
-            gf = gray + (gf - gray) * params.saturation;
-            bf = gray + (bf - gray) * params.saturation;
+            rf = gray + (rf - gray) * saturation;
+            gf = gray + (gf - gray) * saturation;
+            bf = gray + (bf - gray) * saturation;
 
-            if (params.vignette > 0.0f) {
+            if (hasVignette) {
                 float dx = x - centerX;
-                float dy = y - centerY;
-                float dist = std::sqrt(dx * dx + dy * dy) / maxDist;
-                float vigFactor = std::max(0.0f, 1.0f - (dist * params.vignette));
+                float dist = std::sqrt(dx * dx + dy2) * invMaxDist;
+                float vigFactor = std::max(0.0f, 1.0f - (dist * vignetteAmount));
                 rf *= vigFactor;
                 gf *= vigFactor;
                 bf *= vigFactor;

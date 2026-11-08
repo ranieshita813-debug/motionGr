@@ -140,14 +140,18 @@ class AdjustSettings {
     final double sep = (this[AdjustParam.sepia] / 100).clamp(0.0, 1.0);
     final double fd = (this[AdjustParam.fade] / 100).clamp(0.0, 1.0) * 30;
 
+    final double hi = this[AdjustParam.highlights] / 100 * 30;
+    final double sh = this[AdjustParam.shadows] / 100 * 30;
+    final double ti = this[AdjustParam.hue] / 100 * 25; // tint / hue adjustment
+
     final double rScale = c * (.213 + .787 * s) * (1 - 0.607 * sep) + 0.393 * sep;
     final double gScale = c * (.715 - .715 * s) * (1 - 0.231 * sep) + 0.769 * sep;
     final double bScale = c * (.072 - .072 * s) * (1 - 0.811 * sep) + 0.189 * sep;
 
     return ColorFilter.matrix(<double>[
-      rScale, c * (.715 - .715 * s), c * (.072 - .072 * s), 0, off + w + fd,
-      c * (.213 - .213 * s), gScale, c * (.072 - .072 * s), 0, off + fd,
-      c * (.213 - .213 * s), c * (.715 - .715 * s), bScale, 0, off - w + fd,
+      rScale, c * (.715 - .715 * s), c * (.072 - .072 * s), 0, off + w + fd + hi + sh + ti * 0.5,
+      c * (.213 - .213 * s), gScale, c * (.072 - .072 * s), 0, off + fd + hi * 0.8 + sh * 0.8 - ti * 0.5,
+      c * (.213 - .213 * s), c * (.715 - .715 * s), bScale, 0, off - w + fd + hi * 0.5 + sh * 0.5 + ti * 0.2,
       0, 0, 0, 1, 0,
     ]);
   }
