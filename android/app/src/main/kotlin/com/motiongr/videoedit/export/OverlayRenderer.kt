@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.*
 import android.net.Uri
 import android.util.Log
+import android.util.LruCache
 import androidx.core.graphics.PathParser
 import java.io.File
 import kotlin.math.pow
@@ -11,7 +12,18 @@ import kotlin.math.pow
 object OverlayRenderer {
 
     private const val TAG = "OverlayRenderer"
-    private val clipBitmapCache = HashMap<String, Bitmap>()
+    // LRU cache with max 50MB (approx 10-15 full HD bitmaps)
+    private val clipBitmapCache: LruCache<String, Bitmap> = object : LruCache<String, Bitmap>(50 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int {
+            return value.byteCount
+        }
+        
+        override fun entryRemoved(evicted: Boolean, key: String, oldValue: Bitmap, newValue: Bitmap?) {
+            if (!oldValue.isRecycled) {
+                oldValue.recycle()
+            }
+        }
+    }
 
     fun getInterpolatedKeyframeValue(
         clip: ClipSpec,
@@ -30,7 +42,7 @@ object OverlayRenderer {
             val b = ks[i + 1]
             if (relativeTimeMs >= a.timeMs && relativeTimeMs <= b.timeMs) {
                 val span = b.timeMs - a.timeMs
-                if (span <= 0) return b.value
+                if (span <= 0) return a.value // Handle duplicate timestamps
                 var t = (relativeTimeMs - a.timeMs).toDouble() / span.toDouble()
 
                 t = when (a.curveType) {
@@ -46,51 +58,14 @@ object OverlayRenderer {
     }
 
     fun clearCache() {
-        for (bmp in clipBitmapCache.values) {
-            if (!bmp.isRecycled) {
-                bmp.recycle()
-            }
-        }
-        clipBitmapCache.clear()
+        clipBitmapCache.evictAll()
     }
 
-    private fun loadInputStream(context: Context, path: String): java.io.InputStream? {
-        val p = path.removePrefix("/").removePrefix("file:///")
-        val isAsset = p.startsWith("assets/") || p.startsWith("asset/") ||
-                p.startsWith("flutter_assets/") || p.startsWith("android_asset/") ||
-                path.startsWith("asset://") || path.startsWith("assets://") ||
-                path.startsWith("file:///android_asset/")
-
-        return when {
-            path.startsWith("content://") ->
-                context.contentResolver.openInputStream(Uri.parse(path))
-
-            isAsset -> {
-                val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("assets://").removePrefix("file:///android_asset/").removePrefix("/")
-                val stripped = rawP.removePrefix("flutter_assets/")
-                val candidatePaths = listOf(
-                    normalizeAssetPath(path),
-                    rawP,
-                    stripped,
-                    "flutter_assets/assets/$stripped"
-                )
-                for (candidate in candidatePaths) {
-                    try {
-                        return context.assets.open(candidate)
-                    } catch (_: Exception) {}
-                }
-                null
-            }
-
-            else -> {
-                val file = File(path.removePrefix("file://"))
-                if (file.exists()) file.inputStream() else null
-            }
-        }
-    }
+    private fun loadInputStream(context: Context, path: String): java.io.InputStream? =
+        AssetResolver.openInputStream(context, path)
 
     /**
-     * বিটম্যাপ লোড করে নির্দিষ্ট সাইজে রিসাইজ করে
+     * Load bitmap and resize to specific dimensions
      */
     fun loadBitmap(context: Context, path: String, width: Int, height: Int): Bitmap? {
         return try {
@@ -117,25 +92,6 @@ object OverlayRenderer {
             Log.e(TAG, "Failed to load bitmap from path: $path", e)
             null
         }
-    }
-
-    /**
-     * অ্যাসেট পাথ নরমালাইজ করে
-     */
-    private fun normalizeAssetPath(path: String): String {
-        var ap = path
-            .removePrefix("asset://")
-            .removePrefix("assets://")
-            .removePrefix("asset/")
-            .removePrefix("assets/")
-            .removePrefix("file:///android_asset/")
-            .removePrefix("/")
-
-        if (!ap.startsWith("flutter_assets/")) {
-            ap = "flutter_assets/$ap"
-        }
-
-        return ap
     }
 
     /**
@@ -272,7 +228,8 @@ object OverlayRenderer {
         clip: ClipSpec,
         width: Int,
         height: Int,
-        timelineMs: Long
+        timelineMs: Long,
+        cancellationToken: CancellationToken? = null
     ) {
         val ftData = clip.faceTrackingData
         if (!ftData.isProcessed || ftData.persons.isEmpty()) return
@@ -281,6 +238,9 @@ object OverlayRenderer {
         if (relTimeMs < 0 || relTimeMs > clip.timelineDurationMs) return
 
         for (person in ftData.persons) {
+            // Check for cancellation
+            if (cancellationToken?.isCancelled == true) return
+            
             val faceRect = person.rectAt(relTimeMs, margin = 0.25) ?: continue
 
             val leftPx = (faceRect.left * width).toFloat().coerceIn(0f, width.toFloat() - 1f)
@@ -518,10 +478,7 @@ object OverlayRenderer {
         bitmap: Bitmap,
         cg: ColorGradingSpec
     ): Bitmap {
-        if (cg.brightness == 0.0 && cg.contrast == 1.0 && cg.saturation == 1.0 &&
-            cg.temperature == 0.0 && cg.exposure == 0.0 && cg.vignette == 0.0 &&
-            cg.highlights == 0.0 && cg.shadows == 0.0 && cg.fade == 0.0 &&
-            cg.sepia == 0.0 && cg.brilliance == 0.0 && cg.clarity == 0.0) {
+        if (ColorGradingMath.isNeutral(cg)) {
             return bitmap
         }
 
@@ -548,62 +505,8 @@ object OverlayRenderer {
             }
         }
 
-        val output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-
-        val cm = ColorMatrix()
-        cm.setSaturation(cg.saturation.toFloat().coerceIn(0f, 2f))
-
-        val effectiveContrast = cg.contrast + cg.clarity * 0.3
-        val contrastScale = effectiveContrast.toFloat().coerceIn(0.5f, 2f)
-        val contrastTranslate = (-0.5f * contrastScale + 0.5f) * 255f
-        val contrastCm = ColorMatrix(floatArrayOf(
-            contrastScale, 0f, 0f, 0f, contrastTranslate,
-            0f, contrastScale, 0f, 0f, contrastTranslate,
-            0f, 0f, contrastScale, 0f, contrastTranslate,
-            0f, 0f, 0f, 1f, 0f
-        ))
-        cm.postConcat(contrastCm)
-
-        val effectiveBrightness = cg.brightness + cg.brilliance * 0.3
-        val gain = 2.0.pow(cg.exposure).toFloat()
-        val fadeFactor = (1.0f - 0.15f * cg.fade.toFloat()).coerceIn(0f, 1f)
-        val tempR = (gain * (1.0f + 0.25f * cg.temperature.toFloat() + 0.2f * cg.sepia.toFloat()) * fadeFactor).coerceAtLeast(0f)
-        val tempG = (gain * (1.0f - 0.25f * cg.tint.toFloat()) * fadeFactor).coerceAtLeast(0f)
-        val tempB = (gain * (1.0f - 0.25f * cg.temperature.toFloat() - 0.2f * cg.sepia.toFloat()) * fadeFactor).coerceAtLeast(0f)
-        val bOffset = (effectiveBrightness * 255.0).toFloat().coerceIn(-128f, 128f)
-
-        val colorScaleCm = ColorMatrix(floatArrayOf(
-            tempR, 0f, 0f, 0f, bOffset,
-            0f, tempG, 0f, 0f, bOffset,
-            0f, 0f, tempB, 0f, bOffset,
-            0f, 0f, 0f, 1f, 0f
-        ))
-        cm.postConcat(colorScaleCm)
-
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-            colorFilter = ColorMatrixColorFilter(cm)
-        }
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-
-        if (cg.vignette > 0.0) {
-            val vigVal = cg.vignette.toFloat().coerceIn(0f, 1f)
-            val cx = w / 2f
-            val cy = h / 2f
-            val radius = kotlin.math.sqrt((cx * cx + cy * cy).toDouble()).toFloat()
-            val shader = RadialGradient(
-                cx, cy, radius,
-                intArrayOf(Color.TRANSPARENT, Color.argb((vigVal * 200).toInt(), 0, 0, 0)),
-                floatArrayOf(0.4f, 1.0f),
-                Shader.TileMode.CLAMP
-            )
-            val vigPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                this.shader = shader
-            }
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vigPaint)
-        }
-
-        return output
+        val params = ColorGradingMath.computeParams(cg)
+        return ColorGradingMath.applyToBitmap(bitmap, params)
     }
 
     private fun applyBoxBlur(bitmap: Bitmap, blurRadius: Float): Bitmap {
@@ -863,8 +766,14 @@ object OverlayRenderer {
         clip: ClipSpec,
         width: Int,
         height: Int,
-        timelineMs: Long
+        timelineMs: Long,
+        cancellationToken: CancellationToken? = null
     ) {
+        // Check for cancellation at entry
+        if (cancellationToken?.isCancelled == true) {
+            throw CancellationException("Export cancelled")
+        }
+        
         val u = width / 360f
 
         val cacheKey = if (clip.clipType != "video") {
@@ -1065,9 +974,15 @@ object OverlayRenderer {
                     }
                 }
             }
-            else -> {
+else -> {
                 baseBmp = renderTextOverlay(context, clip.label, width, height, scaleMultiplier = clip.scale.toFloat())
             }
+        }
+
+        // Check for cancellation before caching
+        if (cancellationToken?.isCancelled == true) {
+            if (baseBmp != null && !baseBmp.isRecycled) baseBmp.recycle()
+            throw CancellationException("Export cancelled")
         }
 
             if (cacheKey != null && baseBmp != null) {
@@ -1075,11 +990,22 @@ object OverlayRenderer {
             }
         }
 
-        val rawBase = baseBmp ?: return
-        var processedBmp: Bitmap = rawBase.copy(Bitmap.Config.ARGB_8888, true)
+    // Check for cancellation before processing
+    if (cancellationToken?.isCancelled == true) {
+        if (baseBmp != null && !baseBmp.isRecycled && cacheKey == null) baseBmp.recycle()
+        throw CancellationException("Export cancelled")
+    }
 
-        if (clip.chromaKey.enabled) {
-            val keyed = applyChromaKey(
+    val rawBase = baseBmp ?: return
+    var processedBmp: Bitmap = rawBase.copy(Bitmap.Config.ARGB_8888, true)
+
+    if (clip.chromaKey.enabled) {
+        // Check for cancellation during processing
+        if (cancellationToken?.isCancelled == true) {
+            if (!processedBmp.isRecycled) processedBmp.recycle()
+            throw CancellationException("Export cancelled")
+        }
+        val keyed = applyChromaKey(
                 bitmap = processedBmp,
                 keyColor = clip.chromaKey.keyColor,
                 similarity = clip.chromaKey.similarity,
@@ -1099,6 +1025,11 @@ object OverlayRenderer {
             clip.colorGrading.highlights != 0.0 || clip.colorGrading.shadows != 0.0 ||
             clip.colorGrading.fade != 0.0 || clip.colorGrading.sepia != 0.0 ||
             clip.colorGrading.brilliance != 0.0 || clip.colorGrading.clarity != 0.0) {
+            // Check for cancellation before color grading
+            if (cancellationToken?.isCancelled == true) {
+                if (!processedBmp.isRecycled) processedBmp.recycle()
+                throw CancellationException("Export cancelled")
+            }
             val graded = applyColorGrading(processedBmp, clip.colorGrading)
             if (graded != processedBmp && !processedBmp.isRecycled) {
                 processedBmp.recycle()
@@ -1107,6 +1038,11 @@ object OverlayRenderer {
         }
 
         if (clip.effect != "none") {
+            // Check for cancellation before video effect
+            if (cancellationToken?.isCancelled == true) {
+                if (!processedBmp.isRecycled) processedBmp.recycle()
+                throw CancellationException("Export cancelled")
+            }
             val fxBmp = applyVideoEffect(processedBmp, clip.effect, clip.effectParameters)
             if (fxBmp != processedBmp && !processedBmp.isRecycled) {
                 processedBmp.recycle()
@@ -1117,8 +1053,19 @@ object OverlayRenderer {
         if (clip.shaderEffects.isNotEmpty()) {
             val clipRelMs = timelineMs - clip.timelineStartMs
             for (shaderFx in clip.shaderEffects) {
-                if (shaderFx.isEnabled && clipRelMs >= shaderFx.startMs && clipRelMs <= shaderFx.endMs) {
-                    val activeParams = shaderFx.getInterpolatedParameters(clipRelMs)
+                // Check for cancellation in shader loop
+                if (cancellationToken?.isCancelled == true) {
+                    if (!processedBmp.isRecycled) processedBmp.recycle()
+                    throw CancellationException("Export cancelled")
+                }
+                // shaderFx.startMs/endMs are absolute timeline timestamps
+                val isActive = if (shaderFx.startMs > 0 || shaderFx.endMs > 0) {
+                    timelineMs in shaderFx.startMs..shaderFx.endMs
+                } else {
+                    true
+                }
+                if (shaderFx.isEnabled && isActive) {
+                    val activeParams = shaderFx.getInterpolatedParameters(clipRelMs, clip.timelineStartMs)
                     val fxBmp = applyVideoEffect(processedBmp, shaderFx.effectId, activeParams)
                     if (fxBmp != processedBmp && !processedBmp.isRecycled) {
                         processedBmp.recycle()
@@ -1134,6 +1081,12 @@ object OverlayRenderer {
         val rot = getInterpolatedKeyframeValue(clip, "rotation", relTimeMs, clip.rotation)
         val opacity = getInterpolatedKeyframeValue(clip, "opacity", relTimeMs, clip.opacity)
         val scaleKf = getInterpolatedKeyframeValue(clip, "scale", relTimeMs, clip.scale)
+
+        // Check for cancellation before drawing
+        if (cancellationToken?.isCancelled == true) {
+            if (!processedBmp.isRecycled) processedBmp.recycle()
+            throw CancellationException("Export cancelled")
+        }
 
         canvas.save()
         val matrix = Matrix()

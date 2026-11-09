@@ -100,7 +100,7 @@ class CustomShaderEffect(
                 glProgram.setSamplerTexIdUniform("uTexSampler", inputTextureId, 0)
 
                 val interpolatedParams = if (shaderEffectSpec != null) {
-                    shaderEffectSpec.getInterpolatedParameters(clipRelativeTimeMs)
+                    shaderEffectSpec.getInterpolatedParameters(clipRelativeTimeMs, baseStartMs)
                 } else {
                     initialParameters
                 }
