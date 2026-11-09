@@ -105,6 +105,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
   String? _nextPath;
   bool _nextLoading = false;
   DateTime _lastSeek = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _seeking = false;
 
   EditorController get _e => widget.editor;
 
@@ -331,6 +332,8 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     final Duration drift = (c.value.position - local).abs();
 
+    if (_seeking) return;
+
     try {
       if (_e.isPlaying) {
         // The file can end before the timeline clip does. Without this guard
@@ -339,19 +342,36 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
         if (atEnd) {
           if (c.value.isPlaying) await c.pause();
         } else if (!c.value.isPlaying) {
-          await c.seekTo(local);
-          await c.play();
-          _lastSeek = DateTime.now();
-        } else if (drift > const Duration(milliseconds: 400) &&
-            DateTime.now().difference(_lastSeek) > const Duration(milliseconds: 1000)) {
+          _seeking = true;
+          try {
+            await c.seekTo(local);
+            await c.play();
+            _lastSeek = DateTime.now();
+          } finally {
+            _seeking = false;
+          }
+        } else if (drift > const Duration(milliseconds: 600) &&
+            DateTime.now().difference(_lastSeek) > const Duration(milliseconds: 1200)) {
           // Throttled: a seek itself causes lag, which would trigger more seeks.
-          _lastSeek = DateTime.now();
-          await c.seekTo(local);
+          _seeking = true;
+          try {
+            _lastSeek = DateTime.now();
+            await c.seekTo(local);
+          } finally {
+            _seeking = false;
+          }
         }
         _maybePreloadNext();
       } else {
         if (c.value.isPlaying) await c.pause();
-        if (drift > const Duration(milliseconds: 40)) await c.seekTo(local);
+        if (drift > const Duration(milliseconds: 40)) {
+          _seeking = true;
+          try {
+            await c.seekTo(local);
+          } finally {
+            _seeking = false;
+          }
+        }
       }
     } catch (_) {
       // Controller may have been disposed while a call was in flight.
@@ -431,91 +451,136 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
   }
 
   Widget _applyTransition(Widget child, TimelineClip clip, Duration playhead) {
-    if (clip.transitionType.isEmpty ||
-        clip.transitionType.toLowerCase() == 'none' ||
-        clip.transitionDurationMs <= 0) {
+    TimelineClip? transClip;
+    bool isOutgoing = false;
+
+    if (clip.transitionType.isNotEmpty &&
+        clip.transitionType.toLowerCase() != 'none' &&
+        clip.transitionDurationMs > 0) {
+      final Duration transDur = Duration(milliseconds: clip.transitionDurationMs);
+      if (playhead >= clip.end - transDur && playhead <= clip.end) {
+        transClip = clip;
+        isOutgoing = true;
+      }
+    }
+
+    if (transClip == null) {
+      for (final prev in _e.clips) {
+        if ((prev.clipType == ClipType.video || prev.clipType == ClipType.image) &&
+            prev.layerIndex == 0 &&
+            !prev.isModifier &&
+            prev.transitionType.isNotEmpty &&
+            prev.transitionType.toLowerCase() != 'none' &&
+            prev.transitionDurationMs > 0) {
+          final Duration transDur = Duration(milliseconds: prev.transitionDurationMs);
+          if ((clip.start - prev.end).abs() <= const Duration(milliseconds: 50) &&
+              playhead >= clip.start &&
+              playhead <= clip.start + transDur) {
+            transClip = prev;
+            isOutgoing = false;
+            break;
+          }
+        }
+      }
+    }
+
+    if (transClip == null) {
       return child;
     }
 
-    final Duration transDur = Duration(milliseconds: clip.transitionDurationMs);
-    if (playhead < clip.end - transDur || playhead > clip.end) {
-      return child;
-    }
-
-    final double p =
-        ((playhead - (clip.end - transDur)).inMilliseconds / transDur.inMilliseconds)
-            .clamp(0.0, 1.0)
-            .toDouble();
-    final String type = clip.transitionType.toLowerCase();
+    final Duration transDur = Duration(milliseconds: transClip.transitionDurationMs);
+    final double rawP = isOutgoing
+        ? ((playhead - (transClip.end - transDur)).inMilliseconds / transDur.inMilliseconds)
+        : ((playhead - clip.start).inMilliseconds / transDur.inMilliseconds);
+    final double p = rawP.clamp(0.0, 1.0).toDouble();
+    final String type = transClip.transitionType.toLowerCase();
 
     switch (type) {
       case 'fade':
       case 'dissolve':
-        return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child);
+        final double op = isOutgoing ? (1.0 - p) : p;
+        return Opacity(opacity: op.clamp(0.0, 1.0).toDouble(), child: child);
       case 'flash':
         final double flashIntensity = (1.0 - (p - 0.5).abs() * 2.0).clamp(0.0, 1.0).toDouble();
+        final double op = isOutgoing ? (1.0 - p) : p;
         return Stack(
           fit: StackFit.expand,
           children: [
-            Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child),
+            Opacity(opacity: op.clamp(0.0, 1.0).toDouble(), child: child),
             ColoredBox(color: Colors.white.withValues(alpha: flashIntensity)),
           ],
         );
       case 'slideleft':
-        return Transform.translate(offset: Offset(-p * 360.0, 0), child: child);
+        final double offset = isOutgoing ? -p * 360.0 : (1.0 - p) * 360.0;
+        return Transform.translate(offset: Offset(offset, 0), child: child);
       case 'slideright':
-        return Transform.translate(offset: Offset(p * 360.0, 0), child: child);
+        final double offset = isOutgoing ? p * 360.0 : -(1.0 - p) * 360.0;
+        return Transform.translate(offset: Offset(offset, 0), child: child);
       case 'slideup':
-        return Transform.translate(offset: Offset(0, -p * 360.0), child: child);
+        final double offset = isOutgoing ? -p * 360.0 : (1.0 - p) * 360.0;
+        return Transform.translate(offset: Offset(0, offset), child: child);
       case 'slidedown':
-        return Transform.translate(offset: Offset(0, p * 360.0), child: child);
+        final double offset = isOutgoing ? p * 360.0 : -(1.0 - p) * 360.0;
+        return Transform.translate(offset: Offset(0, offset), child: child);
       case 'zoomin':
+        final double scale = isOutgoing ? (1.0 + p * 0.8) : (0.5 + p * 0.5);
+        final double op = isOutgoing ? (1.0 - p) : p;
         return Transform.scale(
-            scale: 1.0 + p * 0.8,
-            child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child));
+            scale: scale,
+            child: Opacity(opacity: op.clamp(0.0, 1.0).toDouble(), child: child));
       case 'zoomout':
+        final double scale = isOutgoing ? math.max(0.01, 1.0 - p * 0.8) : (1.5 - p * 0.5);
+        final double op = isOutgoing ? (1.0 - p) : p;
         return Transform.scale(
-            scale: math.max(0.01, 1.0 - p * 0.8),
-            child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child));
+            scale: scale,
+            child: Opacity(opacity: op.clamp(0.0, 1.0).toDouble(), child: child));
       case 'blur':
+        final double blurAmt = isOutgoing ? p * 15.0 : (1.0 - p) * 15.0;
         return ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(sigmaX: p * 15.0, sigmaY: p * 15.0), child: child);
+            imageFilter: ui.ImageFilter.blur(sigmaX: blurAmt, sigmaY: blurAmt), child: child);
       case 'glitch':
+        final double amt = isOutgoing ? p : (1.0 - p);
         return FxShaders.applyVideo(
             child: child,
             effectId: 'digital_glitch',
-            params: <String, double>{'amount': p, 'speed': 2.0},
+            params: <String, double>{'amount': amt, 'speed': 2.0},
             time: playhead);
       case 'wipe':
+        final double factor = isOutgoing ? (1.0 - p) : p;
         return ClipRect(
           child: Align(
-            alignment: Alignment.centerLeft,
-            widthFactor: (1.0 - p).clamp(0.0, 1.0).toDouble(),
+            alignment: isOutgoing ? Alignment.centerLeft : Alignment.centerRight,
+            widthFactor: factor.clamp(0.0, 1.0).toDouble(),
             child: child,
           ),
         );
       case 'spin':
+        final double angle = isOutgoing ? p * math.pi : -(1.0 - p) * math.pi;
+        final double op = isOutgoing ? (1.0 - p) : p;
         return Transform.rotate(
-            angle: p * math.pi,
-            child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child));
+            angle: angle,
+            child: Opacity(opacity: op.clamp(0.0, 1.0).toDouble(), child: child));
       case 'fliphorizontal':
+        final double angle = isOutgoing ? p * math.pi / 2 : -(1.0 - p) * math.pi / 2;
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.001)
-            ..rotateY(p * math.pi / 2),
+            ..rotateY(angle),
           child: child,
         );
       case 'flipvertical':
+        final double angle = isOutgoing ? p * math.pi / 2 : -(1.0 - p) * math.pi / 2;
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.001)
-            ..rotateX(p * math.pi / 2),
+            ..rotateX(angle),
           child: child,
         );
       default:
-        return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child);
+        final double op = isOutgoing ? (1.0 - p) : p;
+        return Opacity(opacity: op.clamp(0.0, 1.0).toDouble(), child: child);
     }
   }
 

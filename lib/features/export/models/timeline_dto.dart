@@ -87,6 +87,7 @@ class ClipDto {
     this.cameraProperties = const <String, dynamic>{},
     this.maskProperties = const <String, dynamic>{},
     this.blendProperties = const <String, dynamic>{},
+    this.speedSettings = const <String, dynamic>{},
     this.effectParameters = const <String, double>{},
     required this.fontFamily,
     required this.textAnimationStyle,
@@ -132,6 +133,7 @@ class ClipDto {
   final Map<String, dynamic> cameraProperties;
   final Map<String, dynamic> maskProperties;
   final Map<String, dynamic> blendProperties;
+  final Map<String, dynamic> speedSettings;
   final Map<String, double> effectParameters;
   final String fontFamily;
   final String textAnimationStyle;
@@ -178,6 +180,7 @@ class ClipDto {
       cameraProperties: clip.cameraProperties.toJson(),
       maskProperties: clip.maskProperties.toJson(),
       blendProperties: clip.blendProperties.toJson(),
+      speedSettings: clip.speedSettings?.toJson() ?? const <String, dynamic>{},
       effectParameters: clip.effectParameters,
       fontFamily: clip.fontFamily,
       textAnimationStyle: clip.textAnimationStyle.name,
@@ -226,6 +229,7 @@ class ClipDto {
       'cameraProperties': cameraProperties,
       'maskProperties': maskProperties,
       'blendProperties': blendProperties,
+      'speedSettings': speedSettings,
       'effectParameters': effectParameters,
       'fontFamily': fontFamily,
       'textAnimationStyle': textAnimationStyle,
@@ -274,6 +278,7 @@ class ClipDto {
       cameraProperties: json['cameraProperties'] as Map<String, dynamic>? ?? <String, dynamic>{},
       maskProperties: json['maskProperties'] as Map<String, dynamic>? ?? <String, dynamic>{},
       blendProperties: json['blendProperties'] as Map<String, dynamic>? ?? <String, dynamic>{},
+      speedSettings: json['speedSettings'] as Map<String, dynamic>? ?? <String, dynamic>{},
       effectParameters: (json['effectParameters'] as Map<String, dynamic>?)?.map(
             (k, v) => MapEntry(k, (v as num).toDouble()),
           ) ??

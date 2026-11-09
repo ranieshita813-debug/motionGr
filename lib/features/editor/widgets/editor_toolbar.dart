@@ -383,12 +383,6 @@ class EditorToolbar extends StatelessWidget {
             onTap: () => onSelectToolSheet('text'),
           ),
           EditorToolbarItem(
-            id: 'to_svg',
-            title: 'To SVG',
-            icon: PhosphorIconsRegular.fileSvg,
-            onTap: () => editor.convertTextClipToSvg(clip.id),
-          ),
-          EditorToolbarItem(
             id: 'translate_captions',
             title: 'Translate',
             icon: PhosphorIconsRegular.translate,
@@ -477,12 +471,6 @@ class EditorToolbar extends StatelessWidget {
             title: 'Edit Text',
             icon: PhosphorIconsRegular.pencilSimple,
             onTap: () => onSelectToolSheet('text'),
-          ),
-          EditorToolbarItem(
-            id: 'to_svg',
-            title: 'To SVG',
-            icon: PhosphorIconsRegular.fileSvg,
-            onTap: () => editor.convertTextClipToSvg(clip.id),
           ),
           EditorToolbarItem(
             id: 'blend',

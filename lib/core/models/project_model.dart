@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_video_editor/core/models/chroma_key.dart';
 import 'package:flutter_video_editor/core/models/face_tracking_model.dart';
+import 'package:flutter_video_editor/core/models/speed_settings.dart';
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
 
 enum ClipType {
@@ -1448,6 +1449,7 @@ class TimelineClip {
     this.cameraProperties = const CameraProperties(),
     this.maskProperties = const MaskProperties(),
     this.blendProperties = const BlendProperties(),
+    this.speedSettings,
     this.groupId,
     this.keyframes = const <Keyframe>[],
     this.shaderEffects = const <ShaderEffectClip>[],
@@ -1497,6 +1499,7 @@ class TimelineClip {
   final CameraProperties cameraProperties;
   final MaskProperties maskProperties;
   final BlendProperties blendProperties;
+  final SpeedSettings? speedSettings;
   final String? groupId;
   final List<Keyframe> keyframes;
   final List<ShaderEffectClip> shaderEffects;
@@ -1560,7 +1563,9 @@ class TimelineClip {
     CameraProperties? cameraProperties,
     MaskProperties? maskProperties,
     BlendProperties? blendProperties,
+    SpeedSettings? speedSettings,
     String? groupId,
+    bool clearGroupId = false,
     List<Keyframe>? keyframes,
     List<ShaderEffectClip>? shaderEffects,
     ClipAnimation? inAnimation,
@@ -1609,7 +1614,8 @@ class TimelineClip {
       cameraProperties: cameraProperties ?? this.cameraProperties,
       maskProperties: maskProperties ?? this.maskProperties,
       blendProperties: blendProperties ?? this.blendProperties,
-      groupId: groupId ?? this.groupId,
+      speedSettings: speedSettings ?? this.speedSettings,
+      groupId: clearGroupId ? null : (groupId ?? this.groupId),
       keyframes: keyframes ?? this.keyframes,
       shaderEffects: shaderEffects ?? this.shaderEffects,
       inAnimation: inAnimation ?? this.inAnimation,
@@ -1661,6 +1667,7 @@ class TimelineClip {
       'cameraProperties': cameraProperties.toJson(),
       'maskProperties': maskProperties.toJson(),
       'blendProperties': blendProperties.toJson(),
+      'speedSettings': speedSettings?.toJson(),
       'groupId': groupId,
       'keyframes': keyframes.map((k) => k.toJson()).toList(),
       'shaderEffects': shaderEffects.map((e) => e.toJson()).toList(),
@@ -1741,6 +1748,9 @@ class TimelineClip {
       blendProperties: json['blendProperties'] != null
           ? BlendProperties.fromJson(Map<String, dynamic>.from(json['blendProperties'] as Map))
           : const BlendProperties(),
+      speedSettings: json['speedSettings'] != null
+          ? SpeedSettings.fromJson(Map<String, dynamic>.from(json['speedSettings'] as Map))
+          : null,
       groupId: json['groupId'] as String?,
       keyframes: (json['keyframes'] as List<dynamic>?)
               ?.map((e) => Keyframe.fromJson(Map<String, dynamic>.from(e as Map)))
@@ -1794,6 +1804,7 @@ class Project {
     List<TimelineClip>? clips,
     List<CaptionCue>? captions,
     List<String>? customFonts,
+    List<Map<String, String>>? customSvgElements,
     String? thumbnail,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -1809,6 +1820,7 @@ class Project {
               'Bebas Neue',
               'Caveat'
             ],
+        customSvgElements = customSvgElements ?? <Map<String, String>>[],
         thumbnail = thumbnail ?? '',
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -1821,6 +1833,7 @@ class Project {
   final List<TimelineClip> clips;
   final List<CaptionCue> captions;
   final List<String> customFonts;
+  final List<Map<String, String>> customSvgElements;
   final String thumbnail;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -1856,6 +1869,7 @@ class Project {
     List<TimelineClip>? clips,
     List<CaptionCue>? captions,
     List<String>? customFonts,
+    List<Map<String, String>>? customSvgElements,
     String? thumbnail,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -1868,6 +1882,7 @@ class Project {
       clips: clips != null ? List<TimelineClip>.from(clips) : List<TimelineClip>.from(this.clips),
       captions: captions != null ? List<CaptionCue>.from(captions) : List<CaptionCue>.from(this.captions),
       customFonts: customFonts != null ? List<String>.from(customFonts) : List<String>.from(this.customFonts),
+      customSvgElements: customSvgElements != null ? List<Map<String, String>>.from(customSvgElements) : List<Map<String, String>>.from(this.customSvgElements),
       thumbnail: thumbnail ?? this.thumbnail,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
@@ -1883,6 +1898,7 @@ class Project {
       'clips': clips.map((c) => c.toJson()).toList(),
       'captions': captions.map((c) => c.toJson()).toList(),
       'customFonts': customFonts,
+      'customSvgElements': customSvgElements,
       'thumbnail': thumbnail,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -1910,6 +1926,9 @@ class Project {
               .toList() ??
           <CaptionCue>[],
       customFonts: (json['customFonts'] as List<dynamic>?)?.cast<String>(),
+      customSvgElements: (json['customSvgElements'] as List<dynamic>?)
+          ?.map((e) => Map<String, String>.from(e as Map))
+          .toList(),
       thumbnail: json['thumbnail'] as String? ?? '',
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt'] as String) : null,
       updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt'] as String) : null,

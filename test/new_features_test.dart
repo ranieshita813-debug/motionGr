@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
-import 'package:flutter_video_editor/features/editor/widgets/editor_toolbar.dart';
 import 'package:flutter_video_editor/features/editor/widgets/preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/timeline.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_panel.dart';
+import 'package:flutter_video_editor/features/editor/widgets/transport.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -181,7 +181,7 @@ void main() {
       expect(newElementClip.elementProperties.svgPath, contains('Hello SVG World'));
     });
 
-    testWidgets('EditorToolbar shows To SVG button for text clips', (tester) async {
+    testWidgets('TransportBar More menu provides Convert to SVG button for text clips', (WidgetTester tester) async {
       final controller = EditorController();
       addTearDown(controller.dispose);
       final textClip = TimelineClip(
@@ -199,17 +199,19 @@ void main() {
           value: controller,
           child: MaterialApp(
             home: Scaffold(
-              body: EditorToolbar(
-                onSelectToolSheet: (_) {},
-                onAddMedia: () {},
-                onAddOverlay: () {},
-              ),
+              body: TransportBar(editor: controller),
             ),
           ),
         ),
       );
 
-      final toSvgFinder = find.text('To SVG');
+      final moreFinder = find.byTooltip('More');
+      expect(moreFinder, findsOneWidget);
+
+      await tester.tap(moreFinder);
+      await tester.pumpAndSettle();
+
+      final toSvgFinder = find.text('Convert to SVG');
       expect(toSvgFinder, findsOneWidget);
 
       await tester.tap(toSvgFinder);
