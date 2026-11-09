@@ -44,13 +44,25 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
 
+      - name: Pre-cache Gradle Distribution
+        run: |
+          mkdir -p ~/.gradle/wrapper/dists/gradle-8.14-bin
+          for i in 1 2 3; do
+            echo "Attempting Gradle wrapper download (try $i)..."
+            curl -fL --retry 3 --connect-timeout 30 https://services.gradle.org/distributions/gradle-8.14-bin.zip -o /tmp/gradle-8.14-bin.zip && break || sleep 5
+          done
+
       - name: Build Android Release APK
         env:
           KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
           KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_PATH: "upload-keystore.jks"
-        run: flutter build apk --release --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4
+        run: |
+          for attempt in 1 2 3; do
+            echo "Building APK attempt $attempt..."
+            flutter build apk --release --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4 && break || sleep 10
+          done
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4

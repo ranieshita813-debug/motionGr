@@ -22,6 +22,14 @@ pluginManagement {
     }
 }
 
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 plugins {
     val localProp = file("local.properties")
     val hasFlutter = localProp.exists() || System.getenv("FLUTTER_ROOT") != null || System.getenv("FLUTTER_HOME") != null
