@@ -21,6 +21,7 @@ import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'package:flutter_video_editor/features/editor/widgets/export_dialog.dart';
 import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
 import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/blend_sheet.dart' show flutterBlendMode;
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/chroma_key_preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/masked_layer.dart';
@@ -1754,6 +1755,48 @@ class _PreviewCheckerboardPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// Applies a [BlendMode] between [child] and whatever is beneath it in the
+/// layer tree, using a saveLayer so the blend is computed correctly.
+class _BlendModeLayer extends SingleChildRenderObjectWidget {
+  const _BlendModeLayer({required this.blendMode, required Widget child})
+      : super(child: child);
+
+  final BlendMode blendMode;
+
+  @override
+  _RenderBlendModeLayer createRenderObject(BuildContext context) =>
+      _RenderBlendModeLayer(blendMode);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderBlendModeLayer renderObject) {
+    renderObject.blendMode = blendMode;
+  }
+}
+
+class _RenderBlendModeLayer extends RenderProxyBox {
+  BlendMode _blendMode;
+  BlendMode get blendMode => _blendMode;
+  set blendMode(BlendMode value) {
+    if (_blendMode == value) return;
+    _blendMode = value;
+    markNeedsPaint();
+  }
+
+  _RenderBlendModeLayer(this._blendMode);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_blendMode == BlendMode.srcOver) {
+      super.paint(context, offset);
+      return;
+    }
+    final canvas = context.canvas;
+    canvas.saveLayer(offset & size.boundingBox, Paint()..blendMode = _blendMode);
+    super.paint(context, offset);
+    canvas.restore();
+  }
+}
+
 class PaneDivider extends StatelessWidget {
   const PaneDivider({super.key, required this.onDrag, required this.onReset});
   final ValueChanged<double> onDrag;
@@ -2476,6 +2519,19 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
     return result;
   }
 
+  Widget _applyBlendMode(Widget child, TimelineClip clip) {
+    final b = clip.blendProperties;
+    if (b.type == BlendType.normal && b.opacity >= 1.0) return child;
+    Widget w = child;
+    if (b.opacity < 1.0) {
+      w = Opacity(opacity: b.opacity.clamp(0.0, 1.0).toDouble(), child: w);
+    }
+    if (b.type != BlendType.normal) {
+      w = _BlendModeLayer(blendMode: flutterBlendMode(b.type), child: w);
+    }
+    return w;
+  }
+
   @override
   Widget build(BuildContext context) {
     final clip = widget.clip;
@@ -2555,7 +2611,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           children: <Widget>[
             Padding(
               padding: EdgeInsets.all(6 * u),
-              child: RepaintBoundary(child: _content()),
+              child: RepaintBoundary(child: _applyBlendMode(_content(), clip)),
             ),
             if (widget.isSelected)
               Positioned.fill(
