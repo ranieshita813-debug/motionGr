@@ -31,6 +31,7 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import com.motiongr.videoedit.export.AssetResolver.MediaKind
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileNotFoundException
@@ -231,6 +232,7 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     ) {
         val claimed = AtomicBoolean(false)
         var transformer: Transformer? = null
+        val cancellationToken = CancellationToken()
 
         /** Returns true only for the first caller -> guarantees a single reply to Flutter. */
         fun claim() = claimed.compareAndSet(false, true)
@@ -500,86 +502,51 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     }
 
     // ------------------------------------------------------------------------------------------
-    // Helpers: sources, cache
+    // Helpers: sources, cache (using AssetResolver)
     // ------------------------------------------------------------------------------------------
 
-    private fun isAssetPath(path: String): Boolean {
-        val p = path.removePrefix("/").removePrefix("file:///")
-        return p.startsWith("assets/") || p.startsWith("asset/") ||
-               p.startsWith("flutter_assets/") || p.startsWith("android_asset/") ||
-               path.startsWith("asset://") || path.startsWith("file:///android_asset/")
-    }
-
-    private fun toAssetPath(path: String): String {
-        var p = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
-        if (!p.startsWith("flutter_assets/")) {
-            p = "flutter_assets/$p"
-        }
-        return p
-    }
-
-    private fun isUri(path: String) = path.startsWith("content://") || path.startsWith("file://") || isAssetPath(path)
+    private fun isUri(path: String) = AssetResolver.isContentUri(path) || AssetResolver.isFileUri(path) || AssetResolver.isAssetPath(path)
 
     private fun requireSource(path: String) {
-        if (isAssetPath(path)) {
+        if (AssetResolver.isAssetPath(path)) {
             val ctx = context ?: return
-            val ap = toAssetPath(path)
-            val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
-            val stripped = rawP.removePrefix("flutter_assets/")
-            val candidates = listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")
-            for (candidate in candidates) {
-                try {
-                    ctx.assets.open(candidate).close()
-                    return
-                } catch (_: Exception) {}
+            if (!AssetResolver.sourceExists(ctx, path)) {
+                throw FileNotFoundException("Asset not found: $path")
             }
-            throw FileNotFoundException("Asset not found: $path")
+            return
         }
         if (!isUri(path) && !File(path).let { it.exists() && it.isFile }) {
             throw FileNotFoundException("File not found: $path")
         }
     }
 
-    private fun copyAssetToTempFile(ctx: Context, path: String): File? {
-        val ap = toAssetPath(path)
-        val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
-        val stripped = rawP.removePrefix("flutter_assets/")
-        val candidates = listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")
-        for (candidate in candidates) {
-            try {
-                ctx.assets.open(candidate).use { inputStream ->
-                    val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)
-                    if (!tempFile.exists() || tempFile.length() == 0L) {
-                        java.io.FileOutputStream(tempFile).use { outputStream ->
-                            inputStream.copyTo(outputStream)
-                        }
-                    }
-                    return tempFile
-                }
-            } catch (_: Exception) {}
-        }
-        return null
-    }
-
     private fun MediaMetadataRetriever.source(path: String) {
         requireSource(path)
         val ctx = context
-        if (isAssetPath(path) && ctx != null) {
-            val ap = toAssetPath(path)
+        if (AssetResolver.isAssetPath(path) && ctx != null) {
+            val tempFile = AssetResolver.copyAssetToTempFile(ctx, path)
+            if (tempFile != null && tempFile.exists()) {
+                setDataSource(tempFile.absolutePath)
+                return
+            }
+            // Fallback to asset FD if available
             try {
-                val afd = ctx.assets.openFd(ap)
+                val assetPath = AssetResolver.normalizeAssetPath(path)
+                val afd = ctx.assets.openFd(assetPath)
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                 afd.close()
                 return
             } catch (_: Exception) {
-                val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
+                // Try raw asset path
                 try {
-                    val afd = ctx.assets.openFd(rawP)
+                    val rawPath = AssetResolver.getRawAssetPath(path)
+                    val afd = ctx.assets.openFd(rawPath)
                     setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     afd.close()
                     return
                 } catch (_: Exception) {
-                    val tempFile = copyAssetToTempFile(ctx, path)
+                    // Use temp file as last resort
+                    val tempFile = AssetResolver.copyAssetToTempFile(ctx, path)
                     if (tempFile != null && tempFile.exists()) {
                         setDataSource(tempFile.absolutePath)
                         return
@@ -593,22 +560,29 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
     private fun MediaExtractor.source(path: String) {
         requireSource(path)
         val ctx = context!!
-        if (isAssetPath(path)) {
-            val ap = toAssetPath(path)
+        if (AssetResolver.isAssetPath(path)) {
+            val tempFile = AssetResolver.copyAssetToTempFile(ctx, path)
+            if (tempFile != null && tempFile.exists()) {
+                setDataSource(tempFile.absolutePath)
+                return
+            }
+            // Fallback to asset FD if available
             try {
-                val afd = ctx.assets.openFd(ap)
+                val assetPath = AssetResolver.normalizeAssetPath(path)
+                val afd = ctx.assets.openFd(assetPath)
                 setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                 afd.close()
                 return
             } catch (_: Exception) {
-                val rawP = path.removePrefix("asset:///").removePrefix("asset://").removePrefix("file:///android_asset/").removePrefix("/")
                 try {
-                    val afd = ctx.assets.openFd(rawP)
+                    val rawPath = AssetResolver.getRawAssetPath(path)
+                    val afd = ctx.assets.openFd(rawPath)
                     setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
                     afd.close()
                     return
                 } catch (_: Exception) {
-                    val tempFile = copyAssetToTempFile(ctx, path)
+                    // Use temp file as last resort
+                    val tempFile = AssetResolver.copyAssetToTempFile(ctx, path)
                     if (tempFile != null && tempFile.exists()) {
                         setDataSource(tempFile.absolutePath)
                         return
@@ -1109,7 +1083,7 @@ class ExportPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, EventChanne
             val temp = File(workDir, "export_temp_$stamp.mp4").also { tempFile = it }
             val s = ExportSession(result, temp, "MotionGr_$stamp.mp4")
 
-            val composition = CompositionBuilder.buildComposition(ctx, timeline)
+            val composition = CompositionBuilder.buildComposition(ctx, timeline, s.cancellationToken)
 
             val mimeType = if (timeline.settings.codec == "hevc") MimeTypes.VIDEO_H265 else MimeTypes.VIDEO_H264
 

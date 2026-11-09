@@ -198,11 +198,24 @@ data class ShaderEffectSpec(
     val parameterValues: Map<String, Double> = emptyMap(),
     val keyframeAnimations: List<KeyframeAnimationSpec> = emptyList()
 ) {
-    fun getInterpolatedParameters(clipRelativeTimeMs: Long): Map<String, Double> {
+    fun getInterpolatedParameters(clipRelativeTimeMs: Long, clipTimelineStartMs: Long = 0L): Map<String, Double> {
         val result = parameterValues.toMutableMap()
         for (anim in keyframeAnimations) {
             val ks = anim.keyframes.sortedBy { it.timeMs }
             if (ks.isEmpty()) continue
+            
+            // Convert clipRelativeTimeMs to timeline-relative for comparison with startMs/endMs
+            val timelineRelativeTimeMs = clipTimelineStartMs + clipRelativeTimeMs
+            
+            // Check if effect is active at this time
+            val isActive = if (startMs > 0 || endMs > 0) {
+                timelineRelativeTimeMs in startMs..endMs
+            } else {
+                true
+            }
+            
+            if (!isActive) continue
+            
             val evaluatedValue = if (clipRelativeTimeMs <= ks.first().timeMs) {
                 ks.first().value
             } else if (clipRelativeTimeMs >= ks.last().timeMs) {

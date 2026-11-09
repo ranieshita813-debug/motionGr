@@ -47,13 +47,19 @@ class DynamicTimelineOverlay(
     private val height: Int,
     private val baseStartMs: Long,
     private val overlayClips: List<ClipSpec>,
-    private val baseClips: List<ClipSpec> = emptyList()
+    private val baseClips: List<ClipSpec> = emptyList(),
+    private val cancellationToken: CancellationToken? = null
 ) : BitmapOverlay() {
 
     private var cachedFrameBitmap: Bitmap? = null
     private var cachedCanvas: Canvas? = null
 
     override fun getBitmap(presentationTimeUs: Long): Bitmap {
+        // Check for cancellation
+        if (cancellationToken?.isCancelled == true) {
+            throw CancellationException("Export cancelled")
+        }
+        
         val currentTimelineMs = baseStartMs + presentationTimeUs / 1000L
         val activeOverlays = overlayClips.filter { clip ->
             clip.isVisible &&
@@ -73,6 +79,7 @@ class DynamicTimelineOverlay(
         val canvas = cachedCanvas ?: Canvas(frame).also { cachedCanvas = it }
 
         for (clip in baseClips) {
+            if (cancellationToken?.isCancelled == true) throw CancellationException("Export cancelled")
             if (clip.isVisible && currentTimelineMs >= clip.timelineStartMs && currentTimelineMs < (clip.timelineStartMs + clip.timelineDurationMs)) {
                 OverlayRenderer.drawFaceTrackingEffects(
                     context = context,
@@ -80,24 +87,29 @@ class DynamicTimelineOverlay(
                     clip = clip,
                     width = width,
                     height = height,
-                    timelineMs = currentTimelineMs
+                    timelineMs = currentTimelineMs,
+                    cancellationToken = cancellationToken
                 )
             }
         }
 
         if (activeOverlays.isNotEmpty()) {
             for (clip in activeOverlays) {
+                if (cancellationToken?.isCancelled == true) throw CancellationException("Export cancelled")
                 OverlayRenderer.drawOverlayClip(
                     context = context,
                     canvas = canvas,
                     clip = clip,
                     width = width,
                     height = height,
-                    timelineMs = currentTimelineMs
+                    timelineMs = currentTimelineMs,
+                    cancellationToken = cancellationToken
                 )
             }
         }
 
+        if (cancellationToken?.isCancelled == true) throw CancellationException("Export cancelled")
+        
         OverlayRenderer.drawWatermarkOverlayOnCanvas(canvas, width, height, "motionGr")
 
         return frame
@@ -115,87 +127,31 @@ object CompositionBuilder {
     private const val EPS = 1e-3
 
     private val OVERLAY_TYPES = setOf("text", "caption", "drawing", "element", "sticker")
-    private val IMAGE_EXT = setOf("jpg", "jpeg", "png", "webp", "heic", "heif", "bmp")
-    private val AUDIO_EXT = setOf("mp3", "m4a", "aac", "wav", "ogg", "oga", "opus", "flac", "amr")
 
     private enum class Kind { VIDEO, IMAGE, AUDIO }
 
     // ---------------------------------------------------------------------------------------
-    // হেল্পার ফাংশন
+    // Helpers (using AssetResolver)
     // ---------------------------------------------------------------------------------------
 
-    /** H.264/H.265 এনকোডারের জন্য জোড় সংখ্যার ডাইমেনশন প্রয়োজন। */
+    /** H.264/H.265 encoder requires even dimensions. */
     private fun even(v: Int): Int = max(v, 2) and 1.inv()
 
-    private fun isContentUri(path: String) = path.startsWith("content://")
+    private fun sourceExists(context: Context, path: String): Boolean =
+        AssetResolver.sourceExists(context, path)
 
-    private fun isAssetPath(path: String): Boolean {
-        val p = path.removePrefix("/").removePrefix("file:///")
-        return p.startsWith("assets/") || p.startsWith("asset/") ||
-               p.startsWith("flutter_assets/") || p.startsWith("android_asset/") ||
-               path.startsWith("asset://") || path.startsWith("file:///android_asset/")
-    }
+    private fun toUri(ctx: Context, path: String): Uri =
+        AssetResolver.toUri(ctx, path)
 
-    private fun rawAssetPath(path: String): String =
-        path.removePrefix("file:///android_asset/")
-            .removePrefix("asset:///")
-            .removePrefix("asset://")
-            .removePrefix("/")
+    private fun copyAssetToTempFile(ctx: Context, path: String): File? =
+        AssetResolver.copyAssetToTempFile(ctx, path)
 
-    private fun toAssetPath(path: String): String {
-        val p = rawAssetPath(path)
-        return if (p.startsWith("flutter_assets/")) p else "flutter_assets/$p"
-    }
-
-    private fun sourceExists(context: Context, path: String): Boolean {
-        if (isContentUri(path) || path.startsWith("http://") || path.startsWith("https://")) return true
-        if (isAssetPath(path)) {
-            val ap = toAssetPath(path)
-            val rawP = rawAssetPath(path)
-            val stripped = rawP.removePrefix("flutter_assets/")
-            for (candidate in listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")) {
-                try {
-                    context.assets.open(candidate).use { it.close() }
-                    return true
-                } catch (_: Exception) {
-                    // Try next candidate
-                }
-            }
-            return false
-        }
-        return File(path.removePrefix("file://")).exists()
-    }
-
-    private fun copyAssetToTempFile(ctx: Context, path: String): File? {
-        val ap = toAssetPath(path)
-        val rawP = rawAssetPath(path)
-        val stripped = rawP.removePrefix("flutter_assets/")
-        for (candidate in listOf(ap, rawP, stripped, "flutter_assets/assets/$stripped")) {
-            try {
-                ctx.assets.open(candidate).use { inputStream ->
-                    val tempFile = File(ctx.cacheDir, "asset_export_" + candidate.hashCode() + "_" + File(candidate).name)
-                    if (!tempFile.exists() || tempFile.length() == 0L) {
-                        FileOutputStream(tempFile).use { outputStream ->
-                            inputStream.copyTo(outputStream)
-                        }
-                    }
-                    return tempFile
-                }
-            } catch (_: Exception) {}
-        }
-        return null
-    }
-
-    private fun toUri(ctx: Context, path: String): Uri {
-        if (isContentUri(path) || path.startsWith("http://") || path.startsWith("https://")) {
-            return Uri.parse(path)
-        }
-        if (isAssetPath(path)) {
-            val tempFile = copyAssetToTempFile(ctx, path)
-            if (tempFile != null && tempFile.exists()) {
-                return Uri.fromFile(tempFile)
-            }
-            return Uri.parse("asset:///${toAssetPath(path)}")
+    /** content:// URI has no extension, so query MIME type. */
+    private fun kindOf(context: Context, path: String): Kind =
+        when (AssetResolver.getMediaKind(context, path)) {
+            AssetResolver.MediaKind.AUDIO -> Kind.AUDIO
+            AssetResolver.MediaKind.IMAGE -> Kind.IMAGE
+            else -> Kind.VIDEO
         }
         return Uri.fromFile(File(path.removePrefix("file://")))
     }
@@ -366,7 +322,7 @@ object CompositionBuilder {
     // মূল এন্ট্রি পয়েন্ট
     // ---------------------------------------------------------------------------------------
 
-    fun buildComposition(context: Context, timeline: TimelineSpec): Composition {
+    fun buildComposition(context: Context, timeline: TimelineSpec, cancellationToken: CancellationToken? = null): Composition {
         val width = even(timeline.settings.width)
         val height = even(timeline.settings.height)
 
@@ -653,7 +609,8 @@ object CompositionBuilder {
                 height = height,
                 baseStartMs = clip.timelineStartMs,
                 overlayClips = overlayClips,
-                baseClips = baseClips
+                baseClips = baseClips,
+                cancellationToken = cancellationToken
             )
             videoEffects += OverlayEffect(ImmutableList.of<TextureOverlay>(dynamicOverlay))
 
