@@ -475,13 +475,19 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
     Color(0xFFFF2D55),
   ];
 
-  final List<String> _textEffects = const [
-    'none',
-    'outline',
-    'shadow',
-    'glow',
-    'neon',
-    '3d',
+  final List<TextEffect> _textEffects = const [
+    TextEffect.none,
+    TextEffect.outline,
+    TextEffect.shadow,
+    TextEffect.glow,
+    TextEffect.neon,
+    TextEffect.threeD,
+    TextEffect.goldFoil,
+    TextEffect.holographic,
+    TextEffect.glassShine,
+    TextEffect.chrome,
+    TextEffect.ice,
+    TextEffect.fire,
   ];
 
   @override
@@ -1446,20 +1452,20 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
   }
 
   /// Preview tile: "Ab" drawn with an approximation of the effect.
-  Widget _effectTile(EditorController editor, TextStyleProperties ts, String effect) {
-    final bool on = ts.textEffect == effect;
+  Widget _effectTile(EditorController editor, TextStyleProperties ts, TextEffect effect) {
+    final bool on = ts.textEffectEnum == effect;
     const Color cyan = Color(0xFF00E5FF);
     final List<Shadow> shadows = switch (effect) {
-      'outline' => const [
+      TextEffect.outline => const [
           Shadow(color: Colors.black, offset: Offset(-1.2, -1.2)),
           Shadow(color: Colors.black, offset: Offset(1.2, -1.2)),
           Shadow(color: Colors.black, offset: Offset(-1.2, 1.2)),
           Shadow(color: Colors.black, offset: Offset(1.2, 1.2)),
         ],
-      'shadow' => const [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 3)],
-      'glow' => const [Shadow(color: cyan, blurRadius: 10)],
-      'neon' => const [Shadow(color: cyan, blurRadius: 4), Shadow(color: cyan, blurRadius: 12)],
-      '3d' => const [
+      TextEffect.shadow => const [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 3)],
+      TextEffect.glow => const [Shadow(color: cyan, blurRadius: 10)],
+      TextEffect.neon => const [Shadow(color: cyan, blurRadius: 4), Shadow(color: cyan, blurRadius: 12)],
+      TextEffect.threeD => const [
           Shadow(color: Color(0xFF777777), offset: Offset(1, 1)),
           Shadow(color: Color(0xFF555555), offset: Offset(2, 2)),
           Shadow(color: Color(0xFF333333), offset: Offset(3, 3)),
@@ -1469,31 +1475,41 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
     return Semantics(
       button: true,
       selected: on,
-      label: '$effect effect',
+      label: '${effect.label} effect',
       child: GestureDetector(
         onTap: () {
           HapticFeedback.selectionClick();
-          TextStyleProperties updated = ts.copyWith(textEffect: effect);
-          if (effect == 'outline') {
-            updated = updated.copyWith(strokeColor: Colors.black, strokeWidth: 3.0);
-          } else if (effect == 'shadow') {
-            updated = updated.copyWith(
-              shadowColor: Colors.black,
-              shadowBlurRadius: 6.0,
-              shadowOffsetX: 2.0,
-              shadowOffsetY: 2.0,
-            );
-          } else if (effect == 'glow') {
-            updated = updated.copyWith(
-              shadowColor: const Color(0xFF00E5FF),
-              shadowBlurRadius: 12.0,
-            );
-          } else if (effect == 'neon') {
-            updated = updated.copyWith(
-              textColor: const Color(0xFF00E5FF),
-              shadowColor: const Color(0xFF00E5FF),
-              shadowBlurRadius: 16.0,
-            );
+          TextStyleProperties updated = ts.copyWith(textEffectEnum: effect);
+          switch (effect) {
+            case TextEffect.outline:
+              updated = updated.copyWith(strokeColor: Colors.black, strokeWidth: 3.0);
+            case TextEffect.shadow:
+              updated = updated.copyWith(
+                shadowColor: Colors.black,
+                shadowBlurRadius: 6.0,
+                shadowOffsetX: 2.0,
+                shadowOffsetY: 2.0,
+              );
+            case TextEffect.glow:
+              updated = updated.copyWith(
+                shadowColor: const Color(0xFF00E5FF),
+                shadowBlurRadius: 12.0,
+              );
+            case TextEffect.neon:
+              updated = updated.copyWith(
+                textColor: const Color(0xFF00E5FF),
+                shadowColor: const Color(0xFF00E5FF),
+                shadowBlurRadius: 16.0,
+              );
+            case TextEffect.goldFoil:
+            case TextEffect.holographic:
+            case TextEffect.glassShine:
+            case TextEffect.chrome:
+            case TextEffect.ice:
+            case TextEffect.fire:
+            case TextEffect.none:
+            case TextEffect.threeD:
+              break;
           }
           editor.updateSelectedClipTextStyle(updated);
         },
@@ -1510,7 +1526,7 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
               Text(
                 'Ab',
                 style: TextStyle(
-                  color: effect == 'neon' ? cyan : Colors.white,
+                  color: effect == TextEffect.neon ? cyan : Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                   fontFamily: 'Fredoka',
@@ -1519,7 +1535,7 @@ class _TextStyleSheetState extends State<TextStyleSheet> {
               ),
               const SizedBox(height: 6),
               Text(
-                effect == 'none' ? 'None' : effect[0].toUpperCase() + effect.substring(1),
+                effect.label,
                 style: TextStyle(
                   color: on ? _accent : EditorTokens.muted,
                   fontSize: 10.5,

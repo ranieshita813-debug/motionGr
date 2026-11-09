@@ -2203,7 +2203,8 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
               offset: Offset(ts.shadowOffsetX, ts.shadowOffsetY),
             ),
           );
-        } else if (ts.textEffect == 'glow' || ts.textEffect == 'neon') {
+        } else if (ts.textEffectEnum == TextEffect.glow ||
+            ts.textEffectEnum == TextEffect.neon) {
           shadows.add(
             Shadow(
               color: ts.shadowColor != Colors.transparent
@@ -2274,8 +2275,19 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           );
         }
 
+        // --- Advanced Text Shader Effects ---
+        final te = ts.textEffectEnum;
+        if (te.isShader) {
+          textWidget = FxShaders.applyText(
+            child: textWidget,
+            effectId: te.nameStr,
+            time: context.read<EditorController>().playhead,
+            intensity: ts.shadowBlurRadius.clamp(0.0, 1.0).toDouble(),
+          );
+        }
+
         textWidget = _applyEffectsAndGrading(textWidget, clip);
-        return _applyAnimations(textWidget, clip);
+        return _applyTextAnimations(_applyAnimations(textWidget, clip), clip);
       case ClipType.element:
         final elWidget = _applyEffectsAndGrading(_elementWidget(clip, u), clip);
         return _applyAnimations(elWidget, clip);
@@ -2530,6 +2542,213 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
       w = _BlendModeLayer(blendMode: flutterBlendMode(b.type), child: w);
     }
     return w;
+  }
+
+  /// Advanced text animations: typewriter, glitch, shimmer, neon flicker, etc.
+  Widget _applyTextAnimations(Widget child, TimelineClip clip) {
+    final editor = context.read<EditorController>();
+    final playhead = editor.playhead;
+    final style = clip.textAnimationStyle;
+    if (style == TextAnimationStyle.none) return child;
+
+    final relMs = (playhead - clip.start).inMilliseconds;
+    if (relMs < 0) return child;
+    final double tSec = relMs / 1000.0;
+    final double durSec = math.max(0.1, clip.trimmedDurationSeconds);
+
+    switch (style) {
+      case TextAnimationStyle.fadeIn: {
+        final double t = (tSec / 0.8).clamp(0.0, 1.0);
+        return Opacity(opacity: t, child: child);
+      }
+      case TextAnimationStyle.typewriter: {
+        final double charsPerSec = 20.0;
+        final int maxChars = (tSec * charsPerSec).round();
+        final String text = clip.label;
+        final String shown = text.substring(0, maxChars.clamp(0, text.length));
+        return Opacity(
+          opacity: 1.0,
+          child: Text(
+            shown,
+            textAlign: clip.textStyle.textAlign,
+            style: TextStyle(
+              color: clip.textStyle.textColor,
+              fontSize: clip.textStyle.fontSize * clip.scale * widget.unit,
+              fontFamily: clip.fontFamily,
+              fontWeight: FontWeight.bold,
+              height: clip.textStyle.lineHeight,
+            ),
+          ),
+        );
+      }
+      case TextAnimationStyle.slideUp: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        return Transform.translate(
+          offset: Offset(0, (1.0 - t) * -60),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.bounce: {
+        final double t = (tSec / 0.8).clamp(0.0, 1.0);
+        final double bounce = math.sin(t * math.pi) * (1.0 - t);
+        return Transform.scale(
+          scale: 1.0 + bounce * 0.3,
+          child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+        );
+      }
+      case TextAnimationStyle.scaleUp: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        return Transform.scale(
+          scale: 0.5 + 0.5 * t,
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.fadeWord: {
+        final double cycle = (tSec * 2.0) % 2.0;
+        final double opacity = cycle < 1.0 ? cycle : 2.0 - cycle;
+        return Opacity(opacity: opacity.clamp(0.0, 1.0), child: child);
+      }
+      case TextAnimationStyle.glowPulse: {
+        final double pulse = 0.5 + 0.5 * math.sin(tSec * math.pi * 2);
+        return Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withOpacity(0.4 * pulse),
+                blurRadius: 12 * pulse,
+                spreadRadius: 4 * pulse,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      }
+      case TextAnimationStyle.waveText: {
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _WaveTextPainter(time: tSec),
+          child: child,
+        );
+      }
+      case TextAnimationStyle.flipIn: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        final double angle = (1.0 - t) * math.pi / 2;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(angle),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.glitchText: {
+        final double seed = tSec * 10;
+        final random = math.Random(seed.toInt());
+        final offsetX = (random.nextDouble() - 0.5) * 4;
+        final offsetY = (random.nextDouble() - 0.5) * 2;
+        return Transform.translate(
+          offset: Offset(offsetX, offsetY),
+          child: child,
+        );
+      }
+      case TextAnimationStyle.neonFlicker: {
+        final double flicker = math.sin(tSec * math.pi * 15).abs() * 0.3 + 0.7;
+        return Opacity(opacity: flicker.clamp(0.0, 1.0), child: child);
+      }
+      case TextAnimationStyle.wipeIn: {
+        final double t = (tSec / 0.5).clamp(0.0, 1.0);
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            widthFactor: t,
+            child: child,
+          ),
+        );
+      }
+      case TextAnimationStyle.rotateIn: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        return Transform.rotate(
+          angle: (1.0 - t) * math.pi,
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.shimmer: {
+        return ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (Rect b) {
+            final double move = (tSec * 200) % (b.width + 100) - 50;
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: <Color>[
+                Colors.transparent,
+                Colors.white.withOpacity(0.6),
+                Colors.transparent,
+              ],
+              stops: <double>[
+                (move / b.width).clamp(0.0, 1.0),
+                ((move + 50) / b.width).clamp(0.0, 1.0),
+                ((move + 100) / b.width).clamp(0.0, 1.0),
+              ],
+            ).createShader(b);
+          },
+          child: child,
+        );
+      }
+      case TextAnimationStyle.bounceIn: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        final double scale = 0.8 + (1.0 - math.cos(t * math.pi * 2)) * 0.2 * (1 - t);
+        return Transform.scale(
+          scale: math.max(0.1, scale),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.skewSlide: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        final double skew = (1.0 - t) * 0.3;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.skew(skew, 0)
+            ..translate((1.0 - t) * -40, 0),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.popOut: {
+        final double t = (tSec / 0.4).clamp(0.0, 1.0);
+        final double scale = 1.0 + math.sin(t * math.pi) * 0.2 * (1 - t);
+        return Transform.scale(
+          scale: math.max(0.1, scale),
+          child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+        );
+      }
+      default:
+        return child;
+    }
+  }
+
+  class _WaveTextPainter extends CustomPainter {
+    _WaveTextPainter({required this.time});
+    final double time;
+
+    @override
+    void paint(Canvas canvas, Size size) {
+      // Wave distortion is applied via the child widget's transform;
+      // this painter draws a subtle displacement map hint.
+      final paint = Paint()
+        ..color = Colors.white.withOpacity(0.1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      final path = Path();
+      for (double x = 0; x <= size.width; x += 4) {
+        final double y = math.sin(x * 0.05 + time * math.PI * 2) * 4;
+        if (x == 0) path.moveTo(x, y);
+        else path.lineTo(x, y);
+      }
+      canvas.drawPath(path, paint);
+    }
+
+    @override
+    bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
   }
 
   @override

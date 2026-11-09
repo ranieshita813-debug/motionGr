@@ -82,6 +82,34 @@ enum ClipAnimation {
   blurFade,
   shakeSlide,
   zoomRotate,
+  shake,
+  pulse,
+  elastic,
+  pageTurn,
+  pageCurl,
+  doorOpen,
+  heart,
+  star,
+  diamond,
+  circle,
+  pageCurlDown,
+  pageCurlUp,
+  wipeRight,
+  wipeLeft,
+  wipeUp,
+  wipeDown,
+  irisOpen,
+  irisClose,
+  pixelate,
+  mosaic,
+  radialBlur,
+  zoomBlur,
+  spinZoom,
+  flip3D,
+  fold,
+  unfold,
+  ripple,
+  wave,
 }
 
 enum ElementShape {
@@ -139,6 +167,50 @@ enum BlendType {
   hardLight,
   difference,
   exclusion,
+}
+
+enum TextEffect { none, outline, shadow, glow, neon, threeD, goldFoil, holographic, glassShine, chrome, ice, fire }
+
+extension TextEffectX on TextEffect {
+  String get nameStr => switch (this) {
+        TextEffect.none => 'none',
+        TextEffect.outline => 'outline',
+        TextEffect.shadow => 'shadow',
+        TextEffect.glow => 'glow',
+        TextEffect.neon => 'neon',
+        TextEffect.threeD => '3d',
+        TextEffect.goldFoil => 'gold_foil',
+        TextEffect.holographic => 'holographic',
+        TextEffect.glassShine => 'glass_shine',
+        TextEffect.chrome => 'chrome',
+        TextEffect.ice => 'ice',
+        TextEffect.fire => 'fire',
+      };
+
+  String get label => switch (this) {
+        TextEffect.none => 'None',
+        TextEffect.outline => 'Outline',
+        TextEffect.shadow => 'Shadow',
+        TextEffect.glow => 'Glow',
+        TextEffect.neon => 'Neon',
+        TextEffect.threeD => '3D',
+        TextEffect.goldFoil => 'Gold Foil',
+        TextEffect.holographic => 'Holographic',
+        TextEffect.glassShine => 'Glass Shine',
+        TextEffect.chrome => 'Chrome',
+        TextEffect.ice => 'Ice',
+        TextEffect.fire => 'Fire',
+      };
+
+  bool get isShader => switch (this) {
+        TextEffect.goldFoil => true,
+        TextEffect.holographic => true,
+        TextEffect.glassShine => true,
+        TextEffect.chrome => true,
+        TextEffect.ice => true,
+        TextEffect.fire => true,
+        _ => false,
+      };
 }
 
 class BlendProperties {
@@ -298,6 +370,7 @@ class TextStyleProperties {
     this.lineHeight = 1.2,
     this.textColor = Colors.white,
     this.textEffect = 'none',
+    this.textEffectEnum = TextEffect.none,
     this.strokeColor = Colors.transparent,
     this.strokeWidth = 0.0,
     this.shadowColor = Colors.transparent,
@@ -324,7 +397,8 @@ class TextStyleProperties {
   final double fontSize;
   final double lineHeight;
   final Color textColor;
-  final String textEffect; // 'none', 'outline', 'shadow', 'glow', 'neon', '3d'
+  final String textEffect; // 'none', 'outline', 'shadow', 'glow', 'neon', '3d' (legacy)
+  final TextEffect textEffectEnum; // New: typed enum
   final Color strokeColor;
   final double strokeWidth;
   final Color shadowColor;
@@ -352,6 +426,7 @@ class TextStyleProperties {
     double? lineHeight,
     Color? textColor,
     String? textEffect,
+    TextEffect? textEffectEnum,
     Color? strokeColor,
     double? strokeWidth,
     Color? shadowColor,
@@ -379,6 +454,7 @@ class TextStyleProperties {
       lineHeight: lineHeight ?? this.lineHeight,
       textColor: textColor ?? this.textColor,
       textEffect: textEffect ?? this.textEffect,
+      textEffectEnum: textEffectEnum ?? this.textEffectEnum,
       strokeColor: strokeColor ?? this.strokeColor,
       strokeWidth: strokeWidth ?? this.strokeWidth,
       shadowColor: shadowColor ?? this.shadowColor,
@@ -409,6 +485,7 @@ class TextStyleProperties {
       'lineHeight': lineHeight,
       'textColor': textColor.toARGB32(),
       'textEffect': textEffect,
+      'textEffectEnum': textEffectEnum.nameStr,
       'strokeColor': strokeColor.toARGB32(),
       'strokeWidth': strokeWidth,
       'shadowColor': shadowColor.toARGB32(),
@@ -439,6 +516,7 @@ class TextStyleProperties {
       lineHeight: (json['lineHeight'] as num?)?.toDouble() ?? 1.2,
       textColor: Color(json['textColor'] as int? ?? 0xFFFFFFFF),
       textEffect: json['textEffect'] as String? ?? 'none',
+      textEffectEnum: _parseTextEffect(json['textEffectEnum'] as String?),
       strokeColor: Color(json['strokeColor'] as int? ?? 0x00000000),
       strokeWidth: (json['strokeWidth'] as num?)?.toDouble() ?? 0.0,
       shadowColor: Color(json['shadowColor'] as int? ?? 0x00000000),
@@ -1112,6 +1190,14 @@ class AudioProperties {
       normalize: json['normalize'] as bool? ?? false,
       enhanceVoice: json['enhanceVoice'] as bool? ?? false,
       voice: vEff,
+    );
+  }
+
+  static TextEffect _parseTextEffect(String? name) {
+    if (name == null || name.isEmpty) return TextEffect.none;
+    return TextEffect.values.firstWhere(
+      (e) => e.nameStr == name,
+      orElse: () => TextEffect.none,
     );
   }
 

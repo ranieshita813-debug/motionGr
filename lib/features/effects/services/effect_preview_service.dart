@@ -64,7 +64,7 @@ class FlutterShaderPreviewRenderer {
     if (tintColor != Colors.transparent && tintColor.a > 0) {
       result = ColorFiltered(
         colorFilter: ColorFilter.mode(
-          tintColor.withValues(alpha: (tintColor.a * intensity).clamp(0.0, 1.0)),
+          tintColor.withOpacity((tintColor.a * intensity).clamp(0.0, 1.0)),
           BlendMode.overlay,
         ),
         child: result,
@@ -135,6 +135,48 @@ class FlutterShaderPreviewRenderer {
           ),
         ],
       );
+    }
+
+    if (effectId.contains('film_grain') || effectId.contains('grain')) {
+      result = Stack(
+        fit: StackFit.expand,
+        children: [
+          result,
+          _FilmGrainOverlay(intensity: intensity * 0.5),
+        ],
+      );
+    }
+
+    if (effectId.contains('thermal')) {
+      result = _ThermalOverlay(intensity: intensity, child: result);
+    }
+
+    if (effectId.contains('halftone')) {
+      result = _HalftoneOverlay(scale: intensity, child: result);
+    }
+
+    if (effectId.contains('oil_painting') || effectId.contains('oil')) {
+      result = _OilPaintingOverlay(softness: intensity, child: result);
+    }
+
+    if (effectId.contains('duotone')) {
+      result = _DuotoneOverlay(
+        primary: tintColor != Colors.transparent ? tintColor : const Color(0xFFFF0055),
+        intensity: intensity,
+        child: result,
+      );
+    }
+
+    if (effectId.contains('radial_zoom') || effectId.contains('zoom_blur')) {
+      result = _RadialZoomBlurOverlay(
+        strength: intensity,
+        playheadTime: playheadTime,
+        child: result,
+      );
+    }
+
+    if (effectId.contains('kaleidoscope') || effectId.contains('prism')) {
+      result = _KaleidoscopeOverlay(segments: intensity, child: result);
     }
 
     return result;
@@ -226,18 +268,29 @@ class _GlitchPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final random = math.Random(seed);
-    final barCount = (distortion * 6).round().clamp(1, 10);
+    final barCount = (distortion * 8).round().clamp(1, 15);
 
     for (int i = 0; i < barCount; i++) {
       final y = random.nextDouble() * size.height;
-      final height = random.nextDouble() * 12 + 2;
+      final height = random.nextDouble() * 16 + 2;
       final paint = Paint()
-        ..color = (i % 2 == 0)
+        ..color = (i % 3 == 0)
             ? const Color(0x8000E5FF)
-            : const Color(0x80FF0055)
+            : (i % 3 == 1)
+                ? const Color(0x80FF0055)
+                : const Color(0x80FFFF00)
         ..style = PaintingStyle.fill;
 
       canvas.drawRect(Rect.fromLTWH(0, y, size.width, height), paint);
+
+      if (random.nextDouble() < 0.3) {
+        final x = random.nextDouble() * size.width;
+        final w = random.nextDouble() * 40 + 4;
+        canvas.drawRect(
+          Rect.fromLTWH(x, y, w, height),
+          Paint()..color = Colors.white.withValues(alpha: 0.3),
+        );
+      }
     }
   }
 
@@ -261,17 +314,29 @@ class _GlowOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     if (glowStrength <= 0) return child;
 
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: (glowStrength * 0.4).clamp(0.0, 1.0)),
-            blurRadius: 20 * glowStrength,
-            spreadRadius: 4 * glowStrength,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity((glowStrength * 0.5).clamp(0.0, 1.0)),
+                  blurRadius: 30 * glowStrength,
+                  spreadRadius: 8 * glowStrength,
+                ),
+                BoxShadow(
+                  color: color.withOpacity((glowStrength * 0.25).clamp(0.0, 1.0)),
+                  blurRadius: 60 * glowStrength,
+                  spreadRadius: 16 * glowStrength,
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      child: child,
+        ),
+      ],
     );
   }
 }
@@ -291,8 +356,9 @@ class _BlurOverlay extends StatelessWidget {
 
     return ImageFiltered(
       imageFilter: ImageFilter.blur(
-        sigmaX: blurAmount * 4,
-        sigmaY: blurAmount * 4,
+        sigmaX: blurAmount * 6,
+        sigmaY: blurAmount * 6,
+        tileMode: TileMode.clamp,
       ),
       child: child,
     );
@@ -308,12 +374,12 @@ class _VignetteOverlay extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
-          radius: 0.85,
+          radius: 0.9,
           colors: [
             Colors.transparent,
-            Colors.black.withValues(alpha: vignetteStrength.clamp(0.0, 0.95)),
+            Colors.black.withOpacity(vignetteStrength.clamp(0.0, 0.95)),
           ],
-          stops: const [0.5, 1.0],
+          stops: const [0.4, 1.0],
         ),
       ),
     );
@@ -334,20 +400,258 @@ class _LightLeakOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = (playheadTime.inMilliseconds / 1000.0) * speed;
-    final opacity = (0.3 + 0.3 * math.sin(t * 2.0)) * intensity;
+    final opacity = (0.3 + 0.4 * math.sin(t * 1.5)) * intensity;
+    final opacity2 = (0.2 + 0.3 * math.sin(t * 2.2 + 1.0)) * intensity;
 
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFFF9900).withValues(alpha: opacity.clamp(0.0, 0.8)),
-            const Color(0xFFFF0066).withValues(alpha: (opacity * 0.6).clamp(0.0, 0.8)),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.4, 1.0],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFFFF9900).withOpacity(opacity.clamp(0.0, 0.8)),
+                const Color(0xFFFF0066).withOpacity((opacity * 0.6).clamp(0.0, 0.8)),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.4, 1.0],
+            ),
+          ),
         ),
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [
+                const Color(0xFF00E5FF).withOpacity(opacity2.clamp(0.0, 0.6)),
+                const Color(0xFF7B2CBF).withOpacity((opacity2 * 0.5).clamp(0.0, 0.6)),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilmGrainOverlay extends StatelessWidget {
+  const _FilmGrainOverlay({required this.intensity});
+  final double intensity;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _FilmGrainPainter(intensity: intensity),
+      isComplex: true,
+    );
+  }
+}
+
+class _FilmGrainPainter extends CustomPainter {
+  _FilmGrainPainter({required this.intensity});
+  final double intensity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final random = math.Random(42);
+    final paint = Paint();
+    final step = 2.0;
+    final grainCount = (size.width * size.height / (step * step) * intensity * 0.3).toInt();
+
+    for (int i = 0; i < grainCount; i++) {
+      final x = random.nextDouble() * size.width;
+      final y = random.nextDouble() * size.height;
+      final alpha = random.nextDouble() * 0.1 * intensity;
+      paint.color = Colors.white.withOpacity(alpha);
+      canvas.drawRect(Rect.fromLTWH(x, y, step, step), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FilmGrainPainter old) => old.intensity != intensity;
+}
+
+class _ThermalOverlay extends StatelessWidget {
+  const _ThermalOverlay({required this.intensity, required this.child});
+  final double intensity;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorFiltered(
+      colorFilter: ColorFilter.mode(
+        Colors.orange.withOpacity(0.3 * intensity),
+        BlendMode.color,
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.red.withOpacity(0.15 * intensity),
+                  Colors.yellow.withOpacity(0.1 * intensity),
+                  Colors.cyan.withOpacity(0.1 * intensity),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HalftoneOverlay extends StatelessWidget {
+  const _HalftoneOverlay({required this.scale, required this.child});
+  final double scale;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.infinite,
+      painter: _HalftonePainter(scale: scale),
+      isComplex: true,
+    );
+  }
+}
+
+class _HalftonePainter extends CustomPainter {
+  _HalftonePainter({required this.scale});
+  final double scale;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.black.withOpacity(0.2);
+    final dotSize = 4.0 * scale;
+    final spacing = 8.0 * scale;
+
+    for (double y = 0; y < size.height; y += spacing) {
+      for (double x = 0; x < size.width; x += spacing) {
+        final cx = x + spacing / 2;
+        final cy = y + spacing / 2;
+        final r = dotSize * (0.5 + 0.5 * math.sin((x + y) * 0.01));
+        canvas.drawCircle(Offset(cx, cy), r.clamp(0, dotSize), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HalftonePainter old) => old.scale != scale;
+}
+
+class _OilPaintingOverlay extends StatelessWidget {
+  const _OilPaintingOverlay({required this.softness, required this.child});
+  final double softness;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ui.ImageFilter.blur(
+        sigmaX: softness * 3,
+        sigmaY: softness * 3,
+        tileMode: TileMode.clamp,
+      ),
+      child: Container(
+        color: Colors.white.withOpacity(0.15 * softness),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _DuotoneOverlay extends StatelessWidget {
+  const _DuotoneOverlay({
+    required this.primary,
+    required this.intensity,
+    required this.child,
+  });
+  final Color primary;
+  final double intensity;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix(<double>[
+        0.3, 0.59, 0.11, 0, 0,
+        0.3, 0.59, 0.11, 0, 0,
+        0.3, 0.59, 0.11, 0, 0,
+        0, 0, 0, 1, 0,
+      ]),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          Container(
+            color: primary.withOpacity(0.4 * intensity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RadialZoomBlurOverlay extends StatelessWidget {
+  const _RadialZoomBlurOverlay({
+    required this.strength,
+    required this.playheadTime,
+    required this.child,
+  });
+  final double strength;
+  final Duration playheadTime;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = playheadTime.inMilliseconds / 1000.0;
+    final phase = math.sin(t * 2.0) * 0.5 + 0.5;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              radius: 0.5 + 0.5 * phase * strength,
+              colors: [
+                Colors.transparent,
+                Colors.black.withOpacity(0.3 * strength),
+              ],
+              stops: const [0.3, 1.0],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _KaleidoscopeOverlay extends StatelessWidget {
+  const _KaleidoscopeOverlay({required this.segments, required this.child});
+  final double segments;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: Align(
+        alignment: Alignment.center,
+        widthFactor: (0.5 + 0.5 * segments.clamp(0.0, 1.0)).clamp(0.0, 1.0),
+        heightFactor: (0.5 + 0.5 * segments.clamp(0.0, 1.0)).clamp(0.0, 1.0),
+        child: child,
       ),
     );
   }

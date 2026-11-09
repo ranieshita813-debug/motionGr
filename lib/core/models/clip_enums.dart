@@ -1,143 +1,15 @@
-enum ClipType {
-  video,
-  audio,
-  image,
-  text,
-  drawing,
-  sticker,
-  caption,
-  element,
-  camera,
-  overlay,
-}
+/// Re-exports all enums from project_model.dart to avoid duplicate definitions.
+/// Import this file where legacy enum references are needed.
+library clip_enums;
 
-enum VideoEffect {
-  none,
-  warm,
-  cinematic,
-  noir,
-  vibrant,
-  vintage,
-  glitch,
-  blur,
-  glow,
-  retro,
-  matrix,
-  flame,
-  vhs,
-  vhsTape,
-  wave,
-  liquidWave,
-  vignette,
-  cinematicVignette,
-  chromaticAberration,
-  filmGrain,
-  dreamBloom,
-  mosaicPixelate,
-  crispSharpen,
-  lensDistortion,
-  convexScreenPro,
-  speedZoomBlur,
-  lightLeak,
-}
-
-enum TextAnimationStyle {
-  none,
-  fadeIn,
-  typewriter,
-  slideUp,
-  bounce,
-  scaleUp,
-  fadeWord,
-  glowPulse,
-  waveText,
-  flipIn,
-  glitchText,
-  neonFlicker,
-  wipeIn,
-  rotateIn,
-  shimmer,
-  bounceIn,
-  skewSlide,
-  popOut,
-}
-
-enum ClipAnimation {
-  none,
-  fadeIn,
-  fadeOut,
-  slideLeft,
-  slideRight,
-  zoomIn,
-  zoomOut,
-  bounce,
-  spin,
-  glitch,
-  rotateIn,
-  flipHorizontal,
-  flipVertical,
-  elasticBounce,
-  blurFade,
-  shakeSlide,
-  zoomRotate,
-  shake,
-  pulse,
-  elastic,
-}
-
-enum ElementShape {
-  rectangle,
-  circle,
-  star,
-  triangle,
-  arrow,
-  line,
-}
-
-enum MaskType {
-  none,
-  rectangle,
-  circle,
-  linear,
-  mirror,
-  star,
-}
-
-enum KeyframeProperty {
-  positionX,
-  positionY,
-  scale,
-  rotation,
-  opacity,
-  volume,
-  maskX,
-  maskY,
-  maskWidth,
-  maskHeight,
-  maskRotation,
-  maskFeather,
-}
-
-enum CurveType {
-  linear,
-  easeIn,
-  easeOut,
-  cubicBezier,
-  bounce,
-  random,
-}
-
-enum BlendType {
-  normal,
-  darken,
-  multiply,
-  colorBurn,
-  lighten,
-  screen,
-  colorDodge,
-  overlay,
-  softLight,
-  hardLight,
-  difference,
-  exclusion,
-}
+export 'package:flutter_video_editor/core/models/project_model.dart'
+    show
+    ClipType,
+    VideoEffect,
+    TextAnimationStyle,
+    ClipAnimation,
+    ElementShape,
+    MaskType,
+    KeyframeProperty,
+    CurveType,
+    BlendType;
