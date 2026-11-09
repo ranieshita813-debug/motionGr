@@ -1,23 +1,32 @@
 import 'package:flutter/services.dart';
 
 class TrackPoint {
-  final double t; // সেকেন্ড
-  final double cx, cy, w, h; // 0..1 নরমালাইজড, cx/cy = কেন্দ্র
+  final double t; // seconds
+  final double cx, cy, w, h; // 0..1 normalized, cx/cy = center
   final bool found;
   const TrackPoint(this.t, this.cx, this.cy, this.w, this.h, this.found);
 
   factory TrackPoint.fromMap(Map m) => TrackPoint(
-        (m['t'] as num).toDouble(),
-        (m['cx'] as num).toDouble(),
-        (m['cy'] as num).toDouble(),
-        (m['w'] as num).toDouble(),
-        (m['h'] as num).toDouble(),
-        m['found'] as bool,
+        (m['t'] as num?)?.toDouble() ?? 0.0,
+        (m['cx'] as num?)?.toDouble() ?? 0.0,
+        (m['cy'] as num?)?.toDouble() ?? 0.0,
+        (m['w'] as num?)?.toDouble() ?? 0.0,
+        (m['h'] as num?)?.toDouble() ?? 0.0,
+        m['found'] as bool? ?? false,
       );
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+        't': t,
+        'cx': cx,
+        'cy': cy,
+        'w': w,
+        'h': h,
+        'found': found,
+      };
 }
 
 class TrackResult {
-  final String tracker; // "nano" বা "mil" (মডেল না পেলে mil)
+  final String tracker;
   final List<TrackPoint> points;
   const TrackResult(this.tracker, this.points);
 }
@@ -28,11 +37,11 @@ class NativeTracker {
 
   /// 0.0 .. 1.0
   Stream<double> get progress =>
-      _events.receiveBroadcastStream().map((e) => (e as num).toDouble());
+      _events.receiveBroadcastStream().map((e) => (e as num?).toDouble() ?? 0.0);
 
-  /// [bbox] 0..1 নরমালাইজড (left, top, width, height)।
-  /// [intervalMs] কত মিলিসেকেন্ড পরপর ফ্রেম ট্র্যাক হবে (ছোট = নিখুঁত কিন্তু ধীর)।
-  /// [maxSide] ভিডিও প্রসেসিং ফ্রেমের সর্বোচ্চ দৈর্ঘ্য/প্রস্থ (ছোট = দ্রুত ট্র্যাকিং)।
+  /// [bbox] 0..1 normalized (left, top, width, height).
+  /// [intervalMs] how often (ms) to track frames (smaller = precise but slower).
+  /// [maxSide] max video frame side length for processing (smaller = faster tracking).
   Future<TrackResult> track({
     required String videoPath,
     required Rect bbox,
@@ -42,7 +51,7 @@ class NativeTracker {
     int intervalMs = 100,
     int maxSide = 320,
   }) async {
-    final res = await _method.invokeMethod<Map>('track', {
+    final res = await _method.invokeMethod<Map<dynamic, dynamic>?>('track', {
       'path': videoPath,
       'startMs': start.inMilliseconds,
       if (duration != null) 'durationMs': duration.inMilliseconds,
@@ -54,19 +63,27 @@ class NativeTracker {
       'intervalMs': intervalMs,
       'maxSide': maxSide,
     });
-    final pts = (res!['points'] as List)
-        .map((p) => TrackPoint.fromMap(Map.from(p as Map)))
-        .toList();
-    return TrackResult(res['tracker'] as String, pts);
+    final pts = <TrackPoint>[];
+    if (res != null && res['points'] is List) {
+      for (final p in res['points'] as List) {
+        if (p is Map) {
+          pts.add(TrackPoint.fromMap(Map<String, dynamic>.from(p)));
+        }
+      }
+    }
+    final trackerName = res != null ? (res['tracker'] as String? ?? 'unknown') : 'unknown';
+    return TrackResult(trackerName, pts);
   }
 
   Future<void> cancel() => _method.invokeMethod('cancel');
 }
 
-/// প্লেব্যাক সময় অনুযায়ী দুই পয়েন্টের মাঝে ইন্টারপোলেট করে অবস্থান বের করে।
+/// Interpolates position between two track points at [seconds].
 TrackPoint? pointAt(List<TrackPoint> pts, double seconds) {
-  if (pts.isEmpty || seconds < pts.first.t) return null;
+  if (pts.isEmpty) return null;
+  if (seconds < pts.first.t) return null;
   if (seconds >= pts.last.t) return pts.last;
+
   int lo = 0, hi = pts.length - 1;
   while (hi - lo > 1) {
     final mid = (lo + hi) >> 1;
@@ -78,6 +95,36 @@ TrackPoint? pointAt(List<TrackPoint> pts, double seconds) {
   }
   final a = pts[lo], b = pts[hi];
   final k = (seconds - a.t) / (b.t - a.t);
-  double l(double p, double q) => p + (q - p) * k;
-  return TrackPoint(seconds, l(a.cx, b.cx), l(a.cy, b.cy), l(a.w, b.w), l(a.h, b.h), a.found);
+  double lerp(double p, double q) => p + (q - p) * k;
+  return TrackPoint(
+    seconds,
+    lerp(a.cx, b.cx),
+    lerp(a.cy, b.cy),
+    lerp(a.w, b.w),
+    lerp(a.h, b.h),
+    a.found,
+  );
 }
+
+/// Applies exponential moving average smoothing to a list of track points.
+List<TrackPoint> smoothTrackPoints(List<TrackPoint> pts, {double alpha = 0.7}) {
+  if (pts.isEmpty) return const [];
+  final List<TrackPoint> out = [pts.first];
+  for (int i = 1; i < pts.length; i++) {
+    final prev = out.last;
+    final cur = pts[i];
+    out.add(TrackPoint(
+      cur.t,
+      prev.cx + (cur.cx - prev.cx) * alpha,
+      prev.cy + (cur.cy - prev.cy) * alpha,
+      prev.w + (cur.w - prev.w) * alpha,
+      prev.h + (cur.h - prev.h) * alpha,
+      cur.found,
+    ));
+  }
+  return out;
+}
+
+/// Converts track points to offset list (normalized 0..1).
+List<Offset> trackPointsToOffsets(List<TrackPoint> pts) =>
+    pts.map((p) => Offset(p.cx, p.cy)).toList();

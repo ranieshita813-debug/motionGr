@@ -21,6 +21,7 @@ import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 import 'package:flutter_video_editor/features/editor/widgets/export_dialog.dart';
 import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
 import 'package:flutter_video_editor/features/editor/widgets/adjustments_sheet.dart';
+import 'package:flutter_video_editor/features/editor/widgets/blend_sheet.dart' show flutterBlendMode;
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/chroma_key_preview.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/editor_tool_sheets.dart';
 import 'package:flutter_video_editor/features/editor/widgets/tool_sheets/masked_layer.dart';
@@ -458,7 +459,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
           fit: StackFit.expand,
           children: [
             Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child),
-            ColoredBox(color: Colors.white.withValues(alpha: flashIntensity)),
+            ColoredBox(color: Colors.white.withOpacity(flashIntensity)),
           ],
         );
       case 'slideleft':
@@ -513,6 +514,77 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
             ..setEntry(3, 2, 0.001)
             ..rotateX(p * math.pi / 2),
           child: child,
+        );
+      case 'dooropen':
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Transform(
+              alignment: Alignment.centerLeft,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateY((1.0 - p) * math.pi / 2),
+              child: child,
+            ),
+          ],
+        );
+      case 'pagecurl':
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.bottomRight,
+            widthFactor: (1.0 - p).clamp(0.0, 1.0).toDouble(),
+            heightFactor: (1.0 - p).clamp(0.0, 1.0).toDouble(),
+            child: child,
+          ),
+        );
+      case 'irisopen':
+        return ClipOval(
+          child: Align(
+            alignment: Alignment.center,
+            widthFactor: p.clamp(0.0, 1.0).toDouble(),
+            heightFactor: p.clamp(0.0, 1.0).toDouble(),
+            child: child,
+          ),
+        );
+      case 'pixelate':
+        return ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(
+              sigmaX: (1.0 - p) * 20.0, sigmaY: (1.0 - p) * 20.0),
+          child: Opacity(opacity: p.clamp(0.0, 1.0), child: child),
+        );
+      case 'radialblur':
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child),
+            Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  radius: 0.5 + p,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(p * 0.5),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      case 'ripple':
+        return Transform.scale(
+          scale: 1.0 + p * 0.3,
+          child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child),
+        );
+      case 'wave':
+        return Transform.translate(
+          offset: Offset(0, math.sin(p * math.pi * 4) * 20 * (1.0 - p)),
+          child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child),
+        );
+      case 'zoomblur':
+        return ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(
+              sigmaX: p * 10.0, sigmaY: p * 10.0, tileMode: TileMode.decal),
+          child: Opacity(opacity: (1.0 - p).clamp(0.0, 1.0), child: child),
         );
       default:
         return Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child);
@@ -663,7 +735,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
                   gradient: RadialGradient(
                     colors: [
                       Colors.transparent,
-                      Colors.black.withValues(alpha: vig * 0.85),
+                      Colors.black.withOpacity(vig * 0.85),
                     ],
                     stops: const [0.5, 1.0],
                   ),
@@ -834,7 +906,7 @@ class _TrackingPathPainter extends CustomPainter {
     for (int i = 1; i < n; i++) {
       final double t = i / (n - 1); // 0 = oldest, 1 = newest
       stroke
-        ..color = Colors.white.withValues(alpha: 0.2 + 0.8 * t)
+        ..color = Colors.white.withOpacity(0.2 + 0.8 * t)
         ..strokeWidth = 1.2 + 1.8 * t;
       final Offset a = i == 1 ? p[0] : mid(p[i - 1], p[i]);
       final Offset b = i == n - 1 ? p[i] : mid(p[i], p[i + 1]);
@@ -919,7 +991,7 @@ class _FaceTrackingEffectsOverlay extends StatelessWidget {
                           sigmaY: effect.intensity.clamp(1.0, 30.0).toDouble(),
                         ),
                         child: Container(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withOpacity(0.05),
                         ),
                       ),
                     ),
@@ -949,7 +1021,7 @@ class _FaceTrackingEffectsOverlay extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
+                        color: Colors.black.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: accentToken, width: 1),
                       ),
@@ -1487,7 +1559,7 @@ class _TrackingProgressOverlay extends StatelessWidget {
     final int percent = (value * 100).round();
     return AbsorbPointer(
       child: ColoredBox(
-        color: Colors.black.withValues(alpha: 0.8),
+        color: Colors.black.withOpacity(0.8),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1595,7 +1667,7 @@ class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
               onPanUpdate: (d) => _pick(d.localPosition, w, h),
               onTapUp: (d) => _pick(d.localPosition, w, h),
               child: Container(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: Colors.black.withOpacity(0.35),
               ),
             ),
             // Crosshair target pointer
@@ -1752,6 +1824,48 @@ class _PreviewCheckerboardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Applies a [BlendMode] between [child] and whatever is beneath it in the
+/// layer tree, using a saveLayer so the blend is computed correctly.
+class _BlendModeLayer extends SingleChildRenderObjectWidget {
+  const _BlendModeLayer({required this.blendMode, required Widget child})
+      : super(child: child);
+
+  final BlendMode blendMode;
+
+  @override
+  _RenderBlendModeLayer createRenderObject(BuildContext context) =>
+      _RenderBlendModeLayer(blendMode);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderBlendModeLayer renderObject) {
+    renderObject.blendMode = blendMode;
+  }
+}
+
+class _RenderBlendModeLayer extends RenderProxyBox {
+  BlendMode _blendMode;
+  BlendMode get blendMode => _blendMode;
+  set blendMode(BlendMode value) {
+    if (_blendMode == value) return;
+    _blendMode = value;
+    markNeedsPaint();
+  }
+
+  _RenderBlendModeLayer(this._blendMode);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_blendMode == BlendMode.srcOver) {
+      super.paint(context, offset);
+      return;
+    }
+    final canvas = context.canvas;
+    canvas.saveLayer(offset & size.boundingBox, Paint()..blendMode = _blendMode);
+    super.paint(context, offset);
+    canvas.restore();
+  }
 }
 
 class PaneDivider extends StatelessWidget {
@@ -1937,7 +2051,7 @@ class _SnapGuidePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final double k = size.width / designWToken;
     final Paint p = Paint()
-      ..color = Colors.white.withValues(alpha: 0.7)
+      ..color = Colors.white.withOpacity(0.7)
       ..strokeWidth = 0.5;
 
     final bool vc = g.lines.any((l) => l.vertical && l.kind == _SnapKind.center);
@@ -2061,7 +2175,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
                 gradient: RadialGradient(
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: vig * 0.85),
+                    Colors.black.withOpacity(vig * 0.85),
                   ],
                   stops: const [0.5, 1.0],
                 ),
@@ -2160,7 +2274,8 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
               offset: Offset(ts.shadowOffsetX, ts.shadowOffsetY),
             ),
           );
-        } else if (ts.textEffect == 'glow' || ts.textEffect == 'neon') {
+        } else if (ts.textEffectEnum == TextEffect.glow ||
+            ts.textEffectEnum == TextEffect.neon) {
           shadows.add(
             Shadow(
               color: ts.shadowColor != Colors.transparent
@@ -2231,8 +2346,19 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           );
         }
 
+        // --- Advanced Text Shader Effects ---
+        final te = ts.textEffectEnum;
+        if (te.isShader) {
+          textWidget = FxShaders.applyText(
+            child: textWidget,
+            effectId: 'text_${te.nameStr}',
+            time: context.read<EditorController>().playhead,
+            intensity: ts.shadowBlurRadius.clamp(0.0, 1.0).toDouble(),
+          );
+        }
+
         textWidget = _applyEffectsAndGrading(textWidget, clip);
-        return _applyAnimations(textWidget, clip);
+        return _applyTextAnimations(_applyAnimations(textWidget, clip), clip);
       case ClipType.element:
         final elWidget = _applyEffectsAndGrading(_elementWidget(clip, u), clip);
         return _applyAnimations(elWidget, clip);
@@ -2367,12 +2493,14 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
     final editor = context.read<EditorController>();
     final playhead = editor.playhead;
     final int durInMs = math.max(1, math.min(500, clip.duration.inMilliseconds ~/ 2));
+    final double tSec = math.max(0.0, (playhead - clip.start).inMilliseconds / 1000.0);
 
     // Starts at 1.0: the clip's own opacity already comes in through kOpacity
     // below. (Starting from clip.opacity applied it twice, i.e. squared.)
     double opacity = 1.0;
     double scaleMult = 1.0;
     double transX = 0.0;
+    double transY = 0.0;
     double rot = 0.0;
     double flipX = 0.0; // radians around Y
     double flipY = 0.0; // radians around X
@@ -2418,6 +2546,23 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
       }
     }
 
+    // Loop animation: continuous effect while clip plays
+    if (clip.loopAnimation != ClipAnimation.none && playhead >= clip.start) {
+      final double loopT = (tSec % 2.0) / 2.0;
+      switch (clip.loopAnimation) {
+        case ClipAnimation.pulse:
+          opacity *= 0.6 + 0.4 * math.sin(loopT * 2 * math.pi).abs();
+        case ClipAnimation.shake:
+          transX += math.sin(loopT * math.pi * 12) * 6;
+        case ClipAnimation.spin:
+          rot += loopT * 2 * math.pi;
+        case ClipAnimation.elastic:
+          scaleMult *= 0.95 + 0.1 * math.sin(loopT * 2 * math.pi).abs();
+        default:
+          break;
+      }
+    }
+
     if (clip.outAnimation != ClipAnimation.none && playhead <= clip.end) {
       final int remaining = (clip.end - playhead).inMilliseconds;
       if (remaining < durInMs) {
@@ -2431,6 +2576,19 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
             transX += (1.0 - t) * 60;
           case ClipAnimation.slideLeft:
             transX -= (1.0 - t) * 60;
+          case ClipAnimation.wipeLeft:
+            transX -= (1.0 - t) * 120;
+          case ClipAnimation.wipeRight:
+            transX += (1.0 - t) * 120;
+          case ClipAnimation.wipeUp:
+            transY -= (1.0 - t) * 120;
+          case ClipAnimation.wipeDown:
+            transY += (1.0 - t) * 120;
+          case ClipAnimation.fold:
+            scaleMult *= (0.3 + 0.7 * t);
+            transX -= (1.0 - t) * 40;
+          case ClipAnimation.ripple:
+            blur += (1.0 - t) * 6;
           default:
             break;
         }
@@ -2467,6 +2625,9 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
     if (transX != 0.0) {
       result = Transform.translate(offset: Offset(transX, 0), child: result);
     }
+    if (transY != 0.0) {
+      result = Transform.translate(offset: Offset(0, transY), child: result);
+    }
     if (scaleMult != 1.0) {
       result = Transform.scale(scale: math.max(0.01, scaleMult), child: result);
     }
@@ -2474,6 +2635,223 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
       result = Opacity(opacity: opacity.clamp(0.0, 1.0).toDouble(), child: result);
     }
     return result;
+  }
+
+  Widget _applyBlendMode(Widget child, TimelineClip clip) {
+    final b = clip.blendProperties;
+    if (b.type == BlendType.normal && b.opacity >= 1.0) return child;
+    Widget w = child;
+    if (b.opacity < 1.0) {
+      w = Opacity(opacity: b.opacity.clamp(0.0, 1.0).toDouble(), child: w);
+    }
+    if (b.type != BlendType.normal) {
+      w = _BlendModeLayer(blendMode: flutterBlendMode(b.type), child: w);
+    }
+    return w;
+  }
+
+  /// Advanced text animations: typewriter, glitch, shimmer, neon flicker, etc.
+  Widget _applyTextAnimations(Widget child, TimelineClip clip) {
+    final editor = context.read<EditorController>();
+    final playhead = editor.playhead;
+    final style = clip.textAnimationStyle;
+    if (style == TextAnimationStyle.none) return child;
+
+    final relMs = (playhead - clip.start).inMilliseconds;
+    if (relMs < 0) return child;
+    final double tSec = relMs / 1000.0;
+    final double durSec = math.max(0.1, clip.trimmedDurationSeconds);
+
+    switch (style) {
+      case TextAnimationStyle.fadeIn: {
+        final double t = (tSec / 0.8).clamp(0.0, 1.0);
+        return Opacity(opacity: t, child: child);
+      }
+      case TextAnimationStyle.typewriter: {
+        final double charsPerSec = 20.0;
+        final int maxChars = (tSec * charsPerSec).round();
+        final String text = clip.label;
+        final String shown = text.substring(0, maxChars.clamp(0, text.length));
+        return Opacity(
+          opacity: 1.0,
+          child: Text(
+            shown,
+            textAlign: clip.textStyle.textAlign,
+            style: TextStyle(
+              color: clip.textStyle.textColor,
+              fontSize: clip.textStyle.fontSize * clip.scale * widget.unit,
+              fontFamily: clip.fontFamily,
+              fontWeight: FontWeight.bold,
+              height: clip.textStyle.lineHeight,
+            ),
+          ),
+        );
+      }
+      case TextAnimationStyle.slideUp: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        return Transform.translate(
+          offset: Offset(0, (1.0 - t) * -60),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.bounce: {
+        final double t = (tSec / 0.8).clamp(0.0, 1.0);
+        final double bounce = math.sin(t * math.pi) * (1.0 - t);
+        return Transform.scale(
+          scale: 1.0 + bounce * 0.3,
+          child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+        );
+      }
+      case TextAnimationStyle.scaleUp: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        return Transform.scale(
+          scale: 0.5 + 0.5 * t,
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.fadeWord: {
+        final double cycle = (tSec * 2.0) % 2.0;
+        final double opacity = cycle < 1.0 ? cycle : 2.0 - cycle;
+        return Opacity(opacity: opacity.clamp(0.0, 1.0), child: child);
+      }
+      case TextAnimationStyle.glowPulse: {
+        final double pulse = 0.5 + 0.5 * math.sin(tSec * math.pi * 2);
+        return Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00E5FF).withOpacity(0.4 * pulse),
+                blurRadius: 12 * pulse,
+                spreadRadius: 4 * pulse,
+              ),
+            ],
+          ),
+          child: child,
+        );
+      }
+      case TextAnimationStyle.waveText: {
+        return CustomPaint(
+          size: Size.infinite,
+          painter: _WaveTextPainter(time: tSec),
+          child: child,
+        );
+      }
+      case TextAnimationStyle.flipIn: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        final double angle = (1.0 - t) * math.pi / 2;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(angle),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.glitchText: {
+        final double seed = tSec * 10;
+        final random = math.Random(seed.toInt());
+        final offsetX = (random.nextDouble() - 0.5) * 4;
+        final offsetY = (random.nextDouble() - 0.5) * 2;
+        return Transform.translate(
+          offset: Offset(offsetX, offsetY),
+          child: child,
+        );
+      }
+      case TextAnimationStyle.neonFlicker: {
+        final double flicker = math.sin(tSec * math.pi * 15).abs() * 0.3 + 0.7;
+        return Opacity(opacity: flicker.clamp(0.0, 1.0), child: child);
+      }
+      case TextAnimationStyle.wipeIn: {
+        final double t = (tSec / 0.5).clamp(0.0, 1.0);
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            widthFactor: t,
+            child: child,
+          ),
+        );
+      }
+      case TextAnimationStyle.rotateIn: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        return Transform.rotate(
+          angle: (1.0 - t) * math.pi,
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.shimmer: {
+        return ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (Rect b) {
+            final double move = (tSec * 200) % (b.width + 100) - 50;
+            return LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: <Color>[
+                Colors.transparent,
+                Colors.white.withOpacity(0.6),
+                Colors.transparent,
+              ],
+              stops: <double>[
+                (move / b.width).clamp(0.0, 1.0),
+                ((move + 50) / b.width).clamp(0.0, 1.0),
+                ((move + 100) / b.width).clamp(0.0, 1.0),
+              ],
+            ).createShader(b);
+          },
+          child: child,
+        );
+      }
+      case TextAnimationStyle.bounceIn: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        final double scale = 0.8 + (1.0 - math.cos(t * math.pi * 2)) * 0.2 * (1 - t);
+        return Transform.scale(
+          scale: math.max(0.1, scale),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+      case TextAnimationStyle.skewSlide: {
+        final double t = (tSec / 0.6).clamp(0.0, 1.0);
+        final double skew = (1.0 - t) * 0.3;
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.skew(skew, 0)
+            ..translate((1.0 - t) * -40, 0),
+          child: Opacity(opacity: t, child: child),
+        );
+      }
+          case TextAnimationStyle.popOut: {
+        final double t = (tSec / 0.4).clamp(0.0, 1.0);
+        final double scale = 1.0 + math.sin(t * math.pi) * 0.2 * (1 - t);
+        return Transform.scale(
+          scale: math.max(0.1, scale),
+          child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
+        );
+      }
+    }
+  }
+
+    _WaveTextPainter({required this.time});
+    final double time;
+
+    @override
+    void paint(Canvas canvas, Size size) {
+      // Wave distortion is applied via the child widget's transform;
+      // this painter draws a subtle displacement map hint.
+      final paint = Paint()
+        ..color = Colors.white.withOpacity(0.1)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1;
+      final path = Path();
+      for (double x = 0; x <= size.width; x += 4) {
+        final double y = math.sin(x * 0.05 + time * math.PI * 2) * 4;
+        if (x == 0) path.moveTo(x, y);
+        else path.lineTo(x, y);
+      }
+      canvas.drawPath(path, paint);
+    }
+
+    @override
+    bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
   }
 
   @override
@@ -2555,7 +2933,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           children: <Widget>[
             Padding(
               padding: EdgeInsets.all(6 * u),
-              child: RepaintBoundary(child: _content()),
+              child: RepaintBoundary(child: _applyBlendMode(_content(), clip)),
             ),
             if (widget.isSelected)
               Positioned.fill(
