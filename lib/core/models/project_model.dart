@@ -62,6 +62,10 @@ enum TextAnimationStyle {
   neonFlicker,
   wipeIn,
   rotateIn,
+  shimmer,
+  bounceIn,
+  skewSlide,
+  popOut,
 }
 
 enum ClipAnimation {

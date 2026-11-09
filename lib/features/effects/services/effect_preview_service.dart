@@ -288,7 +288,7 @@ class _GlitchPainter extends CustomPainter {
         final w = random.nextDouble() * 40 + 4;
         canvas.drawRect(
           Rect.fromLTWH(x, y, w, height),
-          Paint()..color = Colors.white.withValues(alpha: 0.3),
+          Paint()..color = Colors.white.withOpacity(0.3),
         );
       }
     }

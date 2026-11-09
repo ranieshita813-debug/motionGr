@@ -273,7 +273,7 @@ abstract final class FxShaders {
                 gradient: RadialGradient(
                   colors: [
                     Colors.transparent,
-                    Colors.white.withValues(alpha: intensity * 0.3),
+                    Colors.white.withOpacity(intensity * 0.3),
                   ],
                   stops: const [0.5, 1.0],
                 ),
@@ -293,7 +293,7 @@ abstract final class FxShaders {
                   radius: 0.85,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withValues(alpha: intensity.clamp(0.0, 0.95)),
+                    Colors.black.withOpacity(intensity.clamp(0.0, 0.95)),
                   ],
                   stops: const [0.5, 1.0],
                 ),
@@ -314,9 +314,9 @@ abstract final class FxShaders {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.cyan.withValues(alpha: amount * 0.1),
+                    Colors.cyan.withOpacity(amount * 0.1),
                     Colors.transparent,
-                    Colors.pink.withValues(alpha: amount * 0.1),
+                    Colors.pink.withOpacity(amount * 0.1),
                   ],
                 ),
               ),
@@ -454,9 +454,9 @@ abstract final class FxShaders {
           blendMode: BlendMode.srcATop,
           shaderCallback: (Rect b) => LinearGradient(
             colors: <Color>[
-              Colors.white.withValues(alpha: 0.3),
-              Colors.white.withValues(alpha: 0.8),
-              Colors.white.withValues(alpha: 0.3),
+              Colors.white.withOpacity(0.3),
+              Colors.white.withOpacity(0.8),
+              Colors.white.withOpacity(0.3),
             ],
             stops: const <double>[0.0, 0.5, 1.0],
           ).createShader(b),
@@ -469,10 +469,10 @@ abstract final class FxShaders {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E5FF).withValues(alpha: 0.1 * intensity),
+                  color: const Color(0xFF00E5FF).withOpacity(0.1 * intensity),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00E5FF).withValues(alpha: 0.3 * intensity),
+                      color: const Color(0xFF00E5FF).withOpacity(0.3 * intensity),
                       blurRadius: 10 * intensity,
                       spreadRadius: 2 * intensity,
                     ),
