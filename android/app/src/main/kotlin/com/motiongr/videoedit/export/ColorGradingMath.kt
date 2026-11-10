@@ -1,5 +1,8 @@
 package com.motiongr.videoedit.export
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+
 import kotlin.math.pow
 import kotlin.math.sqrt
 

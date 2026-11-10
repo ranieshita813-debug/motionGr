@@ -476,7 +476,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
           fit: StackFit.expand,
           children: [
             Opacity(opacity: (1.0 - p).clamp(0.0, 1.0).toDouble(), child: child),
-            ColoredBox(color: Colors.white.withOpacity(flashIntensity)),
+            ColoredBox(color: Colors.white.withValues(alpha: flashIntensity)),
           ],
         );
       case 'slideleft':
@@ -580,7 +580,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
                   radius: 0.5 + p,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(p * 0.5),
+                    Colors.black.withValues(alpha: p * 0.5),
                   ],
                 ),
               ),
@@ -752,7 +752,7 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
                   gradient: RadialGradient(
                     colors: [
                       Colors.transparent,
-                      Colors.black.withOpacity(vig * 0.85),
+                      Colors.black.withValues(alpha: vig * 0.85),
                     ],
                     stops: const [0.5, 1.0],
                   ),
@@ -923,7 +923,7 @@ class _TrackingPathPainter extends CustomPainter {
     for (int i = 1; i < n; i++) {
       final double t = i / (n - 1); // 0 = oldest, 1 = newest
       stroke
-        ..color = Colors.white.withOpacity(0.2 + 0.8 * t)
+        ..color = Colors.white.withValues(alpha: 0.2 + 0.8 * t)
         ..strokeWidth = 1.2 + 1.8 * t;
       final Offset a = i == 1 ? p[0] : mid(p[i - 1], p[i]);
       final Offset b = i == n - 1 ? p[i] : mid(p[i], p[i + 1]);
@@ -1008,7 +1008,7 @@ class _FaceTrackingEffectsOverlay extends StatelessWidget {
                           sigmaY: effect.intensity.clamp(1.0, 30.0).toDouble(),
                         ),
                         child: Container(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                         ),
                       ),
                     ),
@@ -1038,7 +1038,7 @@ class _FaceTrackingEffectsOverlay extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black.withValues(alpha: 0.7),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(color: accentToken, width: 1),
                       ),
@@ -1576,7 +1576,7 @@ class _TrackingProgressOverlay extends StatelessWidget {
     final int percent = (value * 100).round();
     return AbsorbPointer(
       child: ColoredBox(
-        color: Colors.black.withOpacity(0.8),
+        color: Colors.black.withValues(alpha: 0.8),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1684,7 +1684,7 @@ class _TrackingPointerOverlayState extends State<_TrackingPointerOverlay> {
               onPanUpdate: (d) => _pick(d.localPosition, w, h),
               onTapUp: (d) => _pick(d.localPosition, w, h),
               child: Container(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withValues(alpha: 0.35),
               ),
             ),
             // Crosshair target pointer
@@ -2068,7 +2068,7 @@ class _SnapGuidePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final double k = size.width / designWToken;
     final Paint p = Paint()
-      ..color = Colors.white.withOpacity(0.7)
+      ..color = Colors.white.withValues(alpha: 0.7)
       ..strokeWidth = 0.5;
 
     final bool vc = g.lines.any((l) => l.vertical && l.kind == _SnapKind.center);
@@ -2189,7 +2189,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
                 gradient: RadialGradient(
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(vig * 0.85),
+                    Colors.black.withValues(alpha: vig * 0.85),
                   ],
                   stops: const [0.5, 1.0],
                 ),
@@ -2764,7 +2764,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           decoration: BoxDecoration(
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00E5FF).withOpacity(0.4 * pulse),
+                color: const Color(0xFF00E5FF).withValues(alpha: 0.4 * pulse),
                 blurRadius: 12 * pulse,
                 spreadRadius: 4 * pulse,
               ),
@@ -2835,7 +2835,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
               end: Alignment.centerRight,
               colors: <Color>[
                 Colors.transparent,
-                Colors.white.withOpacity(0.6),
+                Colors.white.withValues(alpha: 0.6),
                 Colors.transparent,
               ],
               stops: <double>[
@@ -2862,7 +2862,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.skew(skew, 0)
-            ..translate((1.0 - t) * -40, 0),
+            ..translateByDouble((1.0 - t) * -40, 0.0, 0.0, 1.0),
           child: Opacity(opacity: t, child: child),
         );
       }
@@ -2953,7 +2953,7 @@ class _WaveTextPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.08)
+      ..color = Colors.white.withValues(alpha: 0.08)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     final path = Path();

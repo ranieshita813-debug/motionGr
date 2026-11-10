@@ -153,30 +153,6 @@ object CompositionBuilder {
             AssetResolver.MediaKind.IMAGE -> Kind.IMAGE
             else -> Kind.VIDEO
         }
-        return Uri.fromFile(File(path.removePrefix("file://")))
-    }
-
-    /** content:// URI-এর এক্সটেনশন নেই, তাই MIME টাইপ জিজ্ঞাসা করুন। */
-    private fun kindOf(context: Context, path: String): Kind {
-        if (isContentUri(path)) {
-            val mime = try {
-                context.contentResolver.getType(Uri.parse(path))
-            } catch (_: Exception) {
-                null
-            }
-            return when {
-                mime?.startsWith("audio/") == true -> Kind.AUDIO
-                mime?.startsWith("image/") == true -> Kind.IMAGE
-                else -> Kind.VIDEO
-            }
-        }
-        val ext = path.substringBefore('?').substringAfterLast('.', "").lowercase()
-        return when (ext) {
-            in AUDIO_EXT -> Kind.AUDIO
-            in IMAGE_EXT -> Kind.IMAGE
-            else -> Kind.VIDEO
-        }
-    }
 
     /** টেক্সট/ড্রয়িং/স্টিকার "কার্ড"-এর ব্যাকগ্রাউন্ড হিসেবে ব্যবহৃত কালো ইমেজ। */
     private fun blackFrame(context: Context, width: Int, height: Int): File {

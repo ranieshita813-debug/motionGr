@@ -986,7 +986,7 @@ else -> {
         }
 
             if (cacheKey != null && baseBmp != null) {
-                clipBitmapCache[cacheKey] = baseBmp
+                clipBitmapCache.put(cacheKey, baseBmp)
             }
         }
 
