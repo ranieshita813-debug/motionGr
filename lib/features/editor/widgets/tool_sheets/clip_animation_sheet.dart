@@ -18,14 +18,12 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
   String _searchQuery = '';
   String _selectedTag = 'All';
 
-  final List<ClipAnimation> _animations = const [
+  final List<ClipAnimation> _inAnimations = const [
     ClipAnimation.none,
     ClipAnimation.fadeIn,
-    ClipAnimation.fadeOut,
     ClipAnimation.slideLeft,
     ClipAnimation.slideRight,
     ClipAnimation.zoomIn,
-    ClipAnimation.zoomOut,
     ClipAnimation.bounce,
     ClipAnimation.spin,
     ClipAnimation.glitch,
@@ -36,6 +34,31 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
     ClipAnimation.blurFade,
     ClipAnimation.shakeSlide,
     ClipAnimation.zoomRotate,
+    ClipAnimation.pulse,
+    ClipAnimation.shake,
+    ClipAnimation.wipeRight,
+    ClipAnimation.wipeLeft,
+    ClipAnimation.wipeUp,
+    ClipAnimation.wipeDown,
+  ];
+
+  final List<ClipAnimation> _outAnimations = const [
+    ClipAnimation.none,
+    ClipAnimation.fadeOut,
+    ClipAnimation.slideLeft,
+    ClipAnimation.slideRight,
+    ClipAnimation.zoomOut,
+    ClipAnimation.spin,
+    ClipAnimation.glitch,
+    ClipAnimation.flipHorizontal,
+    ClipAnimation.flipVertical,
+    ClipAnimation.blurFade,
+    ClipAnimation.wipeLeft,
+    ClipAnimation.wipeRight,
+    ClipAnimation.wipeUp,
+    ClipAnimation.wipeDown,
+    ClipAnimation.fold,
+    ClipAnimation.ripple,
   ];
 
   @override
@@ -64,11 +87,6 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         ),
       );
     }
-
-    final filtered = _animations.where((anim) {
-      final name = _getAnimationName(anim).toLowerCase();
-      return name.contains(_searchQuery.toLowerCase());
-    }).toList();
 
     return Column(
       children: [
@@ -101,14 +119,14 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
                 context,
                 editor,
                 clip,
-                filtered,
+                _filter(_inAnimations),
                 isInMode: true,
               ),
               _buildAnimationGrid(
                 context,
                 editor,
                 clip,
-                filtered,
+                _filter(_outAnimations),
                 isInMode: false,
               ),
             ],
@@ -116,6 +134,13 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         ),
       ],
     );
+  }
+
+  List<ClipAnimation> _filter(List<ClipAnimation> options) {
+    return options.where((anim) {
+      final name = _getAnimationName(anim).toLowerCase();
+      return name.contains(_searchQuery.toLowerCase());
+    }).toList();
   }
 
   Widget _buildAnimationGrid(
@@ -233,6 +258,26 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         return 'Shake Slide';
       case ClipAnimation.zoomRotate:
         return 'Zoom Rotate';
+      case ClipAnimation.shake:
+        return 'Shake';
+      case ClipAnimation.pulse:
+        return 'Pulse';
+      case ClipAnimation.elastic:
+        return 'Elastic Loop';
+      case ClipAnimation.wipeRight:
+        return 'Wipe Right';
+      case ClipAnimation.wipeLeft:
+        return 'Wipe Left';
+      case ClipAnimation.wipeUp:
+        return 'Wipe Up';
+      case ClipAnimation.wipeDown:
+        return 'Wipe Down';
+      case ClipAnimation.fold:
+        return 'Fold';
+      case ClipAnimation.ripple:
+        return 'Ripple';
+      default:
+        return anim.name;
     }
   }
 
@@ -242,34 +287,46 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         return PhosphorIconsRegular.prohibit;
       case ClipAnimation.fadeIn:
       case ClipAnimation.fadeOut:
+      case ClipAnimation.blurFade:
         return PhosphorIconsRegular.circle;
       case ClipAnimation.slideLeft:
+      case ClipAnimation.wipeLeft:
         return PhosphorIconsRegular.arrowLeft;
       case ClipAnimation.slideRight:
+      case ClipAnimation.wipeRight:
         return PhosphorIconsRegular.arrowRight;
+      case ClipAnimation.wipeUp:
+        return PhosphorIconsRegular.arrowUp;
+      case ClipAnimation.wipeDown:
+        return PhosphorIconsRegular.arrowDown;
       case ClipAnimation.zoomIn:
         return PhosphorIconsRegular.magnifyingGlassPlus;
       case ClipAnimation.zoomOut:
         return PhosphorIconsRegular.magnifyingGlassMinus;
       case ClipAnimation.bounce:
+      case ClipAnimation.elasticBounce:
+      case ClipAnimation.elastic:
         return PhosphorIconsRegular.play;
       case ClipAnimation.spin:
+      case ClipAnimation.rotateIn:
+      case ClipAnimation.zoomRotate:
         return PhosphorIconsRegular.arrowsClockwise;
       case ClipAnimation.glitch:
         return PhosphorIconsRegular.magicWand;
-      case ClipAnimation.rotateIn:
-        return PhosphorIconsRegular.arrowClockwise;
       case ClipAnimation.flipHorizontal:
       case ClipAnimation.flipVertical:
         return PhosphorIconsRegular.repeat;
-      case ClipAnimation.elasticBounce:
-        return PhosphorIconsRegular.lightning;
-      case ClipAnimation.blurFade:
-        return PhosphorIconsRegular.funnel;
       case ClipAnimation.shakeSlide:
+      case ClipAnimation.shake:
         return PhosphorIconsRegular.sliders;
-      case ClipAnimation.zoomRotate:
-        return PhosphorIconsRegular.magnifyingGlassPlus;
+      case ClipAnimation.pulse:
+        return PhosphorIconsRegular.heartbeat;
+      case ClipAnimation.fold:
+        return PhosphorIconsRegular.bookOpen;
+      case ClipAnimation.ripple:
+        return PhosphorIconsRegular.waves;
+      default:
+        return PhosphorIconsRegular.sparkle;
     }
   }
 }

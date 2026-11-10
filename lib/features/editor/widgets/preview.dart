@@ -162,6 +162,23 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     VideoEffect.convexScreenPro: ('convex_screen_pro', <String, double>{'progress': 0.0, 'strength': 0.5, 'radius': 0.8, 'centerX': 0.5, 'centerY': 0.5, 'shape': 1.0, 'anim': 0.0}),
     VideoEffect.speedZoomBlur: ('speed_zoom_blur', <String, double>{'amount': 0.5, 'centerX': 0.5, 'centerY': 0.5}),
     VideoEffect.lightLeak: ('light_leak', <String, double>{'intensity': 0.6, 'speed': 1.0}),
+    VideoEffect.rgbSplit: ('rgb_split', <String, double>{'amount': 0.7, 'angle': 0.0}),
+    VideoEffect.neonEdge: ('neon_edge', <String, double>{'intensity': 1.0, 'threshold': 0.35}),
+    VideoEffect.motionTrails: ('motion_trails', <String, double>{'amount': 0.5, 'speed': 1.2}),
+    VideoEffect.posterize: ('posterize', <String, double>{'levels': 6.0, 'intensity': 1.0}),
+    VideoEffect.scanlineTv: ('scanline_tv', <String, double>{'intensity': 0.6, 'speed': 1.0}),
+    VideoEffect.mirrorKaleido: ('mirror_kaleido', <String, double>{'segments': 6.0, 'speed': 0.4}),
+    VideoEffect.ripplePulse: ('ripple_pulse', <String, double>{'amount': 0.8, 'speed': 1.0}),
+    VideoEffect.colorShift: ('color_shift', <String, double>{'hue': 0.25, 'intensity': 0.8}),
+    VideoEffect.tiltShift: ('tilt_shift', <String, double>{'amount': 1.0, 'focus': 0.5}),
+    VideoEffect.anaglyph3d: ('anaglyph_3d', <String, double>{'amount': 0.8}),
+    VideoEffect.kaleidoscopePrism: ('kaleidoscope_prism', <String, double>{'intensity': 1.0}),
+    VideoEffect.thermalVision: ('thermal_vision', <String, double>{'contrast': 1.2}),
+    VideoEffect.halftoneDots: ('halftone_dots', <String, double>{'intensity': 1.0}),
+    VideoEffect.oilPainting: ('oil_painting', <String, double>{'brightness': 0.2}),
+    VideoEffect.duotonePop: ('duotone_pop', <String, double>{'intensity': 0.8}),
+    VideoEffect.radialZoomBlur: ('radial_zoom_blur', <String, double>{'blurAmount': 1.0}),
+    VideoEffect.softBlur: ('soft_blur', <String, double>{'blurAmount': 0.6}),
   };
 
   @override
@@ -2516,9 +2533,15 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           case ClipAnimation.zoomIn:
             scaleMult *= (0.3 + 0.7 * t);
           case ClipAnimation.slideLeft:
+          case ClipAnimation.wipeLeft:
             transX -= (1.0 - t) * 60;
           case ClipAnimation.slideRight:
+          case ClipAnimation.wipeRight:
             transX += (1.0 - t) * 60;
+          case ClipAnimation.wipeUp:
+            transY -= (1.0 - t) * 60;
+          case ClipAnimation.wipeDown:
+            transY += (1.0 - t) * 60;
           case ClipAnimation.rotateIn:
             rot = -(1.0 - t) * math.pi / 2;
             scaleMult *= (0.5 + 0.5 * t);
@@ -2530,16 +2553,27 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
             flipY = (1.0 - t) * math.pi / 2;
             scaleMult *= (0.4 + 0.6 * t);
           case ClipAnimation.elasticBounce:
+          case ClipAnimation.bounce:
             scaleMult *= math.max(0.01, Curves.elasticOut.transform(t));
           case ClipAnimation.blurFade:
             opacity *= t;
             blur = (1.0 - t) * 8.0;
           case ClipAnimation.shakeSlide:
-            transX += math.sin(t * math.pi * 4.0) * 12.0 * (1.0 - t);
+          case ClipAnimation.shake:
+            transX += math.sin(t * math.pi * 6.0) * 10.0 * (1.0 - t);
           case ClipAnimation.zoomRotate:
             rot = (1.0 - t) * math.pi;
             scaleMult *= (0.2 + 0.8 * t);
             opacity *= t;
+          case ClipAnimation.pulse:
+            scaleMult *= 0.85 + 0.15 * t;
+            opacity *= t;
+          case ClipAnimation.spin:
+            rot = (1.0 - t) * math.pi * 2;
+            opacity *= t;
+          case ClipAnimation.glitch:
+            transX += math.sin(t * math.pi * 18.0) * 6.0 * (1.0 - t);
+            opacity *= (0.7 + 0.3 * t);
           default:
             break;
         }
@@ -2573,22 +2607,36 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           case ClipAnimation.zoomOut:
             scaleMult *= (0.3 + 0.7 * t);
           case ClipAnimation.slideRight:
+          case ClipAnimation.wipeRight:
             transX += (1.0 - t) * 60;
           case ClipAnimation.slideLeft:
-            transX -= (1.0 - t) * 60;
           case ClipAnimation.wipeLeft:
-            transX -= (1.0 - t) * 120;
-          case ClipAnimation.wipeRight:
-            transX += (1.0 - t) * 120;
+            transX -= (1.0 - t) * 60;
           case ClipAnimation.wipeUp:
-            transY -= (1.0 - t) * 120;
+            transY -= (1.0 - t) * 60;
           case ClipAnimation.wipeDown:
-            transY += (1.0 - t) * 120;
+            transY += (1.0 - t) * 60;
           case ClipAnimation.fold:
             scaleMult *= (0.3 + 0.7 * t);
             transX -= (1.0 - t) * 40;
+            opacity *= t;
           case ClipAnimation.ripple:
             blur += (1.0 - t) * 6;
+            scaleMult *= 1.0 + (1.0 - t) * 0.08;
+          case ClipAnimation.spin:
+          case ClipAnimation.rotateIn:
+            rot += (1.0 - t) * math.pi;
+            opacity *= t;
+          case ClipAnimation.glitch:
+            transX += math.sin(t * math.pi * 14.0) * 8.0 * (1.0 - t);
+            opacity *= t;
+          case ClipAnimation.flipHorizontal:
+            flipX = (1.0 - t) * math.pi / 2;
+          case ClipAnimation.flipVertical:
+            flipY = (1.0 - t) * math.pi / 2;
+          case ClipAnimation.blurFade:
+            opacity *= t;
+            blur = (1.0 - t) * 8.0;
           default:
             break;
         }
@@ -2730,10 +2778,13 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
         );
       }
       case TextAnimationStyle.waveText: {
-        return CustomPaint(
-          size: Size.infinite,
-          painter: _WaveTextPainter(time: tSec),
-          child: child,
+        final double phase = tSec * math.pi * 2;
+        return Transform.translate(
+          offset: Offset(0, math.sin(phase) * 3.0),
+          child: CustomPaint(
+            painter: _WaveTextPainter(time: tSec),
+            child: child,
+          ),
         );
       }
       case TextAnimationStyle.flipIn: {
@@ -2819,7 +2870,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           child: Opacity(opacity: t, child: child),
         );
       }
-          case TextAnimationStyle.popOut: {
+      case TextAnimationStyle.popOut: {
         final double t = (tSec / 0.4).clamp(0.0, 1.0);
         final double scale = 1.0 + math.sin(t * math.pi) * 0.2 * (1 - t);
         return Transform.scale(
@@ -2829,30 +2880,33 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
       }
     }
   }
+}
 
-    _WaveTextPainter({required this.time});
-    final double time;
+class _WaveTextPainter extends CustomPainter {
+  _WaveTextPainter({required this.time});
+  final double time;
 
-    @override
-    void paint(Canvas canvas, Size size) {
-      // Wave distortion is applied via the child widget's transform;
-      // this painter draws a subtle displacement map hint.
-      final paint = Paint()
-        ..color = Colors.white.withOpacity(0.1)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1;
-      final path = Path();
-      for (double x = 0; x <= size.width; x += 4) {
-        final double y = math.sin(x * 0.05 + time * math.PI * 2) * 4;
-        if (x == 0) path.moveTo(x, y);
-        else path.lineTo(x, y);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path();
+    for (double x = 0; x <= size.width; x += 4) {
+      final double y = size.height / 2 + math.sin(x * 0.05 + time * math.pi * 2) * 3;
+      if (x == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
       }
-      canvas.drawPath(path, paint);
     }
-
-    @override
-    bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
+    canvas.drawPath(path, paint);
   }
+
+  @override
+  bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
+}
 
   @override
   Widget build(BuildContext context) {

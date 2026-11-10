@@ -289,6 +289,91 @@ class UnifiedEffectRegistry {
         category = 'Bloom & Glow';
         desc = 'Organic lens light leaks.';
         specs = <String, double>{'intensity': 0.6, 'speed': 1.0};
+      case VideoEffect.rgbSplit:
+        label = 'RGB Split';
+        category = 'Glitch & Distortion';
+        desc = 'Animated RGB channel split.';
+        specs = <String, double>{'amount': 0.7, 'angle': 0.0};
+      case VideoEffect.neonEdge:
+        label = 'Neon Edge';
+        category = 'Glitch & Distortion';
+        desc = 'Glowing edge detection outline.';
+        specs = <String, double>{'intensity': 1.0, 'threshold': 0.35};
+      case VideoEffect.motionTrails:
+        label = 'Motion Trails';
+        category = 'Glitch & Distortion';
+        desc = 'Soft directional motion echo trails.';
+        specs = <String, double>{'amount': 0.5, 'speed': 1.2};
+      case VideoEffect.posterize:
+        label = 'Posterize';
+        category = 'Color & Tone';
+        desc = 'Reduced color levels for poster look.';
+        specs = <String, double>{'levels': 6.0, 'intensity': 1.0};
+      case VideoEffect.scanlineTv:
+        label = 'Scanline TV';
+        category = 'Vintage & Retro';
+        desc = 'CRT scanlines with rolling noise.';
+        specs = <String, double>{'intensity': 0.6, 'speed': 1.0};
+      case VideoEffect.mirrorKaleido:
+        label = 'Mirror Kaleido';
+        category = 'Glitch & Distortion';
+        desc = 'Mirrored kaleidoscope segments.';
+        specs = <String, double>{'segments': 6.0, 'speed': 0.4};
+      case VideoEffect.ripplePulse:
+        label = 'Ripple Pulse';
+        category = 'Glitch & Distortion';
+        desc = 'Animated radial ripple distortion.';
+        specs = <String, double>{'amount': 0.8, 'speed': 1.0};
+      case VideoEffect.colorShift:
+        label = 'Color Shift';
+        category = 'Color & Tone';
+        desc = 'Dynamic hue rotation shift.';
+        specs = <String, double>{'hue': 0.25, 'intensity': 0.8};
+      case VideoEffect.tiltShift:
+        label = 'Tilt Shift';
+        category = 'Blur & Focus';
+        desc = 'Selective focus blur band.';
+        specs = <String, double>{'amount': 1.0, 'focus': 0.5};
+      case VideoEffect.anaglyph3d:
+        label = 'Anaglyph 3D';
+        category = 'Glitch & Distortion';
+        desc = 'Red/cyan stereoscopic offset.';
+        specs = <String, double>{'amount': 0.8};
+      case VideoEffect.kaleidoscopePrism:
+        label = 'Kaleidoscope Prism';
+        category = 'Glitch & Distortion';
+        desc = 'Prismatic kaleidoscope symmetry.';
+        specs = <String, double>{'intensity': 1.0};
+      case VideoEffect.thermalVision:
+        label = 'Thermal Vision';
+        category = 'Color & Tone';
+        desc = 'Infrared heatmap coloring.';
+        specs = <String, double>{'contrast': 1.2};
+      case VideoEffect.halftoneDots:
+        label = 'Halftone Dots';
+        category = 'Color & Tone';
+        desc = 'Pop-art halftone dot pattern.';
+        specs = <String, double>{'intensity': 1.0};
+      case VideoEffect.oilPainting:
+        label = 'Oil Painting';
+        category = 'Bloom & Glow';
+        desc = 'Painterly stylized smoothing.';
+        specs = <String, double>{'brightness': 0.2};
+      case VideoEffect.duotonePop:
+        label = 'Duotone Pop';
+        category = 'Color & Tone';
+        desc = 'Bold two-tone color mapping.';
+        specs = <String, double>{'intensity': 0.8};
+      case VideoEffect.radialZoomBlur:
+        label = 'Radial Zoom Blur';
+        category = 'Blur & Focus';
+        desc = 'Speed zoom burst blur.';
+        specs = <String, double>{'blurAmount': 1.0};
+      case VideoEffect.softBlur:
+        label = 'Soft Blur';
+        category = 'Blur & Focus';
+        desc = 'Gentle gaussian-like blur.';
+        specs = <String, double>{'blurAmount': 0.6};
       case VideoEffect.none:
         label = 'None';
         category = 'All';

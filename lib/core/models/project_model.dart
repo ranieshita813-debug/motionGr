@@ -45,6 +45,23 @@ enum VideoEffect {
   convexScreenPro,
   speedZoomBlur,
   lightLeak,
+  rgbSplit,
+  neonEdge,
+  motionTrails,
+  posterize,
+  scanlineTv,
+  mirrorKaleido,
+  ripplePulse,
+  colorShift,
+  tiltShift,
+  anaglyph3d,
+  kaleidoscopePrism,
+  thermalVision,
+  halftoneDots,
+  oilPainting,
+  duotonePop,
+  radialZoomBlur,
+  softBlur,
 }
 
 enum TextAnimationStyle {

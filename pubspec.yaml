@@ -67,11 +67,34 @@ flutter:
     - shaders/text_gold_foil.frag
     - shaders/text_holographic.frag
     - shaders/text_glass_shine.frag
+    - shaders/text_neon_flicker.frag
+    - shaders/text_chrome.frag
+    - shaders/text_ice.frag
+    - shaders/text_fire.frag
     - shaders/chroma_key.frag
     - shaders/vhs.frag
     - shaders/wave.frag
     - shaders/vignette.frag
     - shaders/convex_screen_pro.frag
+    - shaders/glow.frag
+    - shaders/soft_blur.frag
+    - shaders/radial_zoom_blur.frag
+    - shaders/kaleidoscope_prism.frag
+    - shaders/thermal_vision.frag
+    - shaders/halftone_dots.frag
+    - shaders/oil_painting.frag
+    - shaders/duotone_pop.frag
+    - shaders/distorted_edge.frag
+    - shaders/rgb_split.frag
+    - shaders/neon_edge.frag
+    - shaders/motion_trails.frag
+    - shaders/posterize.frag
+    - shaders/scanline_tv.frag
+    - shaders/mirror_kaleido.frag
+    - shaders/ripple_pulse.frag
+    - shaders/color_shift.frag
+    - shaders/tilt_shift.frag
+    - shaders/anaglyph_3d.frag
 
   fonts:
     - family: Fredoka

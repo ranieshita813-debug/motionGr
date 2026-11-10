@@ -137,6 +137,12 @@ enum TransitionType {
   flipVertical,
   dissolve,
   flash,
+  irisOpen,
+  pixelate,
+  radialBlur,
+  ripple,
+  wave,
+  zoomBlur,
 }
 
 PhosphorIconData _transitionIcon(TransitionType t) => switch (t) {
@@ -156,6 +162,12 @@ PhosphorIconData _transitionIcon(TransitionType t) => switch (t) {
       TransitionType.flipVertical => PhosphorIconsRegular.arrowsDownUp,
       TransitionType.dissolve => PhosphorIconsRegular.drop,
       TransitionType.flash => PhosphorIconsRegular.sparkle,
+      TransitionType.irisOpen => PhosphorIconsRegular.circle,
+      TransitionType.pixelate => PhosphorIconsRegular.gridFour,
+      TransitionType.radialBlur => PhosphorIconsRegular.aperture,
+      TransitionType.ripple => PhosphorIconsRegular.waves,
+      TransitionType.wave => PhosphorIconsRegular.waveSine,
+      TransitionType.zoomBlur => PhosphorIconsRegular.arrowsOut,
     };
 
 /// Opens the transition sheet. Returns the chosen type when applied, or null
