@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
@@ -69,6 +70,18 @@ abstract final class FxShaders {
     FxDef('duotone_pop', 'Duotone Pop', [FxParam('intensity', 0, 1, 0.8)]),
     FxDef('radial_zoom_blur', 'Radial Zoom Blur', [FxParam('blurAmount', 0, 2.5, 1.0)]),
     FxDef('distorted_edge', 'Distorted Edge', [FxParam('distortionAmount', 0, 2, 0.5)]),
+    FxDef('rgb_split', 'RGB Split', [FxParam('amount', 0, 2, 0.7), FxParam('angle', 0, 6.283, 0.0)]),
+    FxDef('neon_edge', 'Neon Edge', [FxParam('intensity', 0, 2, 1.0), FxParam('threshold', 0, 1, 0.35)]),
+    FxDef('motion_trails', 'Motion Trails', [FxParam('amount', 0, 1, 0.5), FxParam('speed', 0.2, 4, 1.2)]),
+    FxDef('ripple_pulse', 'Ripple Pulse', [FxParam('amount', 0, 2, 0.8), FxParam('speed', 0.2, 4, 1.0)]),
+    FxDef('mirror_kaleido', 'Mirror Kaleido', [FxParam('segments', 2, 12, 6), FxParam('speed', 0, 3, 0.4)]),
+    FxDef('anaglyph_3d', 'Anaglyph 3D', [FxParam('amount', 0, 2, 0.8)]),
+
+    // Color & Stylize
+    FxDef('posterize', 'Posterize', [FxParam('levels', 2, 16, 6), FxParam('intensity', 0, 1, 1.0)]),
+    FxDef('scanline_tv', 'Scanline TV', [FxParam('intensity', 0, 1, 0.6), FxParam('speed', 0, 4, 1.0)]),
+    FxDef('color_shift', 'Color Shift', [FxParam('hue', -1, 1, 0.25), FxParam('intensity', 0, 1, 0.8)]),
+    FxDef('tilt_shift', 'Tilt Shift', [FxParam('amount', 0, 2, 1.0), FxParam('focus', 0, 1, 0.5)]),
 
     // Bloom & Glow & Vignette
     FxDef('glow', 'Glow', [FxParam('intensity', 0, 1, 0.5)]),
