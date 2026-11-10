@@ -53,6 +53,7 @@ flutter:
   shaders:
     - shaders/chromatic_aberration.frag
     - shaders/digital_glitch.frag
+    - shaders/vhs_tape.frag
     - shaders/film_grain.frag
     - shaders/cinematic_vignette.frag
     - shaders/dream_bloom.frag
@@ -63,8 +64,12 @@ flutter:
     - shaders/lens_distortion.frag
     - shaders/speed_zoom_blur.frag
     - shaders/light_leak.frag
+    - shaders/text_gold_foil.frag
+    - shaders/text_holographic.frag
     - shaders/text_glass_shine.frag
+    - shaders/text_neon_flicker.frag
     - shaders/text_chrome.frag
+    - shaders/text_ice.frag
     - shaders/text_fire.frag
     - shaders/chroma_key.frag
     - shaders/vhs.frag
@@ -75,6 +80,7 @@ flutter:
     - shaders/soft_blur.frag
     - shaders/radial_zoom_blur.frag
     - shaders/kaleidoscope_prism.frag
+    - shaders/thermal_vision.frag
     - shaders/halftone_dots.frag
     - shaders/oil_painting.frag
     - shaders/duotone_pop.frag
@@ -87,6 +93,7 @@ flutter:
     - shaders/mirror_kaleido.frag
     - shaders/ripple_pulse.frag
     - shaders/color_shift.frag
+    - shaders/tilt_shift.frag
     - shaders/anaglyph_3d.frag
 
   fonts:

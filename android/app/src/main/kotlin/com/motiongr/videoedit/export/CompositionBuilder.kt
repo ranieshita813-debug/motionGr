@@ -575,6 +575,36 @@ object CompositionBuilder {
                     "slideleft", "slideright", "slideup", "slidedown" -> {
                         videoEffects += ScaleAndRotateTransformation.Builder().setScale(1.05f, 1.05f).build()
                     }
+                    "blur", "radialblur", "zoomblur" -> {
+                        val transDuration = if (clip.transitionDurationMs > 0L) clip.transitionDurationMs else 500L
+                        val transStart = maxOf(clip.timelineStartMs, clip.timelineStartMs + clip.timelineDurationMs - transDuration)
+                        videoEffects += CustomShaderEffect(
+                            context = context,
+                            effectId = "soft_blur",
+                            initialParameters = mapOf("amount" to 0.6),
+                            startMs = transStart,
+                            endMs = clip.timelineStartMs + clip.timelineDurationMs,
+                            baseStartMs = clip.timelineStartMs
+                        )
+                    }
+                    "wipe", "irisopen", "pixelate", "ripple", "wave" -> {
+                        val transDuration = if (clip.transitionDurationMs > 0L) clip.transitionDurationMs else 500L
+                        val transStart = maxOf(clip.timelineStartMs, clip.timelineStartMs + clip.timelineDurationMs - transDuration)
+                        val fxKey = when (animOrTrans.lowercase()) {
+                            "pixelate" -> "mosaic_pixelate"
+                            "ripple" -> "ripple_pulse"
+                            "wave" -> "wave"
+                            else -> "soft_blur"
+                        }
+                        videoEffects += CustomShaderEffect(
+                            context = context,
+                            effectId = fxKey,
+                            initialParameters = mapOf("amount" to 0.7),
+                            startMs = transStart,
+                            endMs = clip.timelineStartMs + clip.timelineDurationMs,
+                            baseStartMs = clip.timelineStartMs
+                        )
+                    }
                 }
             }
 

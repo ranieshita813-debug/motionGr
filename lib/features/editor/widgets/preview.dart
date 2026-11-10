@@ -808,6 +808,96 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
 
     if (clip != null) {
       child = _applyTransition(child, clip, _e.playhead);
+
+      // Check if there is an incoming next clip touching this clip that has a transition
+      final transDur = Duration(milliseconds: clip.transitionDurationMs);
+      if (clip.transitionType.isNotEmpty &&
+          clip.transitionType.toLowerCase() != 'none' &&
+          clip.transitionDurationMs > 0 &&
+          _e.playhead >= clip.end - transDur &&
+          _e.playhead <= clip.end) {
+        // Find adjacent next video clip on the main track
+        final nextClip = _e.clips.firstWhere(
+          (c) =>
+              c.layerIndex == 0 &&
+              (c.clipType == ClipType.video || c.clipType == ClipType.image) &&
+              (c.start - clip.end).abs() <= const Duration(milliseconds: 100),
+          orElse: () => clip,
+        );
+
+        if (nextClip.id != clip.id && nextClip.sourcePath != null && nextClip.sourcePath!.isNotEmpty) {
+          final double p =
+              ((_e.playhead - (clip.end - transDur)).inMilliseconds / transDur.inMilliseconds)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+          final bool nextIsImg = isImagePath(nextClip.sourcePath!);
+          Widget nextWidget;
+          if (nextIsImg) {
+            nextWidget = Image.file(
+              File(nextClip.sourcePath!),
+              fit: fit,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            );
+          } else if (_nextVc != null && _nextPath == nextClip.sourcePath && _nextVc!.value.isInitialized) {
+            final Size vs = _nextVc!.value.size;
+            nextWidget = FittedBox(
+              fit: fit,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: vs.width <= 0 ? 16 : vs.width,
+                height: vs.height <= 0 ? 9 : vs.height,
+                child: VideoPlayer(_nextVc!),
+              ),
+            );
+          } else {
+            nextWidget = Container(
+              color: Colors.black,
+              child: const Center(
+                child: Icon(PhosphorIconsRegular.filmStrip, color: Colors.white24, size: 28),
+              ),
+            );
+          }
+
+          // Apply opposite cross-transition progress for incoming clip
+          final String type = clip.transitionType.toLowerCase();
+          switch (type) {
+            case 'fade':
+            case 'dissolve':
+              nextWidget = Opacity(opacity: p, child: nextWidget);
+              break;
+            case 'slideleft':
+              nextWidget = Transform.translate(offset: Offset((1.0 - p) * 360.0, 0), child: nextWidget);
+              break;
+            case 'slideright':
+              nextWidget = Transform.translate(offset: Offset(-(1.0 - p) * 360.0, 0), child: nextWidget);
+              break;
+            case 'slideup':
+              nextWidget = Transform.translate(offset: Offset(0, (1.0 - p) * 360.0), child: nextWidget);
+              break;
+            case 'slidedown':
+              nextWidget = Transform.translate(offset: Offset(0, -(1.0 - p) * 360.0), child: nextWidget);
+              break;
+            case 'zoomin':
+              nextWidget = Transform.scale(scale: 0.5 + p * 0.5, child: Opacity(opacity: p, child: nextWidget));
+              break;
+            case 'zoomout':
+              nextWidget = Transform.scale(scale: 1.5 - p * 0.5, child: Opacity(opacity: p, child: nextWidget));
+              break;
+            default:
+              nextWidget = Opacity(opacity: p, child: nextWidget);
+              break;
+          }
+
+          child = Stack(
+            fit: StackFit.expand,
+            children: [
+              nextWidget,
+              child,
+            ],
+          );
+        }
+      }
     }
 
     return Stack(
