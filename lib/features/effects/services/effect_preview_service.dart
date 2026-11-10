@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
@@ -355,7 +355,7 @@ class _BlurOverlay extends StatelessWidget {
     if (blurAmount <= 0) return child;
 
     return ImageFiltered(
-      imageFilter: ImageFilter.blur(
+      imageFilter: ui.ImageFilter.blur(
         sigmaX: blurAmount * 6,
         sigmaY: blurAmount * 6,
         tileMode: TileMode.clamp,

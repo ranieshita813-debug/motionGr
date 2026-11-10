@@ -93,7 +93,12 @@ class _TrackingTextOverlayState extends State<TrackingTextOverlay>
       positionSeconds: widget.playheadSeconds,
       videoSize: widget.videoSize,
       text: widget.text,
-      style: widget.style,
+      style: widget.style ??
+          const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
       offsetY: widget.offsetY,
     );
   }

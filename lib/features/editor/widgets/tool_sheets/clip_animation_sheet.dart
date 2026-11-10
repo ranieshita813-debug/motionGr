@@ -233,6 +233,10 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         return 'Shake Slide';
       case ClipAnimation.zoomRotate:
         return 'Zoom Rotate';
+      default:
+        final n = anim.name;
+        if (n.isEmpty) return 'None';
+        return n[0].toUpperCase() + n.substring(1);
     }
   }
 
@@ -270,6 +274,8 @@ class _ClipAnimationSheetState extends State<ClipAnimationSheet> with SingleTick
         return PhosphorIconsRegular.sliders;
       case ClipAnimation.zoomRotate:
         return PhosphorIconsRegular.magnifyingGlassPlus;
+      default:
+        return PhosphorIconsRegular.sparkle;
     }
   }
 }
