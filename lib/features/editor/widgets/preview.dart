@@ -1879,7 +1879,7 @@ class _RenderBlendModeLayer extends RenderProxyBox {
       return;
     }
     final canvas = context.canvas;
-    canvas.saveLayer(offset & size.boundingBox, Paint()..blendMode = _blendMode);
+    canvas.saveLayer(offset & size, Paint()..blendMode = _blendMode);
     super.paint(context, offset);
     canvas.restore();
   }
@@ -2878,6 +2878,8 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
           child: Opacity(opacity: t.clamp(0.0, 1.0), child: child),
         );
       }
+      case TextAnimationStyle.none:
+        return child;
     }
   }
 }
@@ -2906,102 +2908,6 @@ class _WaveTextPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
-}
-
-  @override
-  Widget build(BuildContext context) {
-    final clip = widget.clip;
-    final double u = widget.unit;
-    final editor = context.watch<EditorController>();
-    final relTime = editor.playhead - clip.start;
-    double activeX = getInterpolatedKeyframeValue(clip, KeyframeProperty.positionX, relTime, clip.positionX);
-    double activeY = getInterpolatedKeyframeValue(clip, KeyframeProperty.positionY, relTime, clip.positionY);
-
-    // If clip has tracking enabled with tracked points, follow the target point
-    final tracking = clip.trackingData;
-    if (tracking.isEnabled && tracking.points.isNotEmpty) {
-      final raw = tracking.points;
-      if (!identical(raw, _trackSrc) || raw.length != _trackLen) {
-        _trackSrc = raw;
-        _trackLen = raw.length;
-        _trackPts = raw.map((p) => TrackPoint.fromMap(p)).toList();
-      }
-      final double sec = editor.playhead.inMilliseconds / 1000.0;
-      final p = pointAt(_trackPts, sec);
-      if (p != null) {
-        // p.cx, p.cy are normalized coordinates (0..1) relative to canvas
-        // Convert to canvas design coordinates
-        activeX = p.cx * designWToken - 40;
-        activeY = (p.cy - p.h / 2) * widget.designH - 24;
-      }
-    }
-
-    return Positioned(
-      left: activeX * u,
-      top: activeY * u,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onSelect,
-        onScaleStart: (_) {
-          _baseScale = clip.scale;
-          _rx = clip.positionX;
-          _ry = clip.positionY;
-          _sig = '';
-          _ox = <double>[];
-          _oy = <double>[];
-          for (final r in widget.othersOf()) {
-            _ox.addAll(<double>[r.left, r.center.dx, r.right]);
-            _oy.addAll(<double>[r.top, r.center.dy, r.bottom]);
-          }
-          widget.onSelect();
-        },
-        onScaleUpdate: (d) {
-          if (d.pointerCount >= 2 || (d.scale - 1.0).abs() > 0.05) {
-            widget.onScale((_baseScale * d.scale).clamp(0.2, 5.0).toDouble());
-          }
-          if (d.pointerCount < 2) {
-            _rx += d.focalPointDelta.dx / u;
-            _ry += d.focalPointDelta.dy / u;
-            final Size? sz = _k.currentContext?.size;
-            final double w = (sz?.width ?? 0) / u;
-            final double h = (sz?.height ?? 0) / u;
-            final double th = 8 / u;
-            final (double x, List<_SnapLine> lx) = _snapAxis(_rx, w, designWToken, true, _ox, th);
-            final (double y, List<_SnapLine> ly) =
-                _snapAxis(_ry, h, widget.designH, false, _oy, th);
-            final List<_SnapLine> lines = <_SnapLine>[...lx, ...ly];
-            final String sig =
-                lines.map((l) => '${l.vertical}${l.pos.toStringAsFixed(1)}').join('|');
-            if (sig.isNotEmpty && sig != _sig) tapFeedback();
-            _sig = sig;
-            widget.onPosition(x, y);
-            widget.onGuides(_GuideState(dragging: true, lines: lines));
-          }
-        },
-        onScaleEnd: (_) => widget.onGuides(const _GuideState()),
-        // The outline is a sibling layer, so the running animation repaints only
-        // the dashes and never the clip content (text, image, video).
-        child: Stack(
-          key: _k,
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Padding(
-              padding: EdgeInsets.all(6 * u),
-              child: RepaintBoundary(child: _applyBlendMode(_content(), clip)),
-            ),
-            if (widget.isSelected)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: RepaintBoundary(
-                    child: CustomPaint(painter: _DashedRectPainter(_march)),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _OverlayVideoPlayer extends StatefulWidget {
