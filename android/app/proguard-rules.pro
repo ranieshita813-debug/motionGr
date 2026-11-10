@@ -31,6 +31,11 @@
 -keep class com.motiongr.videoedit.export.** { *; }
 -keep class com.motiongr.videoedit.tracking_system.** { *; }
 
+# Flutter embedding references Play Core split/deferred-component classes only
+# when deferred components are used. This app does not ship Play Core, so
+# ignore those optional references during R8/minification.
+-dontwarn com.google.android.play.core.**
+
 # Keep Parcelable/Serializable implementations
 -keepclassmembers class * implements android.os.Parcelable {
     static ** CREATOR;
