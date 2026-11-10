@@ -2816,7 +2816,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.skew(skew, 0)
-            ..translateByDouble((1.0 - t) * -40, 0, 0, 1),
+            ..translate((1.0 - t) * -40.0, 0.0),
           child: Opacity(opacity: t, child: child),
         );
       }
