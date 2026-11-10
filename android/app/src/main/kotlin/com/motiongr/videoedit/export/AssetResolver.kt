@@ -10,19 +10,19 @@ import android.net.Uri
 object AssetResolver {
 
     /** Supported asset path prefixes */
-    private const val ASSET_PREFIXES = arrayOf(
+    private val ASSET_PREFIXES = arrayOf(
         "assets/", "asset/", "flutter_assets/", "android_asset/",
         "asset://", "assets://", "file:///android_asset/"
     )
 
     /** Supported image extensions */
-    private const val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "heic", "heif", "bmp")
+    private val IMAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "heic", "heif", "bmp")
 
     /** Supported audio extensions */
-    private const val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "aac", "wav", "ogg", "oga", "opus", "flac", "amr")
+    private val AUDIO_EXTENSIONS = setOf("mp3", "m4a", "aac", "wav", "ogg", "oga", "opus", "flac", "amr")
 
     /** Supported video extensions */
-    private const val VIDEO_EXTENSIONS = setOf("mp4", "mov", "m4v", "3gp", "mkv", "avi", "webm")
+    private val VIDEO_EXTENSIONS = setOf("mp4", "mov", "m4v", "3gp", "mkv", "avi", "webm")
 
     /**
      * Check if a path is an asset path

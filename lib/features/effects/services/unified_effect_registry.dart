@@ -1,12 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart';
-import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
 import 'package:flutter_video_editor/core/models/shader_effect_model.dart';
 import 'package:flutter_video_editor/features/effects/services/shader_database_service.dart';
-import 'package:flutter_video_editor/features/effects/services/shader_effect_service.dart';
 import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
 
 /// Unified effect descriptor combining legacy VideoEffect presets and modern

@@ -555,6 +555,29 @@ PhosphorIconData _iconFor(VideoEffect fx) {
       return PhosphorIconsRegular.eye;
     case VideoEffect.lensDistortion:
       return PhosphorIconsRegular.crosshair;
+    case VideoEffect.rgbSplit:
+    case VideoEffect.colorShift:
+    case VideoEffect.anaglyph3d:
+    case VideoEffect.duotonePop:
+      return PhosphorIconsRegular.sliders;
+    case VideoEffect.neonEdge:
+    case VideoEffect.posterize:
+    case VideoEffect.thermalVision:
+    case VideoEffect.halftoneDots:
+    case VideoEffect.oilPainting:
+      return PhosphorIconsRegular.paintBrush;
+    case VideoEffect.motionTrails:
+    case VideoEffect.ripplePulse:
+      return PhosphorIconsRegular.waves;
+    case VideoEffect.scanlineTv:
+      return PhosphorIconsRegular.television;
+    case VideoEffect.mirrorKaleido:
+    case VideoEffect.kaleidoscopePrism:
+      return PhosphorIconsRegular.shapes;
+    case VideoEffect.tiltShift:
+    case VideoEffect.radialZoomBlur:
+    case VideoEffect.softBlur:
+      return PhosphorIconsRegular.funnel;
   }
 }
 
@@ -679,6 +702,83 @@ List<_P> _specsFor(VideoEffect effect) {
       return const [
         _P('heat', 'Heat', 0.0, 1.0, 0.7),
         _P('speed', 'Speed', 0.2, 3.0, 1.0),
+      ];
+    case VideoEffect.rgbSplit:
+      return const [
+        _P('amount', 'Distortion', 0.0, 1.0, 0.7),
+        _P('angle', 'Angle', 0.0, 6.28, 0.0),
+      ];
+    case VideoEffect.neonEdge:
+      return const [
+        _P('intensity', 'Intensity', 0.0, 2.0, 1.0),
+        _P('threshold', 'Threshold', 0.1, 0.9, 0.35),
+      ];
+    case VideoEffect.motionTrails:
+      return const [
+        _P('amount', 'Amount', 0.0, 1.0, 0.5),
+        _P('speed', 'Speed', 0.2, 3.0, 1.2),
+      ];
+    case VideoEffect.posterize:
+      return const [
+        _P('levels', 'Levels', 2.0, 16.0, 6.0),
+        _P('intensity', 'Intensity', 0.0, 1.0, 1.0),
+      ];
+    case VideoEffect.scanlineTv:
+      return const [
+        _P('intensity', 'Intensity', 0.0, 1.0, 0.6),
+        _P('speed', 'Speed', 0.2, 3.0, 1.0),
+      ];
+    case VideoEffect.mirrorKaleido:
+      return const [
+        _P('segments', 'Segments', 2.0, 12.0, 6.0),
+        _P('speed', 'Speed', 0.0, 2.0, 0.4),
+      ];
+    case VideoEffect.ripplePulse:
+      return const [
+        _P('amount', 'Amount', 0.0, 2.0, 0.8),
+        _P('speed', 'Speed', 0.2, 3.0, 1.0),
+      ];
+    case VideoEffect.colorShift:
+      return const [
+        _P('hue', 'Hue', 0.0, 1.0, 0.25),
+        _P('intensity', 'Intensity', 0.0, 1.0, 0.8),
+      ];
+    case VideoEffect.tiltShift:
+      return const [
+        _P('amount', 'Amount', 0.0, 2.0, 1.0),
+        _P('focus', 'Focus point', 0.0, 1.0, 0.5),
+      ];
+    case VideoEffect.anaglyph3d:
+      return const [
+        _P('amount', '3D Offset', 0.0, 2.0, 0.8),
+      ];
+    case VideoEffect.kaleidoscopePrism:
+      return const [
+        _P('intensity', 'Intensity', 0.0, 2.0, 1.0),
+      ];
+    case VideoEffect.thermalVision:
+      return const [
+        _P('contrast', 'Contrast', 0.5, 2.0, 1.2),
+      ];
+    case VideoEffect.halftoneDots:
+      return const [
+        _P('intensity', 'Intensity', 0.0, 2.0, 1.0),
+      ];
+    case VideoEffect.oilPainting:
+      return const [
+        _P('brightness', 'Brightness', -0.5, 0.5, 0.2),
+      ];
+    case VideoEffect.duotonePop:
+      return const [
+        _P('intensity', 'Intensity', 0.0, 1.0, 0.8),
+      ];
+    case VideoEffect.radialZoomBlur:
+      return const [
+        _P('blurAmount', 'Strength', 0.0, 3.0, 1.0),
+      ];
+    case VideoEffect.softBlur:
+      return const [
+        _P('blurAmount', 'Strength', 0.0, 5.0, 1.5),
       ];
     case VideoEffect.none:
       return const [];

@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
@@ -64,7 +64,7 @@ class FlutterShaderPreviewRenderer {
     if (tintColor != Colors.transparent && tintColor.a > 0) {
       result = ColorFiltered(
         colorFilter: ColorFilter.mode(
-          tintColor.withOpacity((tintColor.a * intensity).clamp(0.0, 1.0)),
+          tintColor.withValues(alpha: (tintColor.a * intensity).clamp(0.0, 1.0)),
           BlendMode.overlay,
         ),
         child: result,
@@ -288,7 +288,7 @@ class _GlitchPainter extends CustomPainter {
         final w = random.nextDouble() * 40 + 4;
         canvas.drawRect(
           Rect.fromLTWH(x, y, w, height),
-          Paint()..color = Colors.white.withOpacity(0.3),
+          Paint()..color = Colors.white.withValues(alpha: 0.3),
         );
       }
     }
@@ -323,12 +323,12 @@ class _GlowOverlay extends StatelessWidget {
             decoration: BoxDecoration(
               boxShadow: [
                 BoxShadow(
-                  color: color.withOpacity((glowStrength * 0.5).clamp(0.0, 1.0)),
+                  color: color.withValues(alpha: (glowStrength * 0.5).clamp(0.0, 1.0)),
                   blurRadius: 30 * glowStrength,
                   spreadRadius: 8 * glowStrength,
                 ),
                 BoxShadow(
-                  color: color.withOpacity((glowStrength * 0.25).clamp(0.0, 1.0)),
+                  color: color.withValues(alpha: (glowStrength * 0.25).clamp(0.0, 1.0)),
                   blurRadius: 60 * glowStrength,
                   spreadRadius: 16 * glowStrength,
                 ),
@@ -355,7 +355,7 @@ class _BlurOverlay extends StatelessWidget {
     if (blurAmount <= 0) return child;
 
     return ImageFiltered(
-      imageFilter: ImageFilter.blur(
+      imageFilter: ui.ImageFilter.blur(
         sigmaX: blurAmount * 6,
         sigmaY: blurAmount * 6,
         tileMode: TileMode.clamp,
@@ -377,7 +377,7 @@ class _VignetteOverlay extends StatelessWidget {
           radius: 0.9,
           colors: [
             Colors.transparent,
-            Colors.black.withOpacity(vignetteStrength.clamp(0.0, 0.95)),
+            Colors.black.withValues(alpha: vignetteStrength.clamp(0.0, 0.95)),
           ],
           stops: const [0.4, 1.0],
         ),
@@ -412,8 +412,8 @@ class _LightLeakOverlay extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFFFF9900).withOpacity(opacity.clamp(0.0, 0.8)),
-                const Color(0xFFFF0066).withOpacity((opacity * 0.6).clamp(0.0, 0.8)),
+                const Color(0xFFFF9900).withValues(alpha: opacity.clamp(0.0, 0.8)),
+                const Color(0xFFFF0066).withValues(alpha: (opacity * 0.6).clamp(0.0, 0.8)),
                 Colors.transparent,
               ],
               stops: const [0.0, 0.4, 1.0],
@@ -426,8 +426,8 @@ class _LightLeakOverlay extends StatelessWidget {
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
               colors: [
-                const Color(0xFF00E5FF).withOpacity(opacity2.clamp(0.0, 0.6)),
-                const Color(0xFF7B2CBF).withOpacity((opacity2 * 0.5).clamp(0.0, 0.6)),
+                const Color(0xFF00E5FF).withValues(alpha: opacity2.clamp(0.0, 0.6)),
+                const Color(0xFF7B2CBF).withValues(alpha: (opacity2 * 0.5).clamp(0.0, 0.6)),
                 Colors.transparent,
               ],
               stops: const [0.0, 0.5, 1.0],
@@ -461,14 +461,14 @@ class _FilmGrainPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final random = math.Random(42);
     final paint = Paint();
-    final step = 2.0;
+    const step = 2.0;
     final grainCount = (size.width * size.height / (step * step) * intensity * 0.3).toInt();
 
     for (int i = 0; i < grainCount; i++) {
       final x = random.nextDouble() * size.width;
       final y = random.nextDouble() * size.height;
       final alpha = random.nextDouble() * 0.1 * intensity;
-      paint.color = Colors.white.withOpacity(alpha);
+      paint.color = Colors.white.withValues(alpha: alpha);
       canvas.drawRect(Rect.fromLTWH(x, y, step, step), paint);
     }
   }
@@ -486,7 +486,7 @@ class _ThermalOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColorFiltered(
       colorFilter: ColorFilter.mode(
-        Colors.orange.withOpacity(0.3 * intensity),
+        Colors.orange.withValues(alpha: 0.3 * intensity),
         BlendMode.color,
       ),
       child: Stack(
@@ -499,9 +499,9 @@ class _ThermalOverlay extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.red.withOpacity(0.15 * intensity),
-                  Colors.yellow.withOpacity(0.1 * intensity),
-                  Colors.cyan.withOpacity(0.1 * intensity),
+                  Colors.red.withValues(alpha: 0.15 * intensity),
+                  Colors.yellow.withValues(alpha: 0.1 * intensity),
+                  Colors.cyan.withValues(alpha: 0.1 * intensity),
                 ],
               ),
             ),
@@ -533,7 +533,7 @@ class _HalftonePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.black.withOpacity(0.2);
+    final paint = Paint()..color = Colors.black.withValues(alpha: 0.2);
     final dotSize = 4.0 * scale;
     final spacing = 8.0 * scale;
 
@@ -565,7 +565,7 @@ class _OilPaintingOverlay extends StatelessWidget {
         tileMode: TileMode.clamp,
       ),
       child: Container(
-        color: Colors.white.withOpacity(0.15 * softness),
+        color: Colors.white.withValues(alpha: 0.15 * softness),
         child: child,
       ),
     );
@@ -585,7 +585,7 @@ class _DuotoneOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColorFiltered(
-      colorFilter: ColorFilter.matrix(<double>[
+      colorFilter: const ColorFilter.matrix(<double>[
         0.3, 0.59, 0.11, 0, 0,
         0.3, 0.59, 0.11, 0, 0,
         0.3, 0.59, 0.11, 0, 0,
@@ -596,7 +596,7 @@ class _DuotoneOverlay extends StatelessWidget {
         children: [
           child,
           Container(
-            color: primary.withOpacity(0.4 * intensity),
+            color: primary.withValues(alpha: 0.4 * intensity),
           ),
         ],
       ),
@@ -628,7 +628,7 @@ class _RadialZoomBlurOverlay extends StatelessWidget {
               radius: 0.5 + 0.5 * phase * strength,
               colors: [
                 Colors.transparent,
-                Colors.black.withOpacity(0.3 * strength),
+                Colors.black.withValues(alpha: 0.3 * strength),
               ],
               stops: const [0.3, 1.0],
             ),

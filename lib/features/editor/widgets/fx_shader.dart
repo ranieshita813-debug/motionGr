@@ -1,10 +1,8 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter/widgets.dart';
 
 class FxParam {
   const FxParam(this.name, this.min, this.max, this.def);
@@ -211,7 +209,7 @@ abstract final class FxShaders {
         );
       case 'noir':
         return ColorFiltered(
-          colorFilter: ColorFilter.matrix(<double>[
+          colorFilter: const ColorFilter.matrix(<double>[
             0.2126, 0.7152, 0.0722, 0, 0,
             0.2126, 0.7152, 0.0722, 0, 0,
             0.2126, 0.7152, 0.0722, 0, 0,
@@ -286,7 +284,7 @@ abstract final class FxShaders {
                 gradient: RadialGradient(
                   colors: [
                     Colors.transparent,
-                    Colors.white.withOpacity(intensity * 0.3),
+                    Colors.white.withValues(alpha: intensity * 0.3),
                   ],
                   stops: const [0.5, 1.0],
                 ),
@@ -306,7 +304,7 @@ abstract final class FxShaders {
                   radius: 0.85,
                   colors: [
                     Colors.transparent,
-                    Colors.black.withOpacity(intensity.clamp(0.0, 0.95)),
+                    Colors.black.withValues(alpha: intensity.clamp(0.0, 0.95)),
                   ],
                   stops: const [0.5, 1.0],
                 ),
@@ -327,9 +325,9 @@ abstract final class FxShaders {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.cyan.withOpacity(amount * 0.1),
+                    Colors.cyan.withValues(alpha: amount * 0.1),
                     Colors.transparent,
-                    Colors.pink.withOpacity(amount * 0.1),
+                    Colors.pink.withValues(alpha: amount * 0.1),
                   ],
                 ),
               ),
@@ -439,26 +437,26 @@ abstract final class FxShaders {
       case 'text_gold_foil':
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (Rect b) => LinearGradient(
+          shaderCallback: (Rect b) => const LinearGradient(
             colors: <Color>[
-              const Color(0xFFFFD700),
-              const Color(0xFFFFA500),
-              const Color(0xFFFFD700),
+              Color(0xFFFFD700),
+              Color(0xFFFFA500),
+              Color(0xFFFFD700),
             ],
-            stops: const <double>[0.0, 0.5, 1.0],
+            stops: <double>[0.0, 0.5, 1.0],
           ).createShader(b),
           child: child,
         );
       case 'text_holographic':
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (Rect b) => LinearGradient(
+          shaderCallback: (Rect b) => const LinearGradient(
             colors: <Color>[
-              const Color(0xFF00E5FF),
-              const Color(0xFF00FF66),
-              const Color(0xFF00E5FF),
+              Color(0xFF00E5FF),
+              Color(0xFF00FF66),
+              Color(0xFF00E5FF),
             ],
-            stops: const <double>[0.0, 0.5, 1.0],
+            stops: <double>[0.0, 0.5, 1.0],
           ).createShader(b),
           child: child,
         );
@@ -467,9 +465,9 @@ abstract final class FxShaders {
           blendMode: BlendMode.srcATop,
           shaderCallback: (Rect b) => LinearGradient(
             colors: <Color>[
-              Colors.white.withOpacity(0.3),
-              Colors.white.withOpacity(0.8),
-              Colors.white.withOpacity(0.3),
+              Colors.white.withValues(alpha: 0.3),
+              Colors.white.withValues(alpha: 0.8),
+              Colors.white.withValues(alpha: 0.3),
             ],
             stops: const <double>[0.0, 0.5, 1.0],
           ).createShader(b),
@@ -482,10 +480,10 @@ abstract final class FxShaders {
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00E5FF).withOpacity(0.1 * intensity),
+                  color: const Color(0xFF00E5FF).withValues(alpha: 0.1 * intensity),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00E5FF).withOpacity(0.3 * intensity),
+                      color: const Color(0xFF00E5FF).withValues(alpha: 0.3 * intensity),
                       blurRadius: 10 * intensity,
                       spreadRadius: 2 * intensity,
                     ),
@@ -498,39 +496,39 @@ abstract final class FxShaders {
       case 'text_chrome':
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (Rect b) => LinearGradient(
+          shaderCallback: (Rect b) => const LinearGradient(
             colors: <Color>[
               Colors.white,
-              const Color(0xFF888888),
+              Color(0xFF888888),
               Colors.white,
             ],
-            stops: const <double>[0.0, 0.5, 1.0],
+            stops: <double>[0.0, 0.5, 1.0],
           ).createShader(b),
           child: child,
         );
       case 'text_ice':
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (Rect b) => LinearGradient(
+          shaderCallback: (Rect b) => const LinearGradient(
             colors: <Color>[
-              const Color(0xFFE0F7FA),
-              const Color(0xFFB2EBF2),
-              const Color(0xFFE0F7FA),
+              Color(0xFFE0F7FA),
+              Color(0xFFB2EBF2),
+              Color(0xFFE0F7FA),
             ],
-            stops: const <double>[0.0, 0.5, 1.0],
+            stops: <double>[0.0, 0.5, 1.0],
           ).createShader(b),
           child: child,
         );
       case 'text_fire':
         return ShaderMask(
           blendMode: BlendMode.srcIn,
-          shaderCallback: (Rect b) => LinearGradient(
+          shaderCallback: (Rect b) => const LinearGradient(
             colors: <Color>[
-              const Color(0xFFFFD700),
-              const Color(0xFFFF4500),
-              const Color(0xFF8B0000),
+              Color(0xFFFFD700),
+              Color(0xFFFF4500),
+              Color(0xFF8B0000),
             ],
-            stops: const <double>[0.0, 0.5, 1.0],
+            stops: <double>[0.0, 0.5, 1.0],
           ).createShader(b),
           child: child,
         );
