@@ -2137,10 +2137,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
   late final AnimationController _march =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
 
-  // Converted tracking points, rebuilt only when the source list changes.
-  List<TrackPoint> _trackPts = const <TrackPoint>[];
-  Object? _trackSrc;
-  int _trackLen = -1;
+
 
   void _syncMarch() {
     final bool run = widget.isSelected && !MediaQuery.disableAnimationsOf(context);
@@ -2708,7 +2705,6 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
     final relMs = (playhead - clip.start).inMilliseconds;
     if (relMs < 0) return child;
     final double tSec = relMs / 1000.0;
-    final double durSec = math.max(0.1, clip.trimmedDurationSeconds);
 
     switch (style) {
       case TextAnimationStyle.fadeIn: {
@@ -2716,7 +2712,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
         return Opacity(opacity: t, child: child);
       }
       case TextAnimationStyle.typewriter: {
-        final double charsPerSec = 20.0;
+        const double charsPerSec = 20.0;
         final int maxChars = (tSec * charsPerSec).round();
         final String text = clip.label;
         final String shown = text.substring(0, maxChars.clamp(0, text.length));
@@ -2881,6 +2877,72 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
       case TextAnimationStyle.none:
         return child;
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final clip = widget.clip;
+    final double u = widget.unit;
+    final editor = context.watch<EditorController>();
+    final relTime = editor.playhead - clip.start;
+    final double activeX = getInterpolatedKeyframeValue(
+        clip, KeyframeProperty.positionX, relTime, clip.positionX);
+    final double activeY = getInterpolatedKeyframeValue(
+        clip, KeyframeProperty.positionY, relTime, clip.positionY);
+
+    return Positioned(
+      left: activeX * u,
+      top: activeY * u,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onSelect,
+        onScaleStart: (_) {
+          _baseScale = clip.scale;
+          _rx = clip.positionX;
+          _ry = clip.positionY;
+          _sig = '';
+          _ox = <double>[];
+          _oy = <double>[];
+          for (final r in widget.othersOf()) {
+            _ox.addAll(<double>[r.left, r.center.dx, r.right]);
+            _oy.addAll(<double>[r.top, r.center.dy, r.bottom]);
+          }
+          widget.onSelect();
+        },
+        onScaleUpdate: (d) {
+          if (d.pointerCount >= 2) {
+            widget.onScale((_baseScale * d.scale).clamp(0.2, 5.0).toDouble());
+            return;
+          }
+          _rx += d.focalPointDelta.dx / u;
+          _ry += d.focalPointDelta.dy / u;
+          final Size? sz = _k.currentContext?.size;
+          final double w = (sz?.width ?? 0) / u;
+          final double h = (sz?.height ?? 0) / u;
+          final double th = 8 / u;
+          final (double x, List<_SnapLine> lx) =
+              _snapAxis(_rx, w, designWToken, true, _ox, th);
+          final (double y, List<_SnapLine> ly) =
+              _snapAxis(_ry, h, widget.designH, false, _oy, th);
+          final List<_SnapLine> lines = <_SnapLine>[...lx, ...ly];
+          final String sig =
+              lines.map((l) => '${l.vertical}${l.pos.toStringAsFixed(1)}').join('|');
+          if (sig.isNotEmpty && sig != _sig) tapFeedback();
+          _sig = sig;
+          widget.onPosition(x, y);
+          widget.onGuides(_GuideState(dragging: true, lines: lines));
+        },
+        onScaleEnd: (_) => widget.onGuides(const _GuideState()),
+        child: CustomPaint(
+          key: _k,
+          foregroundPainter: widget.isSelected ? _DashedRectPainter(_march) : null,
+          child: Padding(
+            padding: EdgeInsets.all(6 * u),
+            child: _applyBlendMode(_content(), clip),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -531,6 +531,14 @@ class TextStyleProperties {
     };
   }
 
+  static TextEffect _parseTextEffect(String? name) {
+    if (name == null || name.isEmpty) return TextEffect.none;
+    return TextEffect.values.firstWhere(
+      (e) => e.nameStr == name,
+      orElse: () => TextEffect.none,
+    );
+  }
+
   factory TextStyleProperties.fromJson(Map<String, dynamic> json) {
     return TextStyleProperties(
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 28.0,
@@ -1211,14 +1219,6 @@ class AudioProperties {
       normalize: json['normalize'] as bool? ?? false,
       enhanceVoice: json['enhanceVoice'] as bool? ?? false,
       voice: vEff,
-    );
-  }
-
-  static TextEffect _parseTextEffect(String? name) {
-    if (name == null || name.isEmpty) return TextEffect.none;
-    return TextEffect.values.firstWhere(
-      (e) => e.nameStr == name,
-      orElse: () => TextEffect.none,
     );
   }
 

@@ -37,7 +37,7 @@ class NativeTracker {
 
   /// 0.0 .. 1.0
   Stream<double> get progress =>
-      _events.receiveBroadcastStream().map((e) => (e as num?).toDouble() ?? 0.0);
+      _events.receiveBroadcastStream().map((e) => (e as num?)?.toDouble() ?? 0.0);
 
   /// [bbox] 0..1 normalized (left, top, width, height).
   /// [intervalMs] how often (ms) to track frames (smaller = precise but slower).
