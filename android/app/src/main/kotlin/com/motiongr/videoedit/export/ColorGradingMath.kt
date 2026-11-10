@@ -252,8 +252,10 @@ object ColorGradingMath {
             val radius = sqrt((cx * cx + cy * cy).toDouble()).toFloat()
             val shader = android.graphics.RadialGradient(
                 cx, cy, radius,
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.argb((vigVal * 200).toInt(), 0, 0, 0),
+                intArrayOf(
+                    android.graphics.Color.TRANSPARENT,
+                    android.graphics.Color.argb((vigVal * 200).toInt(), 0, 0, 0)
+                ),
                 floatArrayOf(0.4f, 1.0f),
                 android.graphics.Shader.TileMode.CLAMP
             )
