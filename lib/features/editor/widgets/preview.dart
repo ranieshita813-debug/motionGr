@@ -1862,7 +1862,7 @@ class _RenderBlendModeLayer extends RenderProxyBox {
       return;
     }
     final canvas = context.canvas;
-    canvas.saveLayer(offset & size.boundingBox, Paint()..blendMode = _blendMode);
+    canvas.saveLayer(offset & size, Paint()..blendMode = _blendMode);
     super.paint(context, offset);
     canvas.restore();
   }
@@ -2660,9 +2660,10 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
     final relMs = (playhead - clip.start).inMilliseconds;
     if (relMs < 0) return child;
     final double tSec = relMs / 1000.0;
-    final double durSec = math.max(0.1, clip.trimmedDurationSeconds);
 
     switch (style) {
+      case TextAnimationStyle.none:
+        return child;
       case TextAnimationStyle.fadeIn: {
         final double t = (tSec / 0.8).clamp(0.0, 1.0);
         return Opacity(opacity: t, child: child);
@@ -2815,7 +2816,7 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.skew(skew, 0)
-            ..translate((1.0 - t) * -40, 0),
+            ..translateByDouble((1.0 - t) * -40, 0, 0, 1),
           child: Opacity(opacity: t, child: child),
         );
       }
@@ -2828,30 +2829,6 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
         );
       }
     }
-  }
-
-    _WaveTextPainter({required this.time});
-    final double time;
-
-    @override
-    void paint(Canvas canvas, Size size) {
-      // Wave distortion is applied via the child widget's transform;
-      // this painter draws a subtle displacement map hint.
-      final paint = Paint()
-        ..color = Colors.white.withOpacity(0.1)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1;
-      final path = Path();
-      for (double x = 0; x <= size.width; x += 4) {
-        final double y = math.sin(x * 0.05 + time * math.PI * 2) * 4;
-        if (x == 0) path.moveTo(x, y);
-        else path.lineTo(x, y);
-      }
-      canvas.drawPath(path, paint);
-    }
-
-    @override
-    bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
   }
 
   @override
@@ -2948,6 +2925,32 @@ class _OverlayClipState extends State<_OverlayClip> with SingleTickerProviderSta
       ),
     );
   }
+}
+
+class _WaveTextPainter extends CustomPainter {
+  const _WaveTextPainter({required this.time});
+  final double time;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path();
+    for (double x = 0; x <= size.width; x += 4) {
+      final double y = math.sin(x * 0.05 + time * math.pi * 2) * 4;
+      if (x == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveTextPainter old) => old.time != time;
 }
 
 class _OverlayVideoPlayer extends StatefulWidget {

@@ -1,11 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter_video_editor/core/models/project_model.dart';
-import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
+import 'package:flutter_video_editor/core/models/shader_effect_model.dart';
 import 'package:flutter_video_editor/features/effects/services/shader_database_service.dart';
-import 'package:flutter_video_editor/features/effects/services/shader_effect_service.dart';
 import 'package:flutter_video_editor/features/editor/widgets/fx_shader.dart';
 
 /// Unified effect descriptor combining legacy VideoEffect presets and modern
@@ -109,7 +106,7 @@ class UnifiedEffectRegistry {
           type: EffectSource.shader,
           shaderEffectId: d.id,
           parameters: <String, double>{
-            for (final p in d.params) p.id: p.def,
+            for (final p in d.params) p.name: p.def,
           },
           description: 'Advanced text shader: ${d.label}',
           isText: true,
@@ -148,12 +145,12 @@ class UnifiedEffectRegistry {
   Set<String> get categories => _effects.map((e) => e.category).toSet()..add('All');
 
   EffectDescriptor _legacyDescriptor(VideoEffect fx) {
-    final specs = <String, double>{};
+    Map<String, double> specs = const <String, double>{};
     final String label;
     final String category;
     final String desc;
-    final bool isText = false;
-    final bool isAdvanced = false;
+    const bool isText = false;
+    const bool isAdvanced = false;
 
     switch (fx) {
       case VideoEffect.warm:
