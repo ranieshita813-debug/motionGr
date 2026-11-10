@@ -162,7 +162,7 @@ class _CreateProjectPageState extends State<CreateProjectPage> {
           ),
           centerTitle: true,
           title: const Text(
-            'New project',
+            'New Project',
             style: TextStyle(
               color: _text,
               fontSize: 17,
@@ -185,7 +185,7 @@ class _CreateProjectPageState extends State<CreateProjectPage> {
                       const SizedBox(height: 24),
                       _buildNameField(),
                       const SizedBox(height: 28),
-                      const _SectionTitle('Canvas ratio'),
+                      const _SectionTitle('Aspect Ratio'),
                       const SizedBox(height: 12),
                       _buildRatioRow(),
                       const SizedBox(height: 28),
@@ -342,11 +342,12 @@ class _CreateProjectPageState extends State<CreateProjectPage> {
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Mini shape that actually matches the ratio.
                   SizedBox(
-                    width: 34,
-                    height: 34,
+                    width: 30,
+                    height: 30,
                     child: Center(
                       child: AspectRatio(
                         aspectRatio: opt.ratio,
@@ -362,12 +363,12 @@ class _CreateProjectPageState extends State<CreateProjectPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text(
                     opt.label,
                     style: TextStyle(
                       color: isSelected ? _text : _text.withValues(alpha: 0.85),
-                      fontSize: 14,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                       fontFamily: _font,
                     ),
@@ -414,9 +415,9 @@ class _CreateProjectPageState extends State<CreateProjectPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
                 ),
                 child: const Text(
-                  'Blank',
+                  'Blank Project',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     fontFamily: _font,
                   ),
@@ -439,7 +440,7 @@ class _CreateProjectPageState extends State<CreateProjectPage> {
                 ),
                 icon: const PhosphorIcon(PhosphorIconsBold.plus, size: 18),
                 label: const Text(
-                  'Select media',
+                  'Select Media',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
