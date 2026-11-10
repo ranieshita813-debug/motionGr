@@ -79,3 +79,6 @@
 -keep class android.media.MediaFormat { *; }
 -keep class android.media.MediaExtractor { *; }
 -keep class android.media.MediaMetadataRetriever { *; }
+
+# Flutter deferred components / Play Core
+-dontwarn com.google.android.play.core.**
