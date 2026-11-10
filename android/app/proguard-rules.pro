@@ -57,9 +57,6 @@
 -keep class java.** { *; }
 -keep class kotlin.** { *; }
 
-# Optimize: remove unused resources
--shrinkresources
-
 # Keep annotated classes for Media3
 -keep @androidx.media3.common.util.UnstableApi class * { *; }
 
