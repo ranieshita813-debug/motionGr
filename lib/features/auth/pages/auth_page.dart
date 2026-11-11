@@ -185,9 +185,8 @@ class _AuthPageState extends State<AuthPage> {
                       const SizedBox(height: 16),
                       Center(
                         child: SvgPicture.asset(
-                          'assets/logo_white.svg',
-                          height: 44,
-                          // Logo asset is white; tint it for the light theme.
+                          'assets/logos/logo.svg',
+                          height: 52,
                           colorFilter: const ColorFilter.mode(
                             _AuthColors.text,
                             BlendMode.srcIn,

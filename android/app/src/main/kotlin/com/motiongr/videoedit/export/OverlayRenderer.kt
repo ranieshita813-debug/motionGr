@@ -326,7 +326,8 @@ object OverlayRenderer {
         val y = height - logoSize - margin
 
         try {
-            val pathData = "M 256 278 L 256 767 L 566 278 L 566 766 L 819 279 L 819 740"
+            // M polygon matching assets/logos/logo.svg:
+            val pathData = "M 325 240 L 540 663 L 755 240 L 920 665 L 760 665 L 740 447 L 540 840 L 340 447 L 320 665 L 160 665 Z"
             val path = PathParser.createPathFromPathData(pathData)
             val matrix = Matrix()
             val s = logoSize / 1080f
@@ -336,10 +337,7 @@ object OverlayRenderer {
 
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.argb(220, 255, 255, 255)
-                style = Paint.Style.STROKE
-                strokeWidth = 108f * s
-                strokeCap = Paint.Cap.BUTT
-                strokeJoin = Paint.Join.BEVEL
+                style = Paint.Style.FILL
                 setShadowLayer(
                     6f * scale,
                     2f * scale,

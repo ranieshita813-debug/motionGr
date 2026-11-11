@@ -1,4 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:flutter_video_editor/core/logger/app_logger.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/services/project_storage_service.dart';
 
@@ -102,5 +109,120 @@ class ProjectsController extends ChangeNotifier {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Exports project data as a .mgr bundle (archive bytes with media assets).
+  Future<Uint8List> exportProjectToBundleBytes(String id) async {
+    final project = getProject(id);
+    if (project == null) {
+      throw Exception('Project not found: $id');
+    }
+    return ProjectStorageService.instance.createMgrBundle(project);
+  }
+
+  /// Exports project as a .mgr bundle file (with assets) to target folder or downloads directory.
+  Future<String?> exportProjectToFile(String id, {String? targetDirectory}) async {
+    final project = getProject(id);
+    if (project == null) return null;
+
+    try {
+      String? dirPath = targetDirectory;
+      if (dirPath == null) {
+        try {
+          dirPath = await FilePicker.platform.getDirectoryPath(
+            dialogTitle: 'Select destination folder for .mgr file',
+          );
+        } catch (_) {}
+      }
+
+      final bundleBytes = await ProjectStorageService.instance.createMgrBundle(project);
+      final sanitizedName = project.name
+          .replaceAll(RegExp(r'[^\w\s\.-]'), '_')
+          .trim()
+          .replaceAll(' ', '_');
+      final fileName = '${sanitizedName}_${project.id}.mgr';
+
+      if (dirPath != null && dirPath.isNotEmpty) {
+        final file = File(p.join(dirPath, fileName));
+        await file.writeAsBytes(bundleBytes, flush: true);
+        AppLogger.info('Exported project ${project.id} with assets to ${file.path}', tag: 'ProjectsController');
+        return file.path;
+      } else {
+        // Fallback to system temp folder
+        final file = File(p.join(Directory.systemTemp.path, fileName));
+        await file.writeAsBytes(bundleBytes, flush: true);
+        return file.path;
+      }
+    } catch (e, stack) {
+      AppLogger.error('Failed to export project $id', tag: 'ProjectsController', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  /// Imports a project from .mgr bundle bytes (or plain JSON string).
+  Future<Project> importProjectFromBytes(Uint8List bytes, {String? customName}) async {
+    final parsed = await ProjectStorageService.instance.extractMgrBundle(bytes);
+    final id = 'proj_${DateTime.now().millisecondsSinceEpoch}';
+    final imported = parsed.copyWith(
+      id: id,
+      name: customName ?? (parsed.name.contains('(Imported)') ? parsed.name : '${parsed.name} (Imported)'),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    _projects.insert(0, imported);
+    ProjectStorageService.instance.saveProject(imported);
+    notifyListeners();
+    return imported;
+  }
+
+  /// Prompts user to pick a .mgr (or .json) project file and imports it with all assets.
+  Future<Project?> pickAndImportProject() async {
+    try {
+      FilePickerResult? result;
+      try {
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: const ['mgr', 'json'],
+          withData: true,
+        );
+      } catch (_) {
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          withData: true,
+        );
+      }
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        Uint8List bytes;
+        if (file.bytes != null && file.bytes!.isNotEmpty) {
+          bytes = file.bytes!;
+        } else if (file.path != null && file.path!.isNotEmpty) {
+          bytes = await File(file.path!).readAsBytes();
+        } else {
+          return null;
+        }
+
+        final imported = await importProjectFromBytes(bytes);
+        return imported;
+      }
+    } catch (e, stack) {
+      AppLogger.error('Failed picking and importing project', tag: 'ProjectsController', error: e, stackTrace: stack);
+      rethrow;
+    }
+    return null;
+  }
+
+  /// Exports project JSON string (legacy helper).
+  Future<String> exportProjectToString(String id) async {
+    final project = getProject(id);
+    if (project == null) throw Exception('Project not found: $id');
+    return ProjectStorageService.instance.serializeProject(project);
+  }
+
+  /// Imports project from JSON string (legacy helper).
+  Future<Project> importProjectFromString(String content, {String? customName}) async {
+    final bytes = Uint8List.fromList(utf8.encode(content));
+    return importProjectFromBytes(bytes, customName: customName);
   }
 }

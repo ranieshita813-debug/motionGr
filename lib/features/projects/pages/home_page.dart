@@ -131,6 +131,31 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const PhosphorIcon(
+                PhosphorIconsBold.fileArrowDown,
+                color: _homeText,
+                size: 18,
+              ),
+              title: const Text('Export Project (.mgr)', style: TextStyle(color: _homeText, fontWeight: FontWeight.w600)),
+              onTap: () async {
+                Navigator.pop(ctx);
+                try {
+                  final path = await controller.exportProjectToFile(project.id);
+                  if (context.mounted && path != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Project saved as .mgr: $path')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to export project: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const PhosphorIcon(
                 PhosphorIconsBold.trash,
                 color: Colors.redAccent,
                 size: 18,
@@ -393,13 +418,43 @@ class _HomePageState extends State<HomePage> {
                     color: _homeText,
                   ),
                 ),
-                IconButton(
-                  onPressed: () => _createNewProject(context),
-                  icon: const PhosphorIcon(
-                    PhosphorIconsBold.plus,
-                    color: _homeText,
-                    size: 22,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Import .mgr project',
+                      onPressed: () async {
+                        try {
+                          final imported = await projectsController.pickAndImportProject();
+                          if (context.mounted && imported != null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Imported project: ${imported.name}')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Import error: $e')),
+                            );
+                          }
+                        }
+                      },
+                      icon: const PhosphorIcon(
+                        PhosphorIconsBold.fileArrowUp,
+                        color: _homeText,
+                        size: 20,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'New project',
+                      onPressed: () => _createNewProject(context),
+                      icon: const PhosphorIcon(
+                        PhosphorIconsBold.plus,
+                        color: _homeText,
+                        size: 22,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -661,8 +716,12 @@ class _HomePageState extends State<HomePage> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: SvgPicture.asset(
-                'assets/logo_black.svg',
-                height: 40,
+                'assets/logos/logo.svg',
+                height: 38,
+                colorFilter: const ColorFilter.mode(
+                  _homeText,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
           ),
