@@ -412,7 +412,15 @@ object CompositionBuilder {
             val kind = if (!isCard) kindOf(context, src!!) else Kind.VIDEO
             val isImage = !isCard && kind == Kind.IMAGE
 
-            val speed = clip.speed.coerceIn(MIN_SPEED, MAX_SPEED)
+            var effectiveSpeed = clip.speed.coerceIn(MIN_SPEED, MAX_SPEED)
+            if (clip.speedSettings.mode == "curve" && clip.speedSettings.points.isNotEmpty()) {
+                val sumInv = clip.speedSettings.points.map { 1.0 / it.speed.coerceIn(MIN_SPEED, MAX_SPEED) }.average()
+                if (sumInv > 0.0) {
+                    effectiveSpeed = (1.0 / sumInv).coerceIn(MIN_SPEED, MAX_SPEED)
+                }
+            }
+
+            val speed = effectiveSpeed
             val volume = clip.volume.coerceIn(0.0, MAX_VOLUME)
             val speedChanged = abs(speed - 1.0) > EPS
 
@@ -496,6 +504,27 @@ object CompositionBuilder {
                             baseStartMs = clip.timelineStartMs
                         )
                     }
+                }
+
+                // If base clip has a mask configured, pass it via CustomShaderEffect or overlay matte
+                if (clip.maskProperties.type.isNotEmpty() && clip.maskProperties.type.lowercase() != "none") {
+                    videoEffects += CustomShaderEffect(
+                        context = context,
+                        effectId = "mask",
+                        initialParameters = mapOf(
+                            "centerX" to clip.maskProperties.centerX,
+                            "centerY" to clip.maskProperties.centerY,
+                            "width" to clip.maskProperties.width,
+                            "height" to clip.maskProperties.height,
+                            "rotation" to clip.maskProperties.rotation,
+                            "feather" to clip.maskProperties.feather,
+                            "cornerRadius" to clip.maskProperties.cornerRadius,
+                            "isInverted" to if (clip.maskProperties.isInverted) 1.0 else 0.0
+                        ),
+                        startMs = clip.timelineStartMs,
+                        endMs = clip.timelineStartMs + clip.timelineDurationMs,
+                        baseStartMs = clip.timelineStartMs
+                    )
                 }
 
                 for (mod in activeModifiers) {

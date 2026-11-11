@@ -758,6 +758,92 @@ object OverlayRenderer {
     }
 
     /**
+     * বিটম্যাপে মাস্ক প্রয়োগ করে (সার্কেল, রেক্ট্যাঙ্গেল, হার্ট, স্টার, লিনিয়ার, মিরর)
+     */
+    fun applyMaskToBitmap(bitmap: Bitmap, mask: MaskPropertiesSpec): Bitmap {
+        val w = bitmap.width.toFloat()
+        val h = bitmap.height.toFloat()
+        if (w <= 0f || h <= 0f) return bitmap
+
+        val output = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+
+        val maskPath = Path()
+        val cx = (mask.centerX * w).toFloat()
+        val cy = (mask.centerY * h).toFloat()
+        val mw = (mask.width * w).toFloat().coerceAtLeast(4f)
+        val mh = (mask.height * h).toFloat().coerceAtLeast(4f)
+        val type = mask.type.lowercase()
+
+        when (type) {
+            "circle" -> {
+                maskPath.addOval(RectF(cx - mw / 2f, cy - mh / 2f, cx + mw / 2f, cy + mh / 2f), Path.Direction.CW)
+            }
+            "heart" -> {
+                val r = RectF(cx - mw / 2f, cy - mh / 2f, cx + mw / 2f, cy + mh / 2f)
+                val top = r.top + r.height() * 0.3f
+                maskPath.moveTo(cx, r.bottom)
+                maskPath.cubicTo(r.left - r.width() * 0.1f, cy, r.left, top, cx - mw / 4f, r.top)
+                maskPath.cubicTo(cx - mw * 0.05f, r.top, cx, top, cx, top)
+                maskPath.cubicTo(cx, top, cx + mw * 0.05f, r.top, cx + mw / 4f, r.top)
+                maskPath.cubicTo(r.right, top, r.right + r.width() * 0.1f, cy, cx, r.bottom)
+                maskPath.close()
+            }
+            "star" -> {
+                val rx = mw / 2f
+                val ry = mh / 2f
+                for (i in 0 until 10) {
+                    val k = if (i % 2 == 0) 1.0f else 0.45f
+                    val a = -Math.PI / 2.0 + i * Math.PI / 5.0
+                    val ox = cx + (Math.cos(a) * rx * k).toFloat()
+                    val oy = cy + (Math.sin(a) * ry * k).toFloat()
+                    if (i == 0) maskPath.moveTo(ox, oy) else maskPath.lineTo(ox, oy)
+                }
+                maskPath.close()
+            }
+            "linear" -> {
+                maskPath.addRect(RectF(0f, 0f, w, cy), Path.Direction.CW)
+            }
+            "mirror" -> {
+                maskPath.addRect(RectF(0f, cy - mh / 2f, w, cy + mh / 2f), Path.Direction.CW)
+            }
+            else -> { // rectangle
+                val corner = (mask.cornerRadius * minOf(mw, mh) * 0.5f).toFloat()
+                maskPath.addRoundRect(
+                    RectF(cx - mw / 2f, cy - mh / 2f, cx + mw / 2f, cy + mh / 2f),
+                    corner, corner, Path.Direction.CW
+                )
+            }
+        }
+
+        if (mask.rotation != 0.0) {
+            val rotMatrix = Matrix().apply {
+                postRotate(mask.rotation.toFloat(), cx, cy)
+            }
+            maskPath.transform(rotMatrix)
+        }
+
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        if (mask.feather > 0.0) {
+            val featherPx = (mask.feather * (w / 100.0)).coerceAtLeast(1.0).toFloat()
+            paint.maskFilter = android.graphics.BlurMaskFilter(featherPx, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+
+        canvas.save()
+        if (mask.isInverted) {
+            val fullPath = Path().apply { addRect(RectF(0f, 0f, w, h), Path.Direction.CW) }
+            fullPath.op(maskPath, Path.Op.DIFFERENCE)
+            canvas.clipPath(fullPath)
+        } else {
+            canvas.clipPath(maskPath)
+        }
+        canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        canvas.restore()
+
+        return output
+    }
+
+    /**
      * ক্যানভাসে নির্দিষ্ট ওভারলে ক্লিপ আঁকে
      */
     fun drawOverlayClip(
@@ -1073,6 +1159,16 @@ else -> {
                     processedBmp = fxBmp
                 }
             }
+        }
+
+        // Apply mask if configured
+        val mask = clip.maskProperties
+        if (mask.type.isNotEmpty() && mask.type.lowercase() != "none") {
+            val maskedBmp = applyMaskToBitmap(processedBmp, mask)
+            if (maskedBmp != processedBmp && !processedBmp.isRecycled) {
+                processedBmp.recycle()
+            }
+            processedBmp = maskedBmp
         }
 
         val relTimeMs = timelineMs - clip.timelineStartMs

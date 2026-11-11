@@ -98,6 +98,19 @@ class _ElementsSheetState extends State<ElementsSheet> {
   _Asset? _flash; // tile that was just added (shows a check)
 
   @override
+  void initState() {
+    super.initState();
+    final editor = context.read<EditorController>();
+    for (final item in editor.project.customSvgElements) {
+      final name = item['name'] ?? 'Custom SVG';
+      final svg = item['svg'] ?? '';
+      if (svg.isNotEmpty) {
+        _mine.add(_Asset(name, svg));
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();

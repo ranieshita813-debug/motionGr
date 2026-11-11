@@ -140,7 +140,7 @@ void main() {
   });
 
   group('Multi-Layer Selection and Transport Bar Group Button Tests', () {
-    testWidgets('TransportBar displays Group button when 1+ layers are selected', (tester) async {
+    testWidgets('TransportBar displays More button and provides Group and Ungroup actions', (tester) async {
       final controller = EditorController();
       addTearDown(controller.dispose);
       final c1 = TimelineClip(
@@ -160,9 +160,6 @@ void main() {
       controller.addClip(c1);
       controller.addClip(c2);
 
-      // No clip selected initially
-      controller.clearSelection();
-
       await tester.pumpWidget(
         ChangeNotifierProvider<EditorController>.value(
           value: controller,
@@ -174,28 +171,41 @@ void main() {
         ),
       );
 
-      // No Group button when 0 layers selected
+      // Group button is removed from main TransportBar
       expect(find.byTooltip('Group'), findsNothing);
 
-      // Select 1 layer
-      controller.selectClip('c1');
-      await tester.pump();
-      expect(find.byTooltip('Group'), findsOneWidget);
+      // More button is present at the right
+      expect(find.byTooltip('More'), findsOneWidget);
 
       // Select multiple layers
       controller.setMultiSelectedClips(['c1', 'c2']);
       await tester.pump();
-      expect(find.byTooltip('Group'), findsOneWidget);
 
-      // Tap Group button
-      await tester.tap(find.byTooltip('Group'));
-      await tester.pump(const Duration(milliseconds: 700));
+      // Open More menu
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Group selected clips'), findsOneWidget);
+      await tester.tap(find.text('Group selected clips'));
+      await tester.pumpAndSettle();
 
       // Both clips should now have the same groupId assigned
       final group1 = controller.project.clips.firstWhere((c) => c.id == 'c1').groupId;
       final group2 = controller.project.clips.firstWhere((c) => c.id == 'c2').groupId;
       expect(group1, isNotNull);
       expect(group1, equals(group2));
+
+      // Now ungroup clips
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ungroup clips'), findsOneWidget);
+      await tester.tap(find.text('Ungroup clips'));
+      await tester.pumpAndSettle();
+
+      expect(controller.project.clips.firstWhere((c) => c.id == 'c1').groupId, isNull);
+      expect(controller.project.clips.firstWhere((c) => c.id == 'c2').groupId, isNull);
+
+      await tester.pump(const Duration(milliseconds: 700));
     });
   });
 }

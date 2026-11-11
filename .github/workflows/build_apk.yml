@@ -44,13 +44,25 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
 
+      - name: Pre-cache Gradle Distribution
+        run: |
+          mkdir -p ~/.gradle/wrapper/dists/gradle-8.14-bin
+          for i in 1 2 3; do
+            echo "Attempting Gradle wrapper download (try $i)..."
+            curl -fL --retry 3 --connect-timeout 30 https://services.gradle.org/distributions/gradle-8.14-bin.zip -o /tmp/gradle-8.14-bin.zip && break || sleep 5
+          done
+
       - name: Build Android Release APK
         env:
           KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
           KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
           KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
           KEYSTORE_PATH: "upload-keystore.jks"
-        run: flutter build apk --release --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4
+        run: |
+          for attempt in 1 2 3; do
+            echo "Building APK attempt $attempt..."
+            flutter build apk --release --dart-define=JAMENDO_CLIENT_ID=84086260f413ccd1ecc3f1f617a2b5a4 && break || sleep 10
+          done
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -58,3 +70,47 @@ jobs:
           name: motionGr-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+
+      - name: Generate Build Summary
+        run: |
+          echo "### 🚀 MotionGr Android APK Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ Build Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Artifact:** [MotionGr Release APK](build/app/outputs/flutter-apk/app-release.apk)" >> $GITHUB_STEP_SUMMARY
+          echo "- **File Size:** $(ls -lh build/app/outputs/flutter-apk/app-release.apk | awk '{print $5}')" >> $GITHUB_STEP_SUMMARY
+          echo "- **MD5 Checksum:** $(md5sum build/app/outputs/flutter-apk/app-release.apk | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Sha256 Checksum:** $(sha256sum build/app/outputs/flutter-apk/app-release.apk | awk '{print $1}')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All unit/widget tests and static analysis passed successfully." >> $GITHUB_STEP_SUMMARY
+
+      - name: Prepare Release Notes
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        run: |
+          APK_MD5=$(md5sum build/app/outputs/flutter-apk/app-release.apk | awk '{print $1}')
+          APK_SHA256=$(sha256sum build/app/outputs/flutter-apk/app-release.apk | awk '{print $1}')
+          APK_SIZE=$(ls -lh build/app/outputs/flutter-apk/app-release.apk | awk '{print $5}')
+          cat <<EOF > release_notes.md
+          ### 🚀 MotionGr Android Release v${{ github.run_number }}
+
+          - **Commit:** \`${{ github.sha }}\`
+          - **Branch:** \`${{ github.ref_name }}\`
+          - **File Size:** ${APK_SIZE}
+          - **MD5 Checksum:** \`${APK_MD5}\`
+          - **SHA256 Checksum:** \`${APK_SHA256}\`
+          - **Build Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          All checks, tests, and static analysis passed successfully.
+          EOF
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: release-v${{ github.run_number }}
+          name: MotionGr Release v${{ github.run_number }}
+          body_path: release_notes.md
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

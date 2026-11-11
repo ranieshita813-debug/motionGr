@@ -116,6 +116,7 @@ class _SpeedSheetState extends State<SpeedSheet> {
     _srcSeconds =
         clip == null ? 0 : clip.duration.inMilliseconds / 1000.0 * clip.speed;
     _initial = (widget.initial ??
+            clip?.speedSettings ??
             SpeedSettings(
               speed: ((clip?.speed ?? 1.0) as num)
                   .clamp(kMinSpeed, kMaxSpeed)
@@ -224,7 +225,7 @@ class _SpeedSheetState extends State<SpeedSheet> {
     }
     final EditorController c = context.read<EditorController>();
     final SpeedSettings result = _s.normalized();
-    c.updateSelectedClipSpeed(result.averageSpeed);
+    c.updateSelectedClipSpeed(result.averageSpeed, speedSettings: result);
     if (widget.onApply != null) {
       widget.onApply!(result);
     } else {

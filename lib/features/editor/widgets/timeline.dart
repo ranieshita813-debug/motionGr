@@ -110,6 +110,7 @@ class _ClipSnapshot {
     this.hasColorGrading = false,
     this.hasEffect = false,
     this.shaderEffectNames = const <String>[],
+    this.groupId,
   });
 
   final String id;
@@ -127,6 +128,7 @@ class _ClipSnapshot {
   final bool hasColorGrading;
   final bool hasEffect;
   final List<String> shaderEffectNames;
+  final String? groupId;
 
   double get startSec => startMs / 1000.0;
   double get endSec => endMs / 1000.0;
@@ -151,7 +153,7 @@ class _ClipSnapshot {
 
   @override
   int get hashCode => Object.hash(id, startMs, endMs, trimInMs, label, type, layer, locked,
-      visible, path, Object.hashAll(keyframes));
+      visible, path, groupId, Object.hashAll(keyframes));
 }
 
 bool _listEq<T>(List<T> a, List<T> b) {
@@ -195,6 +197,7 @@ class _TimelineModel {
                   c.colorGrading.tint != 0,
               hasEffect: c.effect != VideoEffect.none,
               shaderEffectNames: c.shaderEffects.where((s) => s.isEnabled).map((s) => s.name).toList(),
+              groupId: c.groupId,
             ),
         ],
         e.zoom,
@@ -459,7 +462,11 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     final captions = clips.where((c) => c.type == ClipType.caption).toList()
       ..sort((a, b) => a.startMs.compareTo(b.startMs));
 
-    final otherOverlays = clips.where((c) => _isOverlay(c) && c.type != ClipType.caption && c.layer > 0).toList();
+    // Extract grouped overlays (non-main, non-caption clips that have groupId)
+    final groupedOverlays = clips.where((c) => _isOverlay(c) && c.groupId != null).toList();
+    final groupIds = groupedOverlays.map((c) => c.groupId!).toSet().toList()..sort();
+
+    final otherOverlays = clips.where((c) => _isOverlay(c) && c.type != ClipType.caption && c.layer > 0 && c.groupId == null).toList();
     final layers = otherOverlays.map<int>((c) => c.layer).toSet().toList()..sort();
 
     // Collect distinct effect snapshots for Chroma Key, Adjustment, and Filter/Shader Effects
@@ -615,6 +622,19 @@ class _TimelineWidgetState extends State<TimelineWidget> {
     }
     if (effectClips.isNotEmpty) {
       overlayLanes.add(_Lane(_textH, _ClipKind.text, effectClips, name: 'Filter / Effect'));
+    }
+
+    // Group tracks
+    for (int gi = 0; gi < groupIds.length; gi++) {
+      final gId = groupIds[gi];
+      final gClips = groupedOverlays.where((c) => c.groupId == gId).toList()
+        ..sort((a, b) => a.startMs.compareTo(b.startMs));
+      overlayLanes.add(_Lane(
+        _textH,
+        _ClipKind.text,
+        gClips,
+        name: 'Group ${gi + 1}',
+      ));
     }
 
     for (final g in groups) {

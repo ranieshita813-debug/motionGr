@@ -9,6 +9,7 @@ import 'package:flutter_video_editor/core/logger/app_logger.dart';
 import 'package:flutter_video_editor/core/models/chroma_key.dart';
 import 'package:flutter_video_editor/core/models/face_tracking_model.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart' hide ExportSettings;
+import 'package:flutter_video_editor/core/models/speed_settings.dart';
 import 'package:flutter_video_editor/core/services/face_tracking_service.dart';
 import 'package:flutter_video_editor/core/models/shader_clip_model.dart';
 import 'package:flutter_video_editor/core/services/tracking/native_tracker.dart';
@@ -83,6 +84,27 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void ungroupSelectedClips() {
+    final ids = selectedClipIds;
+    if (ids.isEmpty) return;
+    _saveState();
+    final targetGroupIds = <String>{};
+    for (final c in _project.clips) {
+      if (ids.contains(c.id) && c.groupId != null) {
+        targetGroupIds.add(c.groupId!);
+      }
+    }
+
+    for (int i = 0; i < _project.clips.length; i++) {
+      final clip = _project.clips[i];
+      if (ids.contains(clip.id) || (clip.groupId != null && targetGroupIds.contains(clip.groupId))) {
+        _project.clips[i] = clip.copyWith(clearGroupId: true);
+      }
+    }
+    _autosave();
+    notifyListeners();
+  }
+
   void convertTextClipToSvg(String clipId) {
     final index = _project.clips.indexWhere((c) => c.id == clipId);
     if (index == -1) return;
@@ -109,7 +131,12 @@ class EditorController extends ChangeNotifier {
         'fill="$fillHex" stroke="$strokeHex" stroke-width="$strokeW">$text</text>'
         '</svg>';
 
-    addSvgElementClip(svgString, '${clip.label} (SVG)');
+    final String label = '${clip.label} (SVG)';
+    _project.customSvgElements.insert(0, {
+      'name': label,
+      'svg': svgString,
+    });
+    addSvgElementClip(svgString, label);
   }
 
   // Multi-clip selection & Grouping
@@ -430,7 +457,7 @@ class EditorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateSelectedClipSpeed(double speed) {
+  void updateSelectedClipSpeed(double speed, {SpeedSettings? speedSettings}) {
     if (_selectedClipId == null) return;
 
     final index = _project.clips.indexWhere(
@@ -449,6 +476,7 @@ class EditorController extends ChangeNotifier {
     _project.clips[index] = currentClip.copyWith(
       speed: newSpeed,
       end: newEnd,
+      speedSettings: speedSettings ?? currentClip.speedSettings,
       audioProperties: currentClip.audioProperties.copyWith(speed: newSpeed),
     );
     _autosave();

@@ -84,6 +84,32 @@ data class ElementPropertiesSpec(
     val svgPath: String? = null
 )
 
+data class MaskPropertiesSpec(
+    val type: String = "none",
+    val centerX: Double = 0.5,
+    val centerY: Double = 0.5,
+    val width: Double = 0.5,
+    val height: Double = 0.5,
+    val rotation: Double = 0.0,
+    val feather: Double = 0.0,
+    val cornerRadius: Double = 0.0,
+    val isInverted: Boolean = false
+)
+
+data class SpeedPointSpec(
+    val x: Double,
+    val speed: Double
+)
+
+data class SpeedSettingsSpec(
+    val mode: String = "normal",
+    val speed: Double = 1.0,
+    val points: List<SpeedPointSpec> = emptyList(),
+    val maintainPitch: Boolean = true,
+    val smoothSlowMotion: Boolean = false,
+    val reverse: Boolean = false
+)
+
 data class WordSpec(
     val word: String,
     val startMs: Long,
@@ -272,6 +298,8 @@ data class ClipSpec(
     val audioProperties: AudioPropertiesSpec,
     val chromaKey: ChromaKeySpec = ChromaKeySpec(),
     val elementProperties: ElementPropertiesSpec = ElementPropertiesSpec(),
+    val maskProperties: MaskPropertiesSpec = MaskPropertiesSpec(),
+    val speedSettings: SpeedSettingsSpec = SpeedSettingsSpec(),
     val effectParameters: Map<String, Double> = emptyMap(),
     val fontFamily: String,
     val textAnimationStyle: String,
@@ -387,6 +415,42 @@ object TimelineParser {
                     strokeWidth = elemObj.optDouble("strokeWidth", 2.0),
                     size = elemObj.optDouble("size", 100.0),
                     svgPath = if (elemObj.has("svgPath") && !elemObj.isNull("svgPath")) elemObj.getString("svgPath") else null
+                )
+
+                val maskObj = clipObj.optJSONObject("maskProperties") ?: JSONObject()
+                val maskProperties = MaskPropertiesSpec(
+                    type = maskObj.optString("type", "none"),
+                    centerX = maskObj.optDouble("centerX", maskObj.optDouble("positionX", 0.5)),
+                    centerY = maskObj.optDouble("centerY", maskObj.optDouble("positionY", 0.5)),
+                    width = maskObj.optDouble("width", 0.5),
+                    height = maskObj.optDouble("height", 0.5),
+                    rotation = maskObj.optDouble("rotation", 0.0),
+                    feather = maskObj.optDouble("feather", 0.0),
+                    cornerRadius = maskObj.optDouble("cornerRadius", 0.0),
+                    isInverted = maskObj.optBoolean("isInverted", maskObj.optBoolean("invert", false))
+                )
+
+                val speedObj = clipObj.optJSONObject("speedSettings") ?: JSONObject()
+                val speedPointsList = mutableListOf<SpeedPointSpec>()
+                val pointsArr = speedObj.optJSONArray("points")
+                if (pointsArr != null) {
+                    for (pi in 0 until pointsArr.length()) {
+                        val pObj = pointsArr.getJSONObject(pi)
+                        speedPointsList.add(
+                            SpeedPointSpec(
+                                x = pObj.optDouble("x", 0.0),
+                                speed = pObj.optDouble("speed", 1.0)
+                            )
+                        )
+                    }
+                }
+                val speedSettings = SpeedSettingsSpec(
+                    mode = speedObj.optString("mode", "normal"),
+                    speed = speedObj.optDouble("speed", clipObj.optDouble("speed", 1.0)),
+                    points = speedPointsList,
+                    maintainPitch = speedObj.optBoolean("maintainPitch", true),
+                    smoothSlowMotion = speedObj.optBoolean("smoothSlowMotion", false),
+                    reverse = speedObj.optBoolean("reverse", false)
                 )
 
                 val effParamsObj = clipObj.optJSONObject("effectParameters")
@@ -512,6 +576,8 @@ object TimelineParser {
                         audioProperties = audioProperties,
                         chromaKey = chromaKey,
                         elementProperties = elementProperties,
+                        maskProperties = maskProperties,
+                        speedSettings = speedSettings,
                         effectParameters = effectParameters,
                         fontFamily = clipObj.optString("fontFamily", "Poppins"),
                         textAnimationStyle = clipObj.optString("textAnimationStyle", "none"),
