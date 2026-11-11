@@ -1,6 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
+import 'package:flutter_video_editor/core/services/project_storage_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +66,86 @@ void main() {
       expect(restoredClip.colorGrading.brightness, equals(0.1));
       expect(restored.captions.length, equals(1));
       expect(restored.captions.first.text, equals('Hello World'));
+    });
+
+    test('.mgr bundle creates zip archive containing project.json and media assets', () async {
+      // Create temporary mock asset files
+      final tempDir = Directory.systemTemp.createTempSync('mgr_test_assets_');
+      final videoFile = File('${tempDir.path}/sample_video.mp4');
+      await videoFile.writeAsBytes(Uint8List.fromList([1, 2, 3, 4, 5]));
+
+      final stickerFile = File('${tempDir.path}/sample_sticker.png');
+      await stickerFile.writeAsBytes(Uint8List.fromList([10, 20, 30]));
+
+      final project = Project(
+        id: 'proj_bundle_1',
+        name: 'Bundle Test Project',
+        clips: [
+          TimelineClip(
+            id: 'c_vid',
+            label: 'Video',
+            clipType: ClipType.video,
+            sourcePath: videoFile.path,
+            start: Duration.zero,
+            end: const Duration(seconds: 10),
+          ),
+          TimelineClip(
+            id: 'c_stk',
+            label: 'Sticker',
+            clipType: ClipType.sticker,
+            stickerAssetPath: stickerFile.path,
+            start: Duration.zero,
+            end: const Duration(seconds: 5),
+          ),
+        ],
+      );
+
+      final bundleBytes = await ProjectStorageService.instance.createMgrBundle(project);
+      expect(bundleBytes.isNotEmpty, isTrue);
+
+      // Verify zip archive contents
+      final archive = ZipDecoder().decodeBytes(bundleBytes);
+      final fileNames = archive.files.map((f) => f.name).toList();
+
+      expect(fileNames, contains('project.json'));
+      expect(fileNames.any((name) => name.startsWith('assets/clip_c_vid')), isTrue);
+      expect(fileNames.any((name) => name.startsWith('assets/sticker_c_stk')), isTrue);
+
+      // Verify extracting bundle unpacks assets and remaps paths
+      final extractTargetDir = Directory('${tempDir.path}/extracted');
+      final extractedProject = await ProjectStorageService.instance.extractMgrBundle(
+        bundleBytes,
+        targetDir: extractTargetDir.path,
+      );
+
+      expect(extractedProject.id, equals('proj_bundle_1'));
+      expect(extractedProject.clips.length, equals(2));
+
+      final extractedVid = extractedProject.clips.firstWhere((c) => c.id == 'c_vid');
+      expect(extractedVid.sourcePath, isNotNull);
+      expect(File(extractedVid.sourcePath!).existsSync(), isTrue);
+      expect(await File(extractedVid.sourcePath!).readAsBytes(), equals([1, 2, 3, 4, 5]));
+
+      final extractedStk = extractedProject.clips.firstWhere((c) => c.id == 'c_stk');
+      expect(extractedStk.stickerAssetPath, isNotNull);
+      expect(File(extractedStk.stickerAssetPath!).existsSync(), isTrue);
+      expect(await File(extractedStk.stickerAssetPath!).readAsBytes(), equals([10, 20, 30]));
+
+      tempDir.deleteSync(recursive: true);
+    });
+
+    test('.mgr fallback extracts plain JSON string content seamlessly', () async {
+      final project = Project(
+        id: 'proj_json_legacy',
+        name: 'Legacy Project',
+      );
+
+      final jsonStr = ProjectStorageService.instance.serializeProject(project);
+      final bytes = Uint8List.fromList(jsonStr.codeUnits);
+
+      final extracted = await ProjectStorageService.instance.extractMgrBundle(bytes);
+      expect(extracted.id, equals('proj_json_legacy'));
+      expect(extracted.name, equals('Legacy Project'));
     });
   });
 }

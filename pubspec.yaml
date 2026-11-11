@@ -28,6 +28,7 @@ dependencies:
   video_player: ^2.8.2
   phosphor_icons: ^3.0.1
   just_audio: ^0.9.40
+  archive: ^4.6.0
 
 dev_dependencies:
   flutter_test:
@@ -46,6 +47,10 @@ flutter:
     - assets/svg/
     - asset/
     - asset/svg/
+    - assets/logos/
+    - assets/logos/logo.svg
+    - assets/logos/ic_launcher-512.png
+    - assets/logos/ic_launcher-1024.png
     - assets/logo.svg
     - assets/logo_black.svg
     - assets/logo_white.svg

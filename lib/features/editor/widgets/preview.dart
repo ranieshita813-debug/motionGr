@@ -1472,8 +1472,12 @@ class _PreviewCanvasState extends State<PreviewCanvas> {
                                 child: Opacity(
                                   opacity: 0.85,
                                   child: SvgPicture.asset(
-                                    'assets/logo_white.svg',
+                                    'assets/logos/logo.svg',
                                     height: 32 * unit,
+                                    colorFilter: const ColorFilter.mode(
+                                      Colors.white,
+                                      BlendMode.srcIn,
+                                    ),
                                   ),
                                 ),
                               ),
