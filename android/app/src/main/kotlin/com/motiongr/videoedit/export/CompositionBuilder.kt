@@ -527,9 +527,11 @@ object CompositionBuilder {
                 }
             }
 
-            if (!isCard && clip.scale > 0.0 && (clip.scale != 1.0 || clip.rotation != 0.0)) {
+            val camZoom = clip.cameraProperties.zoom.coerceIn(0.1, 10.0)
+            val effectiveScale = clip.scale * camZoom
+            if (!isCard && effectiveScale > 0.0 && (effectiveScale != 1.0 || clip.rotation != 0.0)) {
                 videoEffects += ScaleAndRotateTransformation.Builder()
-                    .setScale(clip.scale.toFloat(), clip.scale.toFloat())
+                    .setScale(effectiveScale.toFloat(), effectiveScale.toFloat())
                     .setRotationDegrees(clip.rotation.toFloat())
                     .build()
             }

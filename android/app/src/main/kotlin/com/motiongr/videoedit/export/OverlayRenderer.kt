@@ -398,6 +398,89 @@ object OverlayRenderer {
     }
 
     /**
+     * বিটম্যাপে মাস্ক প্রয়োগ করে
+     */
+    fun applyMask(
+        bitmap: Bitmap,
+        mask: MaskSpec
+    ): Bitmap {
+        if (mask.type.lowercase() == "none") return bitmap
+        val w = bitmap.width
+        val h = bitmap.height
+        if (w <= 0 || h <= 0) return bitmap
+
+        val maskBmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val maskCanvas = Canvas(maskBmp)
+        val maskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.FILL
+            if (mask.feather > 0.0) {
+                val featherPx = (mask.feather * (w / 100.0)).coerceAtLeast(1.0).toFloat()
+                maskFilter = BlurMaskFilter(featherPx, BlurMaskFilter.Blur.NORMAL)
+            }
+        }
+
+        val cx = (w * 0.5f) + (mask.positionX.toFloat() * (w / 100f))
+        val cy = (h * 0.5f) + (mask.positionY.toFloat() * (h / 100f))
+        val mw = (w * (mask.width / 100.0).toFloat()).coerceAtLeast(4f)
+        val mh = (h * (mask.height / 100.0).toFloat()).coerceAtLeast(4f)
+
+        maskCanvas.save()
+        if (mask.rotation != 0.0) {
+            maskCanvas.rotate(mask.rotation.toFloat(), cx, cy)
+        }
+
+        when (mask.type.lowercase()) {
+            "circle" -> {
+                maskCanvas.drawOval(RectF(cx - mw / 2f, cy - mh / 2f, cx + mw / 2f, cy + mh / 2f), maskPaint)
+            }
+            "star" -> {
+                val path = Path()
+                val outer = mw / 2f
+                val inner = outer * 0.4f
+                for (i in 0 until 10) {
+                    val r = if (i % 2 == 0) outer else inner
+                    val angle = i * Math.PI / 5 - Math.PI / 2
+                    val px = (cx + r * Math.cos(angle)).toFloat()
+                    val py = (cy + r * Math.sin(angle)).toFloat()
+                    if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                }
+                path.close()
+                maskCanvas.drawPath(path, maskPaint)
+            }
+            "linear" -> {
+                maskCanvas.drawRect(RectF(0f, 0f, w.toFloat(), cy), maskPaint)
+            }
+            "mirror" -> {
+                maskCanvas.drawRect(RectF(0f, cy - mh / 2f, w.toFloat(), cy + mh / 2f), maskPaint)
+            }
+            else -> { // rectangle
+                maskCanvas.drawRect(RectF(cx - mw / 2f, cy - mh / 2f, cx + mw / 2f, cy + mh / 2f), maskPaint)
+            }
+        }
+        maskCanvas.restore()
+
+        val output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(output)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        if (mask.isInverted) {
+            // Draw original bitmap, then clear masked area with DST_OUT
+            canvas.drawBitmap(bitmap, 0f, 0f, paint)
+            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_OUT)
+            canvas.drawBitmap(maskBmp, 0f, 0f, paint)
+        } else {
+            // Draw mask then keep intersecting area with SRC_IN
+            canvas.drawBitmap(maskBmp, 0f, 0f, paint)
+            paint.xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN)
+            canvas.drawBitmap(bitmap, 0f, 0f, paint)
+        }
+
+        maskBmp.recycle()
+        return output
+    }
+
+    /**
      * বিটম্যাপে ক্রুমা কী ফিল্টারিং প্রয়োগ করে
      */
     fun applyChromaKey(
@@ -1075,12 +1158,42 @@ else -> {
             }
         }
 
+        if (clip.maskProperties.type.lowercase() != "none") {
+            val masked = applyMask(processedBmp, clip.maskProperties)
+            if (masked != processedBmp && !processedBmp.isRecycled) {
+                processedBmp.recycle()
+            }
+            processedBmp = masked
+        }
+
         val relTimeMs = timelineMs - clip.timelineStartMs
         val posX = getInterpolatedKeyframeValue(clip, "positionX", relTimeMs, clip.positionX)
         val posY = getInterpolatedKeyframeValue(clip, "positionY", relTimeMs, clip.positionY)
-        val rot = getInterpolatedKeyframeValue(clip, "rotation", relTimeMs, clip.rotation)
+        var rot = getInterpolatedKeyframeValue(clip, "rotation", relTimeMs, clip.rotation)
         val opacity = getInterpolatedKeyframeValue(clip, "opacity", relTimeMs, clip.opacity)
-        val scaleKf = getInterpolatedKeyframeValue(clip, "scale", relTimeMs, clip.scale)
+        var scaleKf = getInterpolatedKeyframeValue(clip, "scale", relTimeMs, clip.scale)
+
+        // Loop animations (bounce, spin, etc.)
+        if (clip.loopAnimation != "none" && clip.timelineDurationMs > 0) {
+            val progress = (relTimeMs % 2000L) / 2000.0
+            when (clip.loopAnimation.lowercase()) {
+                "spin" -> {
+                    rot += progress * 360.0
+                }
+                "bounce" -> {
+                    val bounceT = kotlin.math.sin(progress * Math.PI * 2.0)
+                    scaleKf *= (1.0 + 0.15 * bounceT)
+                }
+                "pulse" -> {
+                    val pulseT = kotlin.math.sin(progress * Math.PI * 2.0)
+                    scaleKf *= (1.0 + 0.08 * pulseT)
+                }
+                "shake" -> {
+                    val shakeT = kotlin.math.sin(progress * Math.PI * 8.0)
+                    rot += shakeT * 4.0
+                }
+            }
+        }
 
         // Check for cancellation before drawing
         if (cancellationToken?.isCancelled == true) {
@@ -1093,13 +1206,19 @@ else -> {
         val bmpW = processedBmp.width.toFloat()
         val bmpH = processedBmp.height.toFloat()
 
-        if (clip.scale > 0 && scaleKf != clip.scale) {
-            val scaleFactor = (scaleKf / clip.scale).toFloat()
-            matrix.postScale(scaleFactor, scaleFactor, bmpW / 2f, bmpH / 2f)
+        val pivotX = (bmpW * clip.anchorX).toFloat()
+        val pivotY = (bmpH * clip.anchorY).toFloat()
+
+        val camZoom = clip.cameraProperties.zoom.coerceIn(0.1, 10.0)
+        val effectiveScaleKf = scaleKf * camZoom
+
+        if (clip.scale > 0 && effectiveScaleKf != clip.scale) {
+            val scaleFactor = (effectiveScaleKf / clip.scale).toFloat()
+            matrix.postScale(scaleFactor, scaleFactor, pivotX, pivotY)
         }
 
         if (rot != 0.0) {
-            matrix.postRotate(rot.toFloat(), bmpW / 2f, bmpH / 2f)
+            matrix.postRotate(rot.toFloat(), pivotX, pivotY)
         }
 
         val posXWithPadding = (posX + 6) * u

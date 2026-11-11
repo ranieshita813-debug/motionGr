@@ -84,6 +84,24 @@ data class ElementPropertiesSpec(
     val svgPath: String? = null
 )
 
+data class MaskSpec(
+    val type: String = "none",
+    val positionX: Double = 0.0,
+    val positionY: Double = 0.0,
+    val width: Double = 100.0,
+    val height: Double = 100.0,
+    val rotation: Double = 0.0,
+    val feather: Double = 0.0,
+    val isInverted: Boolean = false
+)
+
+data class CameraPropertiesSpec(
+    val focalLength: Double = 35.0,
+    val sensorSize: Double = 35.0,
+    val zoom: Double = 1.0,
+    val shakeIntensity: Double = 0.0
+)
+
 data class WordSpec(
     val word: String,
     val startMs: Long,
@@ -268,16 +286,21 @@ data class ClipSpec(
     val rotation: Double,
     val positionX: Double,
     val positionY: Double,
+    val anchorX: Double = 0.5,
+    val anchorY: Double = 0.5,
     val colorGrading: ColorGradingSpec,
     val audioProperties: AudioPropertiesSpec,
     val chromaKey: ChromaKeySpec = ChromaKeySpec(),
     val elementProperties: ElementPropertiesSpec = ElementPropertiesSpec(),
+    val cameraProperties: CameraPropertiesSpec = CameraPropertiesSpec(),
+    val maskProperties: MaskSpec = MaskSpec(),
     val effectParameters: Map<String, Double> = emptyMap(),
     val fontFamily: String,
     val textAnimationStyle: String,
     val textStyle: TextStyleSpec,
     val inAnimation: String,
     val outAnimation: String,
+    val loopAnimation: String = "none",
     val transitionType: String = "none",
     val transitionDurationMs: Long = 500L,
     val strokes: List<DrawingStrokeSpec>,
@@ -387,6 +410,26 @@ object TimelineParser {
                     strokeWidth = elemObj.optDouble("strokeWidth", 2.0),
                     size = elemObj.optDouble("size", 100.0),
                     svgPath = if (elemObj.has("svgPath") && !elemObj.isNull("svgPath")) elemObj.getString("svgPath") else null
+                )
+
+                val camObj = clipObj.optJSONObject("cameraProperties") ?: JSONObject()
+                val cameraProperties = CameraPropertiesSpec(
+                    focalLength = camObj.optDouble("focalLength", 35.0),
+                    sensorSize = camObj.optDouble("sensorSize", 35.0),
+                    zoom = camObj.optDouble("zoom", 1.0),
+                    shakeIntensity = camObj.optDouble("shakeIntensity", 0.0)
+                )
+
+                val maskObj = clipObj.optJSONObject("maskProperties") ?: JSONObject()
+                val maskProperties = MaskSpec(
+                    type = maskObj.optString("type", "none"),
+                    positionX = maskObj.optDouble("positionX", 0.0),
+                    positionY = maskObj.optDouble("positionY", 0.0),
+                    width = maskObj.optDouble("width", 100.0),
+                    height = maskObj.optDouble("height", 100.0),
+                    rotation = maskObj.optDouble("rotation", 0.0),
+                    feather = maskObj.optDouble("feather", 0.0),
+                    isInverted = maskObj.optBoolean("isInverted", false)
                 )
 
                 val effParamsObj = clipObj.optJSONObject("effectParameters")
@@ -508,16 +551,21 @@ object TimelineParser {
                         rotation = clipObj.optDouble("rotation", 0.0),
                         positionX = clipObj.optDouble("positionX", 0.0),
                         positionY = clipObj.optDouble("positionY", 0.0),
+                        anchorX = clipObj.optDouble("anchorX", 0.5),
+                        anchorY = clipObj.optDouble("anchorY", 0.5),
                         colorGrading = colorGrading,
                         audioProperties = audioProperties,
                         chromaKey = chromaKey,
                         elementProperties = elementProperties,
+                        cameraProperties = cameraProperties,
+                        maskProperties = maskProperties,
                         effectParameters = effectParameters,
                         fontFamily = clipObj.optString("fontFamily", "Poppins"),
                         textAnimationStyle = clipObj.optString("textAnimationStyle", "none"),
                         textStyle = textStyle,
                         inAnimation = clipObj.optString("inAnimation", "none"),
                         outAnimation = clipObj.optString("outAnimation", "none"),
+                        loopAnimation = clipObj.optString("loopAnimation", "none"),
                         transitionType = clipObj.optString("transitionType", "none"),
                         transitionDurationMs = clipObj.optLong("transitionDurationMs", 500L),
                         strokes = strokes,
