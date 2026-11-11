@@ -220,11 +220,13 @@ class _EffectsSheetState extends State<EffectsSheet> {
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
                 final fx = appliedShaderEffects[i];
-                return EffectTimelineChip(
+                return EffectTimelineChip.reorderable(
                   effectClip: fx,
                   isSelected: true,
                   onToggleEnabled: () => editor.toggleShaderEffectEnabled(fx.id),
                   onRemove: () => editor.removeShaderEffectFromSelectedClip(fx.id),
+                  onMoveLeft: i > 0 ? () => editor.moveShaderEffect(fx.id, forward: false) : null,
+                  onMoveRight: i < appliedShaderEffects.length - 1 ? () => editor.moveShaderEffect(fx.id, forward: true) : null,
                   onTap: () => _openEffectsLibrary(context, editor),
                 );
               },

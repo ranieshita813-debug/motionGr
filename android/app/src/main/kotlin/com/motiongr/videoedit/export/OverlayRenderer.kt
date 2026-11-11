@@ -509,8 +509,8 @@ object OverlayRenderer {
             }
         }
 
-        val params = ColorGradingMath.computeParams(cg)
-        return ColorGradingMath.applyToBitmap(bitmap, params)
+        val grade = cg.toGrade()
+        return ColorGradingMath.applyToBitmap(bitmap, grade)
     }
 
     private fun applyBoxBlur(bitmap: Bitmap, blurRadius: Float): Bitmap {

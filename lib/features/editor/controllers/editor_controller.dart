@@ -444,13 +444,34 @@ class EditorController extends ChangeNotifier {
 
     final double sourceDurationMs = currentClip.duration.inMilliseconds * currentClip.speed;
     final int newDurationMs = (sourceDurationMs / newSpeed).round().clamp(200, 86400000);
+    final Duration oldEnd = currentClip.end;
     final Duration newEnd = currentClip.start + Duration(milliseconds: newDurationMs);
+    final Duration delta = newEnd - oldEnd;
 
     _project.clips[index] = currentClip.copyWith(
       speed: newSpeed,
       end: newEnd,
       audioProperties: currentClip.audioProperties.copyWith(speed: newSpeed),
     );
+
+    // Ripple shift subsequent clips on the same track or linked modifiers to prevent overlap
+    if (delta != Duration.zero) {
+      for (int i = 0; i < _project.clips.length; i++) {
+        if (i == index) continue;
+        final clip = _project.clips[i];
+        final bool sameTrack = clip.layerIndex == currentClip.layerIndex &&
+            clip.clipType == currentClip.clipType;
+        final bool isLinkedModifier = clip.isModifier && clip.start >= oldEnd;
+        if ((sameTrack && clip.start >= oldEnd) || isLinkedModifier) {
+          final Duration shiftedStart = clip.start + delta >= currentClip.start
+              ? clip.start + delta
+              : currentClip.start;
+          final Duration shiftedEnd = shiftedStart + clip.duration;
+          _project.clips[i] = clip.copyWith(start: shiftedStart, end: shiftedEnd);
+        }
+      }
+    }
+
     _autosave();
     notifyListeners();
   }
@@ -540,6 +561,50 @@ class EditorController extends ChangeNotifier {
         ..removeWhere((e) => e.id == shaderEffectId);
       _project.clips[index] = targetClip.copyWith(shaderEffects: updatedList);
     }
+    _autosave();
+    notifyListeners();
+  }
+
+  void moveShaderEffect(String shaderEffectId, {required bool forward}) {
+    if (_selectedClipId == null) return;
+    final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
+    if (index == -1) return;
+
+    final targetClip = _project.clips[index];
+    final list = List<ShaderEffectClip>.from(targetClip.shaderEffects);
+    final i = list.indexWhere((e) => e.id == shaderEffectId);
+    if (i == -1) return;
+
+    final int targetIdx = forward ? i + 1 : i - 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    _saveState();
+    final item = list.removeAt(i);
+    list.insert(targetIdx, item);
+
+    _project.clips[index] = targetClip.copyWith(shaderEffects: list);
+    _autosave();
+    notifyListeners();
+  }
+
+  void reorderShaderEffects(int oldIndex, int newIndex) {
+    if (_selectedClipId == null) return;
+    final index = _project.clips.indexWhere((c) => c.id == _selectedClipId);
+    if (index == -1) return;
+
+    final targetClip = _project.clips[index];
+    final list = List<ShaderEffectClip>.from(targetClip.shaderEffects);
+    if (oldIndex < 0 || oldIndex >= list.length) return;
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    if (newIndex < 0 || newIndex >= list.length) return;
+
+    _saveState();
+    final item = list.removeAt(oldIndex);
+    list.insert(newIndex, item);
+
+    _project.clips[index] = targetClip.copyWith(shaderEffects: list);
     _autosave();
     notifyListeners();
   }

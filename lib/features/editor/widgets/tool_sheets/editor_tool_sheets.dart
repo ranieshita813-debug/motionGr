@@ -1117,114 +1117,129 @@ class _TextAnimationSheetState extends State<TextAnimationSheet> with SingleTick
     final bool editing = selectedClip?.clipType == ClipType.text;
     const styles = TextAnimationStyle.values;
 
-    return Column(
-      children: <Widget>[
-        _Tabs(
-          labels: const <String>['Font', 'Animation'],
-          index: _tab,
-          onChanged: (i) => setState(() => _tab = i),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(_pad, 14, _pad, 8),
-          child: TextField(
-            controller: _ctrl,
-            minLines: 3,
-            maxLines: 5,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            onChanged: (val) {
-              final String text = val.trim().isEmpty ? 'Text' : val;
-              if (editing) {
-                editor.updateSelectedTextProperties(
-                    text: text, fontFamily: _selectedFont, textAnimationStyle: _anim);
-              } else {
-                editor.addTextOverlay(text, fontFamily: _selectedFont, animationStyle: _anim);
-              }
-            },
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: 'Type text here…',
-              hintStyle: const TextStyle(color: mutedToken),
-              filled: true,
-              fillColor: cardToken,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-              suffixIcon: IconButton(
-                tooltip: 'Clear text',
-                icon: const Icon(PhosphorIconsRegular.xCircle, color: mutedToken, size: 18),
-                onPressed: () {
-                  _ctrl.clear();
+    return Container(
+      color: bgToken,
+      child: Column(
+        children: <Widget>[
+          _Tabs(
+            labels: const <String>['Font', 'Animation'],
+            index: _tab,
+            onChanged: (i) => setState(() => _tab = i),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(_pad, 12, _pad, 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: cardToken,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: dividerToken),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: TextField(
+                controller: _ctrl,
+                minLines: 2,
+                maxLines: 4,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: 'Fredoka',
+                ),
+                onChanged: (val) {
+                  final String text = val.trim().isEmpty ? 'Text' : val;
                   if (editing) {
                     editor.updateSelectedTextProperties(
-                        text: 'Text', fontFamily: _selectedFont, textAnimationStyle: _anim);
+                        text: text, fontFamily: _selectedFont, textAnimationStyle: _anim);
+                  } else {
+                    editor.addTextOverlay(text, fontFamily: _selectedFont, animationStyle: _anim);
                   }
                 },
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'Type text here…',
+                  hintStyle: const TextStyle(color: mutedToken, fontFamily: 'Fredoka'),
+                  filled: false,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  suffixIcon: IconButton(
+                    tooltip: 'Clear text',
+                    icon: const Icon(PhosphorIconsRegular.xCircle, color: mutedToken, size: 18),
+                    onPressed: () {
+                      _ctrl.clear();
+                      if (editing) {
+                        editor.updateSelectedTextProperties(
+                            text: 'Text', fontFamily: _selectedFont, textAnimationStyle: _anim);
+                      }
+                    },
+                  ),
+                  border: InputBorder.none,
+                ),
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             ),
           ),
-        ),
-        Expanded(
-          child: _tab == 0
-              ? _ResponsiveGrid(
-                  key: const ValueKey<String>('fonts'),
-                  itemCount: _fonts.length,
-                  minTile: 110,
-                  aspect: 2.2,
-                  itemBuilder: (context, i) {
-                    final font = _fonts[i];
-                    final bool selected = font == _selectedFont;
-                    return _tile(
-                      selected: selected,
-                      onTap: () {
-                        setState(() => _selectedFont = font);
-                        if (editing) {
-                          editor.updateSelectedTextProperties(
-                            text: _ctrl.text.trim().isEmpty ? 'Text' : _ctrl.text,
+          Expanded(
+            child: _tab == 0
+                ? _ResponsiveGrid(
+                    key: const ValueKey<String>('fonts'),
+                    itemCount: _fonts.length,
+                    minTile: 110,
+                    aspect: 2.2,
+                    itemBuilder: (context, i) {
+                      final font = _fonts[i];
+                      final bool selected = font == _selectedFont;
+                      return _tile(
+                        selected: selected,
+                        onTap: () {
+                          tapFeedback();
+                          setState(() => _selectedFont = font);
+                          if (editing) {
+                            editor.updateSelectedTextProperties(
+                              text: _ctrl.text.trim().isEmpty ? 'Text' : _ctrl.text,
+                              fontFamily: font,
+                              textAnimationStyle: _anim,
+                            );
+                          }
+                        },
+                        child: Text(
+                          font,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
                             fontFamily: font,
-                            textAnimationStyle: _anim,
-                          );
-                        }
-                      },
-                      child: Text(
-                        font,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: font,
-                          color: selected ? accentToken : Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                            color: selected ? accentToken : Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                )
-              : _ResponsiveGrid(
-                  key: const ValueKey<String>('animations'),
-                  itemCount: styles.length,
-                  minTile: 100,
-                  aspect: 0.85,
-                  itemBuilder: (context, i) {
-                    final style = styles[i];
-                    return _AnimatedTextTile(
-                      style: style,
-                      selected: style == _anim,
-                      animation: _pulse,
-                      onTap: () {
-                        tapFeedback();
-                        setState(() => _anim = style);
-                        if (editing) {
-                          editor.updateSelectedTextProperties(
-                            text: _ctrl.text.trim().isEmpty ? 'Text' : _ctrl.text,
-                            fontFamily: _selectedFont,
-                            textAnimationStyle: style,
-                          );
-                        }
-                      },
-                    );
-                  },
-                ),
-        ),
-      ],
+                      );
+                    },
+                  )
+                : _ResponsiveGrid(
+                    key: const ValueKey<String>('animations'),
+                    itemCount: styles.length,
+                    minTile: 100,
+                    aspect: 0.85,
+                    itemBuilder: (context, i) {
+                      final style = styles[i];
+                      return _AnimatedTextTile(
+                        style: style,
+                        selected: style == _anim,
+                        animation: _pulse,
+                        onTap: () {
+                          tapFeedback();
+                          setState(() => _anim = style);
+                          if (editing) {
+                            editor.updateSelectedTextProperties(
+                              text: _ctrl.text.trim().isEmpty ? 'Text' : _ctrl.text,
+                              fontFamily: _selectedFont,
+                              textAnimationStyle: style,
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

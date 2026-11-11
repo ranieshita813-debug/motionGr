@@ -1261,18 +1261,35 @@ class _ClipBlockState extends State<_ClipBlock> {
   double _originStart = 0;
   double _rawEdge = 0; // un-snapped edge accumulated during a trim drag
   double _kfRawMs = 0; // un-rounded keyframe time accumulated during a drag
+  double _lastTriggeredY = 0;
 
   void _startMove() {
     widget.editor.selectClip(widget.clip.id);
     _originStart = widget.clip.startSec;
+    _lastTriggeredY = 0;
   }
 
-  void _updateMove(double deltaX) {
+  void _updateMove(double deltaX, [double deltaY = 0]) {
     final double s = widget.moveClamp(_originStart + deltaX / widget.pps);
     widget.editor.trimSelectedClip(
       Duration(milliseconds: (s * 1000).round()),
       Duration(milliseconds: ((s + widget.clip.durSec) * 1000).round()),
     );
+
+    // Discrete step-based vertical drag threshold to shift layer up or down
+    const double layerThreshold = 36.0;
+    final double diffY = deltaY - _lastTriggeredY;
+    if (diffY <= -layerThreshold) {
+      if (widget.editor.canMoveClipLayer(widget.clip.id, up: true)) {
+        widget.editor.moveClipLayer(widget.clip.id, up: true);
+        _lastTriggeredY = deltaY;
+      }
+    } else if (diffY >= layerThreshold) {
+      if (widget.editor.canMoveClipLayer(widget.clip.id, up: false)) {
+        widget.editor.moveClipLayer(widget.clip.id, up: false);
+        _lastTriggeredY = deltaY;
+      }
+    }
   }
 
   // ---- Colours ------------------------------------------------------------
@@ -1721,7 +1738,7 @@ class _ClipBlockState extends State<_ClipBlock> {
                   }
                 : null,
             onLongPressMoveUpdate:
-                canMove ? (d) => _updateMove(d.offsetFromOrigin.dx) : null,
+                canMove ? (d) => _updateMove(d.offsetFromOrigin.dx, d.offsetFromOrigin.dy) : null,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 150),
               opacity: clip.visible ? 1 : 0.35,
