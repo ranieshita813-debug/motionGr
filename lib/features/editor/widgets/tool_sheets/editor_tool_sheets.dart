@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/core/plugins/plugin_manager.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
+import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
 export 'effects_sheet.dart';
 export 'keyframes_sheet.dart';
@@ -17,17 +18,13 @@ export 'mask.dart';
 // ============================================================================
 // Design notes
 // ----------------------------------------------------------------------------
-// CapCut-style docked panels:
-//   - ✕ title ✓ header (48 px, hairline divider)
-//   - underline tabs (white indicator, no pills)
-//   - thumbnail tiles with a rounded accent border + check badge
-//   - "parameter strip" (icon circle + label) driving ONE large slider, the
-//     way CapCut's Adjust panel works, instead of a stack of sliders
-//   - thin slider, white thumb, value shown in a small pill
-// Premiere-style tabular figures are kept for every numeric readout.
-//
-// Colors come from the tokens in editor_helpers.dart: surfaceToken, cardToken,
-// accentToken, mutedToken, dividerToken.
+// Matches the captions sheet:
+//   - monochrome: EditorTokens.bg / elevated / text / muted / border
+//   - Fredoka everywhere
+//   - 46 px bars with a 0.5 px hairline divider
+//   - tabs: label + small animated underline (no pills)
+//   - rows / tiles: elevated, radius 8, white 1.5 px border when selected
+//   - scale-down press feedback, outlined buttons, floating toasts
 //
 // Sheets are content only. To get the ✕ / ✓ header, wrap one in
 // [ToolSheetFrame] from the host that shows it:
@@ -37,9 +34,22 @@ export 'mask.dart';
 // The frame needs a bounded height from its parent.
 // ============================================================================
 
-const Color _canvasDark = Color(0xFF0C1014);
-const Color _pillBg = Color(0x1FFFFFFF);
+const String _font = 'Fredoka';
 const double _pad = 16;
+const double _radius = 8;
+const Color _pillBg = Color(0x1FFFFFFF);
+
+const BorderSide _hairline = BorderSide(color: EditorTokens.border, width: 0.5);
+
+void _toast(BuildContext context, String msg) {
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(msg, style: const TextStyle(fontFamily: _font)),
+      duration: const Duration(seconds: 2),
+      behavior: SnackBarBehavior.floating,
+    ));
+}
 
 // ----------------------------------------------------------------------------
 // Public frame: header with cancel / apply, used by the host
@@ -65,11 +75,14 @@ class ToolSheetFrame extends StatelessWidget {
     // The sheets use InkWell / ChoiceChip, which need a Material ancestor.
     return Material(
       type: MaterialType.transparency,
-      child: Column(
-        children: <Widget>[
-          _SheetHeader(title: title, onClose: onClose, onApply: onApply ?? onClose),
-          Expanded(child: child),
-        ],
+      child: Container(
+        color: EditorTokens.bg,
+        child: Column(
+          children: <Widget>[
+            _SheetHeader(title: title, onClose: onClose, onApply: onApply ?? onClose),
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }
@@ -84,8 +97,9 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
+    return Container(
+      height: 46,
+      decoration: const BoxDecoration(border: Border(bottom: _hairline)),
       child: Row(
         children: <Widget>[
           IconButton(
@@ -94,13 +108,14 @@ class _SheetHeader extends StatelessWidget {
               tapFeedback();
               onClose();
             },
-            icon: const Icon(PhosphorIconsRegular.x, color: Colors.white, size: 22),
+            icon: const PhosphorIcon(PhosphorIconsRegular.x, color: EditorTokens.text, size: 20),
           ),
           Expanded(
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                  color: EditorTokens.text, fontSize: 14, fontWeight: FontWeight.w700, fontFamily: _font),
             ),
           ),
           IconButton(
@@ -109,7 +124,7 @@ class _SheetHeader extends StatelessWidget {
               tapFeedback();
               onApply();
             },
-            icon: const Icon(PhosphorIconsRegular.check, color: accentToken, size: 24),
+            icon: const PhosphorIcon(PhosphorIconsRegular.check, color: EditorTokens.text, size: 20),
           ),
         ],
       ),
@@ -183,7 +198,7 @@ Future<TransitionType?> showTransitionSheet(
 }) {
   return showModalBottomSheet<TransitionType>(
     context: context,
-    backgroundColor: surfaceToken,
+    backgroundColor: EditorTokens.bg,
     isScrollControlled: true,
     useSafeArea: true,
     constraints: const BoxConstraints(maxWidth: 560),
@@ -271,7 +286,35 @@ class _TransitionPanelState extends State<_TransitionPanel> {
 String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
 EdgeInsets _listPad(BuildContext context) =>
-    EdgeInsets.fromLTRB(_pad, _pad, _pad, _pad + MediaQuery.paddingOf(context).bottom);
+    EdgeInsets.fromLTRB(_pad, 10, _pad, _pad + MediaQuery.paddingOf(context).bottom);
+
+/// Scale-down press feedback.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback? onTap;
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? 0.95 : 1,
+        duration: const Duration(milliseconds: 100),
+        child: widget.child,
+      ),
+    );
+  }
+}
 
 class _Card extends StatelessWidget {
   const _Card({required this.child, this.padding = const EdgeInsets.all(12)});
@@ -281,7 +324,7 @@ class _Card extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         padding: padding,
-        decoration: BoxDecoration(color: cardToken, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(color: EditorTokens.elevated, borderRadius: BorderRadius.circular(_radius)),
         child: child,
       );
 }
@@ -292,11 +335,14 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 8),
-        child: Text(text, style: const TextStyle(color: mutedToken, fontSize: 12, fontWeight: FontWeight.w600)),
+        padding: const EdgeInsets.only(top: 18, bottom: 8),
+        child: Text(text,
+            style: const TextStyle(
+                color: EditorTokens.muted, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: _font)),
       );
 }
 
+/// Centered icon + message, same layout as the captions empty state.
 class _EmptyHint extends StatelessWidget {
   const _EmptyHint({required this.text, this.icon = PhosphorIconsRegular.handPointing});
   final String text;
@@ -308,9 +354,11 @@ class _EmptyHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            PhosphorIcon(icon, color: Colors.white24, size: 28),
-            const SizedBox(height: 8),
-            Text(text, textAlign: TextAlign.center, style: const TextStyle(color: mutedToken, fontSize: 12)),
+            PhosphorIcon(icon, color: EditorTokens.muted, size: 36),
+            const SizedBox(height: 10),
+            Text(text,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: EditorTokens.muted, fontSize: 13, fontFamily: _font)),
           ],
         ),
       );
@@ -336,14 +384,17 @@ class _ChipRow extends StatelessWidget {
                 label: Text(o),
                 selected: o == selected,
                 showCheckmark: false,
-                selectedColor: accentToken,
-                backgroundColor: cardToken,
-                side: BorderSide.none,
-                shape: const StadiumBorder(),
+                selectedColor: EditorTokens.elevated,
+                backgroundColor: EditorTokens.elevated,
+                side: o == selected
+                    ? const BorderSide(color: EditorTokens.text, width: 1.5)
+                    : const BorderSide(color: Colors.transparent, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
                 labelStyle: TextStyle(
-                  color: o == selected ? Colors.black : Colors.white,
+                  color: o == selected ? EditorTokens.text : EditorTokens.muted,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: o == selected ? FontWeight.w700 : FontWeight.w500,
+                  fontFamily: _font,
                 ),
                 onSelected: (_) {
                   tapFeedback();
@@ -357,9 +408,9 @@ class _ChipRow extends StatelessWidget {
   }
 }
 
-/// CapCut-style parameter strip: a round icon with a label underneath. A small
-/// dot marks parameters that differ from their default. One slider below the
-/// strip edits whichever parameter is selected.
+/// Parameter strip: a round icon with a label underneath. A small dot marks
+/// parameters that differ from their default. One slider below the strip edits
+/// whichever parameter is selected.
 class _ParamStrip extends StatelessWidget {
   const _ParamStrip({
     required this.labels,
@@ -391,8 +442,7 @@ class _ParamStrip extends StatelessWidget {
             selected: sel,
             label: labels[i],
             excludeSemantics: true,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+            child: _Pressable(
               onTap: () {
                 tapFeedback();
                 onChanged(i);
@@ -410,11 +460,13 @@ class _ParamStrip extends StatelessWidget {
                           height: 44,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: sel ? accentToken.withValues(alpha: 0.16) : cardToken,
-                            border: Border.all(color: sel ? accentToken : Colors.transparent, width: 2),
+                            color: EditorTokens.elevated,
+                            border: Border.all(
+                                color: sel ? EditorTokens.text : Colors.transparent, width: 1.5),
                           ),
                           child: Center(
-                            child: PhosphorIcon(icons[i], size: 20, color: sel ? accentToken : Colors.white70),
+                            child: PhosphorIcon(icons[i],
+                                size: 20, color: sel ? EditorTokens.text : EditorTokens.muted),
                           ),
                         ),
                         if (modified[i])
@@ -424,7 +476,8 @@ class _ParamStrip extends StatelessWidget {
                             child: Container(
                               width: 8,
                               height: 8,
-                              decoration: const BoxDecoration(color: accentToken, shape: BoxShape.circle),
+                              decoration:
+                                  const BoxDecoration(color: EditorTokens.text, shape: BoxShape.circle),
                             ),
                           ),
                       ],
@@ -435,9 +488,10 @@ class _ParamStrip extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: sel ? Colors.white : mutedToken,
+                        color: sel ? EditorTokens.text : EditorTokens.muted,
                         fontSize: 11,
-                        fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                        fontFamily: _font,
                       ),
                     ),
                   ],
@@ -451,7 +505,7 @@ class _ParamStrip extends StatelessWidget {
   }
 }
 
-/// Thin slider with a white thumb and a numeric pill (CapCut + Premiere).
+/// Thin slider with a white thumb and a numeric pill.
 class _SliderRow extends StatelessWidget {
   const _SliderRow({
     required this.label,
@@ -473,7 +527,7 @@ class _SliderRow extends StatelessWidget {
   final ValueChanged<double>? onChanged;
   final String? display;
 
-  /// Draws a center tick and a neutral track, for values centered on zero.
+  /// Draws a center tick, for values centered on zero.
   final bool bipolar;
   final String? minLabel;
   final String? maxLabel;
@@ -486,6 +540,7 @@ class _SliderRow extends StatelessWidget {
     final double v = value.clamp(min, max).toDouble();
     final String shown = display ?? v.toStringAsFixed(2);
     final bool enabled = onChanged != null;
+    final Color fg = enabled ? EditorTokens.text : EditorTokens.muted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -493,8 +548,7 @@ class _SliderRow extends StatelessWidget {
           children: <Widget>[
             if (showLabel)
               Text(label,
-                  style: TextStyle(
-                      color: enabled ? Colors.white : mutedToken, fontSize: 13, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w600, fontFamily: _font)),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -502,9 +556,10 @@ class _SliderRow extends StatelessWidget {
               child: Text(
                 shown,
                 style: TextStyle(
-                  color: enabled ? Colors.white : mutedToken,
+                  color: fg,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
+                  fontFamily: _font,
                   fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
                 ),
               ),
@@ -514,12 +569,12 @@ class _SliderRow extends StatelessWidget {
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 2,
-            activeTrackColor: bipolar ? Colors.white : accentToken,
-            inactiveTrackColor: dividerToken,
-            disabledActiveTrackColor: dividerToken,
-            disabledInactiveTrackColor: dividerToken,
-            thumbColor: Colors.white,
-            disabledThumbColor: mutedToken,
+            activeTrackColor: EditorTokens.text,
+            inactiveTrackColor: EditorTokens.border,
+            disabledActiveTrackColor: EditorTokens.border,
+            disabledInactiveTrackColor: EditorTokens.border,
+            thumbColor: EditorTokens.text,
+            disabledThumbColor: EditorTokens.muted,
             overlayColor: Colors.white.withValues(alpha: 0.12),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9, elevation: 2),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
@@ -527,7 +582,7 @@ class _SliderRow extends StatelessWidget {
           child: Stack(
             alignment: Alignment.center,
             children: <Widget>[
-              if (bipolar) Container(width: 2, height: 12, color: mutedToken),
+              if (bipolar) Container(width: 2, height: 12, color: EditorTokens.muted),
               Slider(
                 value: v,
                 min: min,
@@ -544,8 +599,10 @@ class _SliderRow extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                Text(minLabel!, style: const TextStyle(color: mutedToken, fontSize: 10)),
-                Text(maxLabel!, style: const TextStyle(color: mutedToken, fontSize: 10)),
+                Text(minLabel!,
+                    style: const TextStyle(color: EditorTokens.muted, fontSize: 10, fontFamily: _font)),
+                Text(maxLabel!,
+                    style: const TextStyle(color: EditorTokens.muted, fontSize: 10, fontFamily: _font)),
               ],
             ),
           ),
@@ -554,59 +611,46 @@ class _SliderRow extends StatelessWidget {
   }
 }
 
-Widget _primaryBtn(PhosphorIconData? icon, String label, VoidCallback? onPressed) => SizedBox(
-      width: double.infinity,
-      height: 46,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: accentToken,
-          foregroundColor: Colors.black,
-          disabledBackgroundColor: cardToken,
-          disabledForegroundColor: mutedToken,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        ),
-        onPressed: onPressed == null
-            ? null
-            : () {
-                tapFeedback();
-                onPressed();
-              },
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (icon != null) ...<Widget>[
-              PhosphorIcon(icon, color: onPressed == null ? mutedToken : Colors.black, size: 16),
-              const SizedBox(width: 8),
-            ],
-            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-          ],
-        ),
-      ),
-    );
-
-/// Pill outline button for secondary actions.
-Widget _outlineBtn(String label, VoidCallback? onPressed) => OutlinedButton(
+/// Outlined action button, the same treatment as the captions sheet buttons.
+/// Kept under the old name so existing call sites keep working.
+Widget _primaryBtn(PhosphorIconData? icon, String label, VoidCallback? onPressed) {
+  final VoidCallback? tap = onPressed == null
+      ? null
+      : () {
+          tapFeedback();
+          onPressed();
+        };
+  final Color fg = onPressed == null ? EditorTokens.muted : EditorTokens.text;
+  return SizedBox(
+    width: double.infinity,
+    child: OutlinedButton(
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: dividerToken),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
-        minimumSize: const Size.fromHeight(46),
-        foregroundColor: Colors.white,
-        disabledForegroundColor: mutedToken,
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        foregroundColor: EditorTokens.text,
+        disabledForegroundColor: EditorTokens.muted,
+        side: const BorderSide(color: EditorTokens.border),
+        minimumSize: const Size.fromHeight(44),
+        textStyle: const TextStyle(fontFamily: _font, fontWeight: FontWeight.w600, fontSize: 14),
       ),
-      onPressed: onPressed == null
-          ? null
-          : () {
-              tapFeedback();
-              onPressed();
-            },
-      child: Text(label),
-    );
+      onPressed: tap,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (icon != null) ...<Widget>[
+            PhosphorIcon(icon, color: fg, size: 16),
+            const SizedBox(width: 8),
+          ],
+          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    ),
+  );
+}
 
-/// Underline tabs. CapCut uses a white indicator and bold white label.
+Widget _outlineBtn(String label, VoidCallback? onPressed) => _primaryBtn(null, label, onPressed);
+
+/// Underline tabs: label plus a small animated indicator, like the caption
+/// language tabs.
 class _Tabs extends StatelessWidget {
   const _Tabs({required this.labels, required this.index, required this.onChanged});
   final List<String> labels;
@@ -616,43 +660,54 @@ class _Tabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: _pad),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: dividerToken))),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          for (int i = 0; i < labels.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(right: 24),
-              child: Semantics(
-                button: true,
-                selected: i == index,
-                child: InkWell(
-                  onTap: () {
-                    tapFeedback();
-                    onChanged(i);
-                  },
-                  child: Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: i == index ? Colors.white : Colors.transparent, width: 2),
-                      ),
-                    ),
-                    child: Text(
+      height: 40,
+      decoration: const BoxDecoration(border: Border(bottom: _hairline)),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        itemCount: labels.length,
+        itemBuilder: (_, i) {
+          final bool active = i == index;
+          return Semantics(
+            button: true,
+            selected: active,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (active) return;
+                tapFeedback();
+                onChanged(i);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(
                       labels[i],
                       style: TextStyle(
-                        color: i == index ? Colors.white : mutedToken,
-                        fontSize: 13,
-                        fontWeight: i == index ? FontWeight.w700 : FontWeight.w500,
+                        color: active ? EditorTokens.text : EditorTokens.muted,
+                        fontSize: 14,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                        fontFamily: _font,
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      height: 2,
+                      width: active ? 16 : 0,
+                      decoration: BoxDecoration(
+                        color: EditorTokens.text,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -679,12 +734,11 @@ class _ThumbTile extends StatelessWidget {
       selected: selected,
       label: label,
       excludeSemantics: true,
-      child: InkWell(
+      child: _Pressable(
         onTap: () {
           tapFeedback();
           onTap();
         },
-        borderRadius: BorderRadius.circular(10),
         child: Column(
           children: <Widget>[
             Expanded(
@@ -693,13 +747,16 @@ class _ThumbTile extends StatelessWidget {
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: cardToken,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: selected ? accentToken : Colors.transparent, width: 2),
+                        color: EditorTokens.elevated,
+                        borderRadius: BorderRadius.circular(_radius),
+                        border: Border.all(
+                            color: selected ? EditorTokens.text : Colors.transparent, width: 1.5),
                       ),
                       child: icon == null
                           ? null
-                          : Center(child: PhosphorIcon(icon!, size: 22, color: selected ? accentToken : Colors.white70)),
+                          : Center(
+                              child: PhosphorIcon(icon!,
+                                  size: 22, color: selected ? EditorTokens.text : EditorTokens.muted)),
                     ),
                   ),
                   if (selected)
@@ -709,7 +766,7 @@ class _ThumbTile extends StatelessWidget {
                       child: Container(
                         width: 16,
                         height: 16,
-                        decoration: const BoxDecoration(color: accentToken, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(color: EditorTokens.text, shape: BoxShape.circle),
                         child: const PhosphorIcon(PhosphorIconsRegular.check, size: 10, color: Colors.black),
                       ),
                     ),
@@ -722,9 +779,10 @@ class _ThumbTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? accentToken : Colors.white70,
+                color: selected ? EditorTokens.text : EditorTokens.muted,
                 fontSize: 11,
-                fontWeight: FontWeight.w500,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontFamily: _font,
               ),
             ),
           ],
@@ -756,7 +814,7 @@ class _ResponsiveGrid extends StatelessWidget {
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: cols,
           crossAxisSpacing: 8,
-          mainAxisSpacing: 10,
+          mainAxisSpacing: 8,
           childAspectRatio: aspect,
         ),
         itemCount: itemCount,
@@ -766,19 +824,18 @@ class _ResponsiveGrid extends StatelessWidget {
   }
 }
 
-/// Text-only chip tile, used for fonts and emoji.
-Widget _tile({required Widget child, required VoidCallback onTap, bool selected = false}) => InkWell(
+/// Text-only tile, used for fonts and emoji.
+Widget _tile({required Widget child, required VoidCallback onTap, bool selected = false}) => _Pressable(
       onTap: () {
         tapFeedback();
         onTap();
       },
-      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         decoration: BoxDecoration(
-          color: selected ? accentToken.withValues(alpha: 0.18) : cardToken,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? accentToken : Colors.transparent),
+          color: EditorTokens.elevated,
+          borderRadius: BorderRadius.circular(_radius),
+          border: Border.all(color: selected ? EditorTokens.text : Colors.transparent, width: 1.5),
         ),
         alignment: Alignment.center,
         child: child,
@@ -795,18 +852,17 @@ class AudioToolsSheet extends StatelessWidget {
   static const List<String> _eqPresets = ['Flat', 'Bass boost', 'Treble boost', 'Vocal', 'Pop', 'Rock'];
 
   Future<void> _pickAudio(BuildContext context, EditorController editor) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       final result = await FilePicker.platform.pickFiles(type: FileType.audio, allowMultiple: false);
       if (result == null || result.files.isEmpty) return;
       final file = result.files.single;
       if (file.path == null) {
-        messenger?.showSnackBar(const SnackBar(content: Text('Couldn’t read that file. Try another.')));
+        if (context.mounted) _toast(context, 'Couldn’t read that file. Try another.');
         return;
       }
       editor.addAudioTrack(file.path!, trackName: file.name);
     } catch (_) {
-      messenger?.showSnackBar(const SnackBar(content: Text('Couldn’t open the file picker. Try again.')));
+      if (context.mounted) _toast(context, 'Couldn’t open the file picker. Try again.');
     }
   }
 
@@ -830,11 +886,11 @@ class AudioToolsSheet extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: accentToken.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(8),
+                  color: _pillBg,
+                  borderRadius: BorderRadius.circular(_radius),
                 ),
                 child: const Center(
-                  child: PhosphorIcon(PhosphorIconsRegular.musicNote, color: accentToken, size: 18),
+                  child: PhosphorIcon(PhosphorIconsRegular.musicNote, color: EditorTokens.text, size: 18),
                 ),
               ),
               const SizedBox(width: 12),
@@ -843,33 +899,24 @@ class AudioToolsSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text('Add audio track',
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            color: EditorTokens.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: _font)),
                     SizedBox(height: 2),
-                    Text('Place a soundtrack on the timeline', style: TextStyle(color: mutedToken, fontSize: 12)),
+                    Text('Place a soundtrack on the timeline',
+                        style: TextStyle(color: EditorTokens.muted, fontSize: 12, fontFamily: _font)),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Tooltip(
-                message: 'Add audio track',
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Material(
-                    color: accentToken,
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: () {
-                        tapFeedback();
-                        _pickAudio(context, editor);
-                      },
-                      child: const Center(
-                        child: PhosphorIcon(PhosphorIconsRegular.plus, color: Colors.black, size: 18),
-                      ),
-                    ),
-                  ),
-                ),
+              IconButton(
+                tooltip: 'Add audio track',
+                onPressed: () {
+                  tapFeedback();
+                  _pickAudio(context, editor);
+                },
+                icon: const PhosphorIcon(PhosphorIconsRegular.plus, color: EditorTokens.text, size: 20),
               ),
             ],
           ),
@@ -879,7 +926,9 @@ class AudioToolsSheet extends StatelessWidget {
           _outlineBtn('Extract audio from video', editor.extractAudioFromSelectedClip),
         ],
         if (!hasAudio)
-          const _EmptyHint(text: 'Select an audio or video clip to adjust its sound.')
+          const _EmptyHint(
+              icon: PhosphorIconsRegular.speakerHigh,
+              text: 'Select an audio or video clip to adjust its sound.')
         else ...<Widget>[
           const _SectionLabel('Levels'),
           _Card(
@@ -903,9 +952,7 @@ class AudioToolsSheet extends StatelessWidget {
                   min: 0,
                   max: 5,
                   display: '${ap.fadeIn.toStringAsFixed(1)}s',
-                  onChanged: (v) => editor.updateAudioProperties(
-                    ap.copyWith(fadeIn: v),
-                  ),
+                  onChanged: (v) => editor.updateAudioProperties(ap.copyWith(fadeIn: v)),
                 ),
                 const SizedBox(height: 8),
                 _SliderRow(
@@ -914,9 +961,7 @@ class AudioToolsSheet extends StatelessWidget {
                   min: 0,
                   max: 5,
                   display: '${ap.fadeOut.toStringAsFixed(1)}s',
-                  onChanged: (v) => editor.updateAudioProperties(
-                    ap.copyWith(fadeOut: v),
-                  ),
+                  onChanged: (v) => editor.updateAudioProperties(ap.copyWith(fadeOut: v)),
                 ),
               ],
             ),
@@ -989,7 +1034,8 @@ class _AnimatedTextTile extends StatelessWidget {
   /// One controller shared by every tile, instead of one ticker per tile.
   final Animation<double> animation;
 
-  static const TextStyle _sample = TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold);
+  static const TextStyle _sample =
+      TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, fontFamily: _font);
 
   Widget _sampleFor(double val) {
     switch (style) {
@@ -1012,7 +1058,7 @@ class _AnimatedTextTile extends StatelessWidget {
         return Text('Aa',
             style: _sample.copyWith(shadows: <Shadow>[Shadow(color: const Color(0xFF00E5FF), blurRadius: val * 12)]));
       default:
-        return Text('Aa', style: _sample.copyWith(color: selected ? accentToken : Colors.white70));
+        return Text('Aa', style: _sample.copyWith(color: selected ? EditorTokens.text : Colors.white70));
     }
   }
 
@@ -1023,14 +1069,13 @@ class _AnimatedTextTile extends StatelessWidget {
       selected: selected,
       label: _cap(style.name),
       excludeSemantics: true,
-      child: InkWell(
+      child: _Pressable(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
         child: Container(
           decoration: BoxDecoration(
-            color: cardToken,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: selected ? accentToken : Colors.transparent, width: 2),
+            color: EditorTokens.elevated,
+            borderRadius: BorderRadius.circular(_radius),
+            border: Border.all(color: selected ? EditorTokens.text : Colors.transparent, width: 1.5),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -1038,7 +1083,7 @@ class _AnimatedTextTile extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: Container(
-                  color: _canvasDark,
+                  color: EditorTokens.bg,
                   child: Center(
                     child: AnimatedBuilder(
                       animation: animation,
@@ -1049,16 +1094,16 @@ class _AnimatedTextTile extends StatelessWidget {
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                color: selected ? accentToken : cardToken,
                 alignment: Alignment.center,
                 child: Text(
                   _cap(style.name),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: selected ? Colors.black : Colors.white,
+                    color: selected ? EditorTokens.text : EditorTokens.muted,
                     fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    fontFamily: _font,
                   ),
                 ),
               ),
@@ -1086,7 +1131,7 @@ class _TextAnimationSheetState extends State<TextAnimationSheet> with SingleTick
   int _tab = 0;
   String? _syncedId;
 
-  static const List<String> _fonts = <String>['Fredoka', 'Fredoka', 'Fredoka', 'Roboto', 'Arial', 'Montserrat', 'Inter'];
+  static const List<String> _fonts = <String>['Fredoka', 'Roboto', 'Arial', 'Montserrat', 'Inter'];
 
   @override
   void dispose() {
@@ -1125,12 +1170,13 @@ class _TextAnimationSheetState extends State<TextAnimationSheet> with SingleTick
           onChanged: (i) => setState(() => _tab = i),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(_pad, 14, _pad, 8),
+          padding: const EdgeInsets.fromLTRB(_pad, 12, _pad, 4),
           child: TextField(
             controller: _ctrl,
             minLines: 3,
             maxLines: 5,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            cursorColor: EditorTokens.text,
+            style: const TextStyle(color: EditorTokens.text, fontSize: 14, height: 1.3, fontFamily: _font),
             onChanged: (val) {
               final String text = val.trim().isEmpty ? 'Text' : val;
               if (editing) {
@@ -1143,13 +1189,13 @@ class _TextAnimationSheetState extends State<TextAnimationSheet> with SingleTick
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Type text here…',
-              hintStyle: const TextStyle(color: mutedToken),
+              hintStyle: const TextStyle(color: EditorTokens.muted, fontFamily: _font),
               filled: true,
-              fillColor: cardToken,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              fillColor: EditorTokens.elevated,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               suffixIcon: IconButton(
                 tooltip: 'Clear text',
-                icon: const Icon(PhosphorIconsRegular.xCircle, color: mutedToken, size: 18),
+                icon: const PhosphorIcon(PhosphorIconsRegular.xCircle, color: EditorTokens.muted, size: 18),
                 onPressed: () {
                   _ctrl.clear();
                   if (editing) {
@@ -1158,7 +1204,7 @@ class _TextAnimationSheetState extends State<TextAnimationSheet> with SingleTick
                   }
                 },
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(_radius), borderSide: BorderSide.none),
             ),
           ),
         ),
@@ -1190,9 +1236,9 @@ class _TextAnimationSheetState extends State<TextAnimationSheet> with SingleTick
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: font,
-                          color: selected ? accentToken : Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          color: selected ? EditorTokens.text : EditorTokens.muted,
+                          fontSize: 13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                     );
@@ -1254,7 +1300,7 @@ class StickersSheet extends StatelessWidget {
 }
 
 // ----------------------------------------------------------------------------
-// Color grading (CapCut "Adjust" layout: parameter strip + one big slider)
+// Color grading (parameter strip + one big slider)
 // ----------------------------------------------------------------------------
 class ColorGradingSheet extends StatefulWidget {
   const ColorGradingSheet({super.key});
@@ -1323,7 +1369,8 @@ class _ColorGradingSheetState extends State<ColorGradingSheet> {
     return ListView(
       padding: EdgeInsets.only(top: 12, bottom: _pad + MediaQuery.paddingOf(context).bottom),
       children: <Widget>[
-        if (!hasClip) const _EmptyHint(text: 'Select a clip to grade its color.'),
+        if (!hasClip)
+          const _EmptyHint(icon: PhosphorIconsRegular.sliders, text: 'Select a clip to grade its color.'),
         _ParamStrip(
           labels: _labels,
           icons: _icons,
@@ -1388,20 +1435,20 @@ class _RatioTile extends StatelessWidget {
     const double box = 26;
     final double w = ratio.value >= 1 ? box : box * ratio.value;
     final double h = ratio.value >= 1 ? box / ratio.value : box;
+    final Color fg = selected ? EditorTokens.text : EditorTokens.muted;
     return Semantics(
       button: true,
       selected: selected,
       label: 'Canvas ratio ${ratio.label}',
       excludeSemantics: true,
-      child: InkWell(
+      child: _Pressable(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
         child: Container(
           height: 64,
           decoration: BoxDecoration(
-            color: selected ? accentToken.withValues(alpha: 0.18) : cardToken,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: selected ? accentToken : Colors.transparent),
+            color: EditorTokens.elevated,
+            borderRadius: BorderRadius.circular(_radius),
+            border: Border.all(color: selected ? EditorTokens.text : Colors.transparent, width: 1.5),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1411,16 +1458,17 @@ class _RatioTile extends StatelessWidget {
                 height: h,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(2),
-                  border: Border.all(color: selected ? accentToken : Colors.white70, width: 2),
+                  border: Border.all(color: fg, width: 2),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 ratio.label,
                 style: TextStyle(
-                  color: selected ? accentToken : Colors.white,
-                  fontWeight: FontWeight.w700,
+                  color: fg,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 11,
+                  fontFamily: _font,
                 ),
               ),
             ],
@@ -1446,8 +1494,7 @@ class _ColorSwatchTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return _Pressable(
       onTap: () {
         tapFeedback();
         onTap();
@@ -1463,18 +1510,17 @@ class _ColorSwatchTile extends StatelessWidget {
               shape: BoxShape.circle,
               color: isChecker ? Colors.transparent : color,
               border: Border.all(
-                color: selected ? accentToken : Colors.white24,
-                width: selected ? 2.5 : 1.0,
+                color: selected ? EditorTokens.text : EditorTokens.border,
+                width: selected ? 2 : 1.0,
               ),
             ),
             child: ClipOval(
               child: Stack(
                 alignment: Alignment.center,
                 children: <Widget>[
-                  if (isChecker)
-                    const _CheckerboardBox(),
+                  if (isChecker) const _CheckerboardBox(),
                   if (selected)
-                    Icon(
+                    PhosphorIcon(
                       PhosphorIconsRegular.check,
                       size: 16,
                       color: (color == Colors.white || isChecker) ? Colors.black : Colors.white,
@@ -1523,8 +1569,7 @@ class _CheckerboardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _CheckerboardPainter old) =>
-      old.squareSize != squareSize;
+  bool shouldRepaint(covariant _CheckerboardPainter old) => old.squareSize != squareSize;
 }
 
 class CropSheet extends StatelessWidget {
@@ -1553,7 +1598,9 @@ class CropSheet extends StatelessWidget {
     return ListView(
       padding: _listPad(context),
       children: <Widget>[
-        const Text('Canvas ratio', style: TextStyle(color: mutedToken, fontSize: 12, fontWeight: FontWeight.w600)),
+        const Text('Canvas ratio',
+            style: TextStyle(
+                color: EditorTokens.muted, fontSize: 12, fontWeight: FontWeight.w600, fontFamily: _font)),
         const SizedBox(height: 8),
         ValueListenableBuilder<CanvasRatio>(
           valueListenable: canvasRatioNotifier,
@@ -1581,53 +1628,48 @@ class CropSheet extends StatelessWidget {
           valueListenable: canvasColorNotifier,
           builder: (context, curColor, _) {
             final bool isPreset = _bgColors.any((c) => c.$1.toARGB32() == curColor.toARGB32());
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: <Widget>[
-                      for (final item in _bgColors)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: _ColorSwatchTile(
-                            color: item.$1,
-                            isChecker: item.$1 == Colors.transparent,
-                            selected: curColor.toARGB32() == item.$1.toARGB32(),
-                            onTap: () {
-                              canvasColorNotifier.value = item.$1;
-                            },
-                          ),
-                        ),
-                      // Custom color button
-                      GestureDetector(
-                        onTap: () => _showColorPicker(context, curColor),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          margin: const EdgeInsets.only(left: 2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: !isPreset ? curColor : cardToken,
-                            border: Border.all(
-                              color: !isPreset ? accentToken : Colors.white38,
-                              width: !isPreset ? 2.5 : 1.0,
-                            ),
-                          ),
-                          child: Icon(
-                            PhosphorIconsRegular.palette,
-                            size: 18,
-                            color: !isPreset
-                                ? (curColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
-                                : Colors.white70,
-                          ),
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: <Widget>[
+                  for (final item in _bgColors)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: _ColorSwatchTile(
+                        color: item.$1,
+                        isChecker: item.$1 == Colors.transparent,
+                        selected: curColor.toARGB32() == item.$1.toARGB32(),
+                        onTap: () {
+                          canvasColorNotifier.value = item.$1;
+                        },
+                      ),
+                    ),
+                  // Custom color button
+                  _Pressable(
+                    onTap: () => _showColorPicker(context, curColor),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      margin: const EdgeInsets.only(left: 2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: !isPreset ? curColor : EditorTokens.elevated,
+                        border: Border.all(
+                          color: !isPreset ? EditorTokens.text : EditorTokens.border,
+                          width: !isPreset ? 2 : 1.0,
                         ),
                       ),
-                    ],
+                      child: PhosphorIcon(
+                        PhosphorIconsRegular.palette,
+                        size: 18,
+                        color: !isPreset
+                            ? (curColor.computeLuminance() > 0.5 ? Colors.black : Colors.white)
+                            : EditorTokens.muted,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           },
         ),
@@ -1645,7 +1687,8 @@ class CropSheet extends StatelessWidget {
             onChanged: hasClip ? (v) => editor.updateTranslation(scale: v) : null,
           ),
         ),
-        if (!hasClip) const _EmptyHint(text: 'Select a clip to zoom it.'),
+        if (!hasClip)
+          const _EmptyHint(icon: PhosphorIconsRegular.magnifyingGlassPlus, text: 'Select a clip to zoom it.'),
       ],
     );
   }
@@ -1662,8 +1705,11 @@ class CropSheet extends StatelessWidget {
           builder: (context, setSt) {
             final Color chosen = Color.fromRGBO(r.round(), g.round(), b.round(), 1.0);
             return AlertDialog(
-              backgroundColor: surfaceToken,
-              title: const Text('Pick Canvas Color', style: TextStyle(color: Colors.white, fontSize: 16)),
+              backgroundColor: EditorTokens.elevated,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: const Text('Pick canvas color',
+                  style: TextStyle(
+                      color: EditorTokens.text, fontSize: 15, fontWeight: FontWeight.w700, fontFamily: _font)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
@@ -1672,8 +1718,8 @@ class CropSheet extends StatelessWidget {
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: chosen,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white24),
+                      borderRadius: BorderRadius.circular(_radius),
+                      border: Border.all(color: EditorTokens.border),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1706,10 +1752,15 @@ class CropSheet extends StatelessWidget {
               actions: <Widget>[
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: mutedToken)),
+                  child: const Text('Cancel',
+                      style: TextStyle(color: EditorTokens.muted, fontFamily: _font)),
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: accentToken, foregroundColor: Colors.black),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: EditorTokens.text,
+                    side: const BorderSide(color: EditorTokens.border),
+                    textStyle: const TextStyle(fontFamily: _font, fontWeight: FontWeight.w600),
+                  ),
                   onPressed: () {
                     canvasColorNotifier.value = chosen;
                     Navigator.of(ctx).pop();
@@ -1771,7 +1822,7 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
         // Live stroke preview.
         Container(
           height: 56,
-          decoration: BoxDecoration(color: _canvasDark, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: EditorTokens.elevated, borderRadius: BorderRadius.circular(_radius)),
           alignment: Alignment.center,
           child: Container(
             width: 140,
@@ -1779,7 +1830,7 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
             decoration: BoxDecoration(color: _color, borderRadius: BorderRadius.circular(_width / 2)),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _Card(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           child: _SliderRow(
@@ -1805,8 +1856,7 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
                 selected: _color == c,
                 label: name,
                 excludeSemantics: true,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                child: _Pressable(
                   onTap: () {
                     tapFeedback();
                     setState(() => _color = c);
@@ -1822,7 +1872,8 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
                         decoration: BoxDecoration(
                           color: c,
                           shape: BoxShape.circle,
-                          border: Border.all(color: _color == c ? Colors.white : Colors.transparent, width: 2),
+                          border: Border.all(
+                              color: _color == c ? EditorTokens.text : Colors.transparent, width: 2),
                         ),
                         child: _color == c
                             ? const PhosphorIcon(PhosphorIconsRegular.check, size: 14, color: Colors.black)
@@ -1834,7 +1885,7 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
               ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         Row(
           children: <Widget>[
             Expanded(child: _outlineBtn('Clear', editor.clearActiveDrawing)),
@@ -1846,7 +1897,6 @@ class _VectorDrawingSheetState extends State<VectorDrawingSheet> {
     );
   }
 }
-
 
 // ----------------------------------------------------------------------------
 // Camera
@@ -1863,7 +1913,8 @@ class CameraSettingsSheet extends StatelessWidget {
     return ListView(
       padding: _listPad(context),
       children: <Widget>[
-        if (selectedClip == null) const _EmptyHint(text: 'Select a clip to change its camera.'),
+        if (selectedClip == null)
+          const _EmptyHint(icon: PhosphorIconsRegular.camera, text: 'Select a clip to change its camera.'),
         _Card(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           child: _SliderRow(
@@ -1904,11 +1955,16 @@ class CameraTrackingPanel extends StatelessWidget {
         _Card(
           child: Row(
             children: <Widget>[
-              Icon(PhosphorIconsFill.circle, size: 10, color: active ? Colors.greenAccent : Colors.white24),
+              PhosphorIcon(PhosphorIconsFill.circle,
+                  size: 10, color: active ? Colors.greenAccent : EditorTokens.border),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(active ? 'Tracking is on' : 'Tracking is off',
-                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(
+                        color: EditorTokens.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: _font)),
               ),
             ],
           ),
@@ -1925,7 +1981,8 @@ class CameraTrackingPanel extends StatelessWidget {
                     rect: const Rect.fromLTWH(0.2, 0.2, 0.6, 0.6),
                   )),
         ),
-        if (selectedClip == null) const _EmptyHint(text: 'Select a clip to track a subject.'),
+        if (selectedClip == null)
+          const _EmptyHint(icon: PhosphorIconsRegular.crosshair, text: 'Select a clip to track a subject.'),
       ],
     );
   }
@@ -1959,11 +2016,11 @@ class PluginsSheet extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: accentToken.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(8),
+                    color: _pillBg,
+                    borderRadius: BorderRadius.circular(_radius),
                   ),
                   child: const Center(
-                    child: PhosphorIcon(PhosphorIconsRegular.gridFour, color: accentToken, size: 18),
+                    child: PhosphorIcon(PhosphorIconsRegular.gridFour, color: EditorTokens.text, size: 18),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1972,9 +2029,15 @@ class PluginsSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(p.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                          style: const TextStyle(
+                              color: EditorTokens.text,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: _font)),
                       const SizedBox(height: 2),
-                      Text(p.version, style: const TextStyle(color: mutedToken, fontSize: 12)),
+                      Text(p.version,
+                          style: const TextStyle(
+                              color: EditorTokens.muted, fontSize: 12, fontFamily: _font)),
                     ],
                   ),
                 ),
