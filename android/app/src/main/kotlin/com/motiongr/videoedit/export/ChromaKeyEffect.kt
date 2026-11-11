@@ -73,29 +73,54 @@ class ChromaKeyEffect(
                 }
             """.trimIndent()
 
+            var prog: GlProgram? = null
             try {
-                glProgram = GlProgram(vertexShader, fragmentShader)
+                prog = GlProgram(vertexShader, fragmentShader)
                 val r = ((keyColorInt shr 16) and 0xFF) / 255.0f
                 val g = ((keyColorInt shr 8) and 0xFF) / 255.0f
                 val b = (keyColorInt and 0xFF) / 255.0f
 
-                glProgram.setBufferAttribute(
+                prog.setBufferAttribute(
                     "aFramePosition",
                     GlUtil.getNormalizedCoordinateBounds(),
                     4
                 )
-                glProgram.setBufferAttribute(
+                prog.setBufferAttribute(
                     "aTexCoords",
                     GlUtil.getTextureCoordinateBounds(),
                     4
                 )
-                glProgram.setFloatsUniform("uKeyColor", floatArrayOf(r, g, b))
-                glProgram.setFloatUniform("uSimilarity", similarityVal.coerceIn(0.01f, 1.0f))
-                glProgram.setFloatUniform("uSmoothness", smoothnessVal.coerceIn(0.001f, 1.0f))
-                glProgram.setFloatUniform("uSpill", spillVal.coerceIn(0.0f, 1.0f))
+                try { prog.setFloatsUniform("uKeyColor", floatArrayOf(r, g, b)) } catch (_: Exception) {}
+                try { prog.setFloatUniform("uSimilarity", similarityVal.coerceIn(0.01f, 1.0f)) } catch (_: Exception) {}
+                try { prog.setFloatUniform("uSmoothness", smoothnessVal.coerceIn(0.001f, 1.0f)) } catch (_: Exception) {}
+                try { prog.setFloatUniform("uSpill", spillVal.coerceIn(0.0f, 1.0f)) } catch (_: Exception) {}
             } catch (e: Exception) {
-                throw VideoFrameProcessingException(e)
+                android.util.Log.w("ChromaKeyEffect", "Failed to compile ChromaKey shader, using passthrough fallback", e)
+                try {
+                    val passthrough = """
+                        precision mediump float;
+                        uniform sampler2D uTexSampler;
+                        varying vec2 vTexCoords;
+                        void main() {
+                            gl_FragColor = texture2D(uTexSampler, vTexCoords);
+                        }
+                    """.trimIndent()
+                    prog = GlProgram(vertexShader, passthrough)
+                    prog.setBufferAttribute(
+                        "aFramePosition",
+                        GlUtil.getNormalizedCoordinateBounds(),
+                        4
+                    )
+                    prog.setBufferAttribute(
+                        "aTexCoords",
+                        GlUtil.getTextureCoordinateBounds(),
+                        4
+                    )
+                } catch (fallbackEx: Exception) {
+                    throw VideoFrameProcessingException(fallbackEx)
+                }
             }
+            glProgram = prog!!
         }
 
         override fun configure(inputWidth: Int, inputHeight: Int): Size {
@@ -109,7 +134,8 @@ class ChromaKeyEffect(
                 glProgram.bindAttributesAndUniforms()
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             } catch (e: Exception) {
-                throw VideoFrameProcessingException(e)
+                android.util.Log.e("ChromaKeyEffect", "drawFrame error: ${e.message}", e)
+                // Do not rethrow as VideoFrameProcessingException to avoid failing the entire export
             }
         }
     }

@@ -62,21 +62,46 @@ class CustomShaderEffect(
 
             val fragmentShader = getFragmentShaderForEffect(context, effectId)
 
+            var prog: GlProgram? = null
             try {
-                glProgram = GlProgram(vertexShader, fragmentShader)
-                glProgram.setBufferAttribute(
+                prog = GlProgram(vertexShader, fragmentShader)
+                prog.setBufferAttribute(
                     "aFramePosition",
                     GlUtil.getNormalizedCoordinateBounds(),
                     4
                 )
-                glProgram.setBufferAttribute(
+                prog.setBufferAttribute(
                     "aTexCoords",
                     GlUtil.getTextureCoordinateBounds(),
                     4
                 )
             } catch (e: Exception) {
-                throw VideoFrameProcessingException(e)
+                android.util.Log.w("CustomShaderEffect", "Shader compile failed for $effectId, falling back to passthrough", e)
+                try {
+                    val passthrough = """
+                        precision mediump float;
+                        uniform sampler2D uTexSampler;
+                        varying vec2 vTexCoords;
+                        void main() {
+                            gl_FragColor = texture2D(uTexSampler, vTexCoords);
+                        }
+                    """.trimIndent()
+                    prog = GlProgram(vertexShader, passthrough)
+                    prog.setBufferAttribute(
+                        "aFramePosition",
+                        GlUtil.getNormalizedCoordinateBounds(),
+                        4
+                    )
+                    prog.setBufferAttribute(
+                        "aTexCoords",
+                        GlUtil.getTextureCoordinateBounds(),
+                        4
+                    )
+                } catch (fallbackEx: Exception) {
+                    throw VideoFrameProcessingException(fallbackEx)
+                }
             }
+            glProgram = prog!!
         }
 
         override fun configure(inputWidth: Int, inputHeight: Int): Size {
@@ -124,6 +149,18 @@ class CustomShaderEffect(
                 setUniformIfPresent("uSpeed", speed)
                 setUniformIfPresent("uRadius", radius)
                 setUniformIfPresent("uIntensity", amount)
+                setUniformIfPresent("uDistortion", (interpolatedParams["distortion"] ?: interpolatedParams["distortionAmount"] ?: amount.toDouble()).toFloat())
+                setUniformIfPresent("uScanlines", (interpolatedParams["scanlines"] ?: 0.5).toFloat())
+                setUniformIfPresent("uNoise", (interpolatedParams["noise"] ?: 0.5).toFloat())
+                setUniformIfPresent("uFrequency", (interpolatedParams["frequency"] ?: interpolatedParams["freq"] ?: 10.0).toFloat())
+                setUniformIfPresent("uAmplitude", (interpolatedParams["amplitude"] ?: 1.0).toFloat())
+                setUniformIfPresent("uSoftness", (interpolatedParams["softness"] ?: 0.5).toFloat())
+                setUniformIfPresent("uStrength", (interpolatedParams["strength"] ?: amount.toDouble()).toFloat())
+                setUniformIfPresent("uBlurAmount", (interpolatedParams["blurAmount"] ?: radius.toDouble()).toFloat())
+                setUniformIfPresent("uSizePx", (interpolatedParams["sizePx"] ?: 12.0).toFloat())
+                setUniformIfPresent("uProgress", (interpolatedParams["progress"] ?: 0.0).toFloat())
+                setUniformIfPresent("uCenterX", (interpolatedParams["centerX"] ?: 0.5).toFloat())
+                setUniformIfPresent("uCenterY", (interpolatedParams["centerY"] ?: 0.5).toFloat())
 
                 // Bind any additional dynamic float parameters
                 for ((paramKey, paramVal) in interpolatedParams) {
@@ -137,7 +174,11 @@ class CustomShaderEffect(
                 glProgram.bindAttributesAndUniforms()
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             } catch (e: Exception) {
-                throw VideoFrameProcessingException(e)
+                android.util.Log.e("CustomShaderEffect", "drawFrame error in effect $effectId: ${e.message}", e)
+                // Draw fallback passthrough to prevent aborting export
+                try {
+                    GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
+                } catch (_: Exception) {}
             }
         }
 
@@ -162,22 +203,31 @@ class CustomShaderEffect(
                 var code = rawFrag
                 code = code.replace(Regex("#version\\s+460\\s+core"), "")
                 code = code.replace(Regex("#include\\s+<flutter/runtime_effect\\.glsl>"), "")
-                code = code.replace("out vec4 fragColor;", "precision mediump float;\nvarying vec2 vTexCoords;")
+                code = code.replace("out vec4 fragColor;", "varying vec2 vTexCoords;")
                 code = code.replace("uniform sampler2D uTexture;", "uniform sampler2D uTexSampler;")
                 code = code.replace("FlutterFragCoord().xy / uSize", "vTexCoords")
                 code = code.replace("FlutterFragCoord().xy", "(vTexCoords * uSize)")
                 code = code.replace(Regex("\\btexture\\("), "texture2D(")
                 code = code.replace("fragColor =", "gl_FragColor =")
+                if (!code.contains("precision mediump float;")) {
+                    code = "precision mediump float;\n" + code
+                }
                 return code
             }
 
             private fun getFragmentShaderForEffect(context: Context, effectId: String): String {
+                val snakeId = effectId.replace(Regex("([a-z0-9])([A-Z])"), "$1_$2").lowercase()
                 val possiblePaths = listOf(
                     effectId,
+                    snakeId,
                     "flutter_assets/$effectId",
+                    "flutter_assets/$snakeId",
                     "flutter_assets/shaders/$effectId",
+                    "flutter_assets/shaders/$snakeId",
                     "flutter_assets/shaders/$effectId.frag",
-                    "shaders/$effectId.frag"
+                    "flutter_assets/shaders/$snakeId.frag",
+                    "shaders/$effectId.frag",
+                    "shaders/$snakeId.frag"
                 )
 
                 for (p in possiblePaths) {

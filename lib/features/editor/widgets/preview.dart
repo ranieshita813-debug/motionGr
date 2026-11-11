@@ -884,6 +884,83 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
             case 'zoomout':
               nextWidget = Transform.scale(scale: 1.5 - p * 0.5, child: Opacity(opacity: p, child: nextWidget));
               break;
+            case 'blur':
+            case 'softblur':
+            case 'radialblur':
+            case 'zoomblur':
+              final double blurVal = (1.0 - p) * 12.0;
+              nextWidget = ImageFiltered(
+                imageFilter: ui.ImageFilter.blur(sigmaX: blurVal, sigmaY: blurVal),
+                child: Opacity(opacity: p, child: nextWidget),
+              );
+              break;
+            case 'wipe':
+              nextWidget = ClipRect(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  widthFactor: p.clamp(0.0, 1.0).toDouble(),
+                  child: nextWidget,
+                ),
+              );
+              break;
+            case 'irisopen':
+              nextWidget = ClipOval(
+                child: Align(
+                  alignment: Alignment.center,
+                  widthFactor: p.clamp(0.0, 1.0).toDouble(),
+                  heightFactor: p.clamp(0.0, 1.0).toDouble(),
+                  child: nextWidget,
+                ),
+              );
+              break;
+            case 'spin':
+              nextWidget = Transform.rotate(
+                angle: (1.0 - p) * -math.pi,
+                child: Opacity(opacity: p, child: nextWidget),
+              );
+              break;
+            case 'fliphorizontal':
+              nextWidget = Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateY((1.0 - p) * -math.pi / 2),
+                child: Opacity(opacity: p, child: nextWidget),
+              );
+              break;
+            case 'flipvertical':
+              nextWidget = Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateX((1.0 - p) * -math.pi / 2),
+                child: Opacity(opacity: p, child: nextWidget),
+              );
+              break;
+            case 'flash':
+              final double flashIntensity = (1.0 - (p - 0.5).abs() * 2.0).clamp(0.0, 1.0).toDouble();
+              nextWidget = Stack(
+                fit: StackFit.expand,
+                children: [
+                  Opacity(opacity: p, child: nextWidget),
+                  ColoredBox(color: Colors.white.withValues(alpha: flashIntensity)),
+                ],
+              );
+              break;
+            case 'pixelate':
+              final double pixBlur = (1.0 - p) * 15.0;
+              nextWidget = ImageFiltered(
+                imageFilter: ui.ImageFilter.blur(sigmaX: pixBlur, sigmaY: pixBlur),
+                child: Opacity(opacity: p, child: nextWidget),
+              );
+              break;
+            case 'ripple':
+            case 'wave':
+              nextWidget = Transform.scale(
+                scale: 0.95 + p * 0.05,
+                child: Opacity(opacity: p, child: nextWidget),
+              );
+              break;
             default:
               nextWidget = Opacity(opacity: p, child: nextWidget);
               break;

@@ -57,8 +57,14 @@ object OverlayRenderer {
         return ks.last().value
     }
 
+    private val retrieverCache = java.util.concurrent.ConcurrentHashMap<String, android.media.MediaMetadataRetriever>()
+
     fun clearCache() {
         clipBitmapCache.evictAll()
+        for (r in retrieverCache.values) {
+            try { r.release() } catch (_: Exception) {}
+        }
+        retrieverCache.clear()
     }
 
     private fun loadInputStream(context: Context, path: String): java.io.InputStream? =
@@ -953,22 +959,28 @@ object OverlayRenderer {
                 val path = clip.sourcePath
                 if (path != null) {
                     val frameMs = (timelineMs - clip.timelineStartMs + clip.sourceInMs).coerceAtLeast(0L)
-                    val retriever = android.media.MediaMetadataRetriever()
-                    try {
-                        if (path.startsWith("content://")) {
-                            retriever.setDataSource(context, Uri.parse(path))
-                        } else {
-                            retriever.setDataSource(path.removePrefix("file://"))
+                    val frameCacheKey = "${clip.id}_video_frame_${frameMs / 100L}_${(180 * clip.scale * u).toInt()}"
+                    baseBmp = clipBitmapCache[frameCacheKey]
+                    if (baseBmp == null) {
+                        try {
+                            val retriever = retrieverCache.getOrPut(path) {
+                                android.media.MediaMetadataRetriever().apply {
+                                    if (path.startsWith("content://")) {
+                                        setDataSource(context, Uri.parse(path))
+                                    } else {
+                                        setDataSource(path.removePrefix("file://"))
+                                    }
+                                }
+                            }
+                            val frame = retriever.getFrameAtTime(frameMs * 1000L, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                            if (frame != null) {
+                                baseBmp = Bitmap.createScaledBitmap(frame, (180 * clip.scale * u).toInt().coerceAtLeast(16), (180 * clip.scale * u).toInt().coerceAtLeast(16), true)
+                                if (baseBmp != frame) frame.recycle()
+                                clipBitmapCache.put(frameCacheKey, baseBmp)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to extract video frame for overlay", e)
                         }
-                        val frame = retriever.getFrameAtTime(frameMs * 1000L, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                        if (frame != null) {
-                            baseBmp = Bitmap.createScaledBitmap(frame, (180 * clip.scale * u).toInt().coerceAtLeast(16), (180 * clip.scale * u).toInt().coerceAtLeast(16), true)
-                            if (baseBmp != frame) frame.recycle()
-                        }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to extract video frame for overlay", e)
-                    } finally {
-                        try { retriever.release() } catch (_: Exception) {}
                     }
                 }
             }
