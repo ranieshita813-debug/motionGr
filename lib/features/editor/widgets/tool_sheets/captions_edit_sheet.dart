@@ -5,7 +5,10 @@ import 'package:flutter_video_editor/core/models/project_model.dart';
 import 'package:flutter_video_editor/features/editor/controllers/editor_controller.dart';
 import 'package:flutter_video_editor/features/editor/theme/editor_tokens.dart';
 import 'package:flutter_video_editor/features/editor/utils/editor_helpers.dart';
+// ignore: unused_import
 import 'package:flutter_video_editor/core/widgets/caption_widgets.dart';
+
+const _font = 'Fredoka';
 
 /// Sheet 1 of 2: edit caption text and timing. Styling lives in
 /// [CaptionStyleSheet].
@@ -51,12 +54,16 @@ class _CaptionsEditSheetState extends State<CaptionsEditSheet> {
     setState(() => _isGenerating = true);
     tapFeedback();
     try {
-      final lang = (_selectedSpeechLanguage == 'Auto-Detect' || _selectedSpeechLanguage == 'Auto') ? null : _selectedSpeechLanguage;
+      final lang = (_selectedSpeechLanguage == 'Auto-Detect' ||
+              _selectedSpeechLanguage == 'Auto')
+          ? null
+          : _selectedSpeechLanguage;
       await editor.generateWhisperCaptions(language: lang);
       if (!mounted) return;
       final n = editor.project.captions.length;
       if (n > 0) {
-        _toast('Generated $n caption${n == 1 ? '' : 's'} in $_selectedSpeechLanguage');
+        _toast(
+            'Generated $n caption${n == 1 ? '' : 's'} in $_selectedSpeechLanguage');
       } else {
         _toast('No speech detected in audio.');
       }
@@ -130,141 +137,130 @@ class _CaptionsEditSheetState extends State<CaptionsEditSheet> {
       color: EditorTokens.bg,
       child: Column(
         children: [
-          MonoSheetHeader(
-            title: 'Captions',
-            trailing: widget.onOpenStyle == null
-                ? null
-                : MonoButton(
-                    label: 'Style',
-                    icon: PhosphorIconsRegular.textAa,
-                    onTap: widget.onOpenStyle,
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Text(
-                      'Voice Language:',
-                      style: TextStyle(
-                        color: EditorTokens.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: CaptionMono.font,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                          color: EditorTokens.elevated,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: EditorTokens.border),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedSpeechLanguage,
-                            isExpanded: true,
-                            dropdownColor: EditorTokens.surface,
-                            icon: const PhosphorIcon(PhosphorIconsRegular.caretDown, size: 14, color: Colors.white),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: CaptionMono.font,
-                            ),
-                            items: _speechLanguages.map((lang) {
-                              return DropdownMenuItem<String>(
-                                value: lang['name'],
-                                child: Text('${lang['name']} (${lang['label']})'),
-                              );
-                            }).toList(),
-                            onChanged: (val) {
-                              if (val != null) {
-                                tapFeedback();
-                                setState(() => _selectedSpeechLanguage = val);
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: MonoButton(
-                        filled: true,
-                        expand: true,
-                        busy: _isGenerating,
-                        icon: PhosphorIconsRegular.sparkle,
-                        label: _isGenerating ? 'Generating…' : 'Auto captions ($_selectedSpeechLanguage)',
-                        onTap: _isGenerating ? null : () => _generate(editor),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    MonoButton(
-                      label: 'Import',
-                      icon: PhosphorIconsRegular.fileArrowUp,
-                      onTap: () => _import(editor),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: EditorTokens.border),
+          _buildTopBar(editor),
+          _buildLanguageTabs(),
           Expanded(
-            child: captions.isEmpty
-                ? _empty(editor)
-                : _list(editor, captions),
+            child: captions.isEmpty ? _empty(editor) : _list(editor, captions),
           ),
         ],
       ),
     );
   }
 
-  Widget _empty(EditorController editor) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const PhosphorIcon(PhosphorIconsRegular.closedCaptioning,
-                size: 48, color: EditorTokens.muted),
-            const SizedBox(height: 14),
-            const Text('No captions yet',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    fontFamily: CaptionMono.font)),
-            const SizedBox(height: 6),
-            const Text(
-              'Generate captions from speech, import an\n.srt or .vtt file, or add one by hand.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: EditorTokens.muted,
-                  fontSize: 12.5,
-                  height: 1.4,
-                  fontFamily: CaptionMono.font),
-            ),
-            const SizedBox(height: 18),
-            MonoButton(
-              label: 'Add caption',
-              icon: PhosphorIconsRegular.plus,
-              onTap: () => _addCue(editor),
-            ),
-          ],
-        ),
+  // ---------------- Top bar ----------------
+  Widget _barIcon(PhosphorIconData icon, String tip, VoidCallback? onTap) {
+    return IconButton(
+      tooltip: tip,
+      icon: PhosphorIcon(
+        icon,
+        color: onTap == null ? EditorTokens.muted : EditorTokens.text,
+        size: 20,
       ),
+      onPressed: onTap,
+    );
+  }
+
+  Widget _buildTopBar(EditorController editor) {
+    return Container(
+      height: 46,
+      decoration: const BoxDecoration(
+        border:
+            Border(bottom: BorderSide(color: EditorTokens.border, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          _isGenerating
+              ? const SizedBox(
+                  width: 48,
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: EditorTokens.text,
+                        backgroundColor: EditorTokens.border,
+                      ),
+                    ),
+                  ),
+                )
+              : _barIcon(PhosphorIconsRegular.sparkle, 'Auto captions',
+                  () => _generate(editor)),
+          _barIcon(PhosphorIconsRegular.fileArrowUp, 'Import .srt / .vtt',
+              () => _import(editor)),
+          _barIcon(PhosphorIconsRegular.plus, 'Add caption at playhead',
+              () => _addCue(editor)),
+          const Spacer(),
+          if (widget.onOpenStyle != null) ...[
+            Container(width: 1, height: 16, color: EditorTokens.border),
+            _barIcon(PhosphorIconsRegular.textAa, 'Style', widget.onOpenStyle),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageTabs() {
+    return Container(
+      height: 40,
+      decoration: const BoxDecoration(
+        border:
+            Border(bottom: BorderSide(color: EditorTokens.border, width: 0.5)),
+      ),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        itemCount: _speechLanguages.length,
+        itemBuilder: (_, i) {
+          final lang = _speechLanguages[i];
+          final active = lang['name'] == _selectedSpeechLanguage;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              if (active) return;
+              tapFeedback();
+              setState(() => _selectedSpeechLanguage = lang['name']!);
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    lang['label']!,
+                    style: TextStyle(
+                      color: active ? EditorTokens.text : EditorTokens.muted,
+                      fontSize: 14,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      fontFamily: _font,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    height: 2,
+                    width: active ? 16 : 0,
+                    decoration: BoxDecoration(
+                      color: EditorTokens.text,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ---------------- Empty / List ----------------
+  Widget _empty(EditorController editor) {
+    return _StateMessage(
+      icon: PhosphorIconsRegular.closedCaptioning,
+      text: 'No captions yet',
+      action: _isGenerating ? null : 'Auto captions ($_selectedSpeechLanguage)',
+      onAction: () => _generate(editor),
     );
   }
 
@@ -275,7 +271,7 @@ class _CaptionsEditSheetState extends State<CaptionsEditSheet> {
 
     return ListView.builder(
       controller: _scroll,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 16),
       itemExtent: _rowExtent,
       itemCount: captions.length + 1,
       itemBuilder: (context, i) {
@@ -284,10 +280,17 @@ class _CaptionsEditSheetState extends State<CaptionsEditSheet> {
             alignment: Alignment.topCenter,
             child: Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: MonoButton(
-                label: 'Add caption at playhead',
-                icon: PhosphorIconsRegular.plus,
-                onTap: () => _addCue(editor),
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: EditorTokens.text,
+                  side: const BorderSide(color: EditorTokens.border),
+                  textStyle: const TextStyle(
+                      fontFamily: _font, fontWeight: FontWeight.w600),
+                ),
+                onPressed: () => _addCue(editor),
+                icon: const PhosphorIcon(PhosphorIconsRegular.plus,
+                    size: 16, color: EditorTokens.text),
+                label: const Text('Add caption at playhead'),
               ),
             ),
           );
@@ -325,6 +328,8 @@ class _CaptionsEditSheetState extends State<CaptionsEditSheet> {
   }
 }
 
+// ======================= Widgets =======================
+
 class _CueRow extends StatelessWidget {
   const _CueRow({
     super.key,
@@ -349,25 +354,25 @@ class _CueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final headColor = active ? EditorTokens.text : EditorTokens.muted;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.fromLTRB(12, 4, 4, 8),
         decoration: BoxDecoration(
-          color: active ? EditorTokens.elevated : Colors.transparent,
-          borderRadius: BorderRadius.circular(CaptionMono.radius),
+          color: EditorTokens.elevated,
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: active ? Colors.white : EditorTokens.border,
-            width: active ? 1.5 : 1,
+            color: active ? EditorTokens.text : Colors.transparent,
+            width: 1.5,
           ),
         ),
         child: Column(
           children: [
             Row(
               children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                _Pressable(
                   onTap: onSeek,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -376,18 +381,18 @@ class _CueRow extends StatelessWidget {
                       children: [
                         Text('$index',
                             style: TextStyle(
-                                color: active ? Colors.white : EditorTokens.muted,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                fontFamily: CaptionMono.font)),
+                                color: headColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: _font)),
                         const SizedBox(width: 10),
                         Text(
                           '${formatCueTime(cue.start)} – ${formatCueTime(cue.end)}',
                           style: TextStyle(
-                              color: active ? Colors.white : EditorTokens.muted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: CaptionMono.font),
+                              color: headColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: _font),
                         ),
                       ],
                     ),
@@ -409,18 +414,19 @@ class _CueRow extends StatelessWidget {
                   maxLines: null,
                   expands: true,
                   textAlignVertical: TextAlignVertical.top,
-                  cursorColor: Colors.white,
+                  cursorColor: EditorTokens.text,
                   style: const TextStyle(
-                      color: Colors.white,
+                      color: EditorTokens.text,
                       fontSize: 14,
                       height: 1.3,
-                      fontFamily: CaptionMono.font),
+                      fontFamily: _font),
                   decoration: const InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.only(right: 8),
                     hintText: 'Type caption…',
-                    hintStyle: TextStyle(color: EditorTokens.muted),
+                    hintStyle: TextStyle(
+                        color: EditorTokens.muted, fontFamily: _font),
                   ),
                   onChanged: onTextChanged,
                 ),
@@ -432,8 +438,8 @@ class _CueRow extends StatelessWidget {
     );
   }
 
-  Widget _icon(IconData icon, String tip, VoidCallback? onTap,
-      {Color color = Colors.white70}) {
+  Widget _icon(PhosphorIconData icon, String tip, VoidCallback? onTap,
+      {Color color = EditorTokens.text}) {
     return IconButton(
       visualDensity: VisualDensity.compact,
       constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
@@ -441,7 +447,86 @@ class _CueRow extends StatelessWidget {
       tooltip: tip,
       onPressed: onTap,
       icon: PhosphorIcon(icon,
-          size: 16, color: onTap == null ? Colors.white24 : color),
+          size: 16, color: onTap == null ? EditorTokens.border : color),
+    );
+  }
+}
+
+/// Scale-down press feedback.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, required this.onTap});
+  final Widget child;
+  final VoidCallback onTap;
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _down ? 0.95 : 1,
+        duration: const Duration(milliseconds: 100),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _StateMessage extends StatelessWidget {
+  const _StateMessage({
+    required this.icon,
+    required this.text,
+    this.action,
+    this.onAction,
+  });
+  final PhosphorIconData icon;
+  final String text;
+  final String? action;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PhosphorIcon(icon, size: 36, color: EditorTokens.muted),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            style: const TextStyle(
+                color: EditorTokens.muted, fontSize: 13, fontFamily: _font),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Generate from speech, import .srt / .vtt, or add by hand.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                color: EditorTokens.muted, fontSize: 12, fontFamily: _font),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: EditorTokens.text,
+                side: const BorderSide(color: EditorTokens.border),
+                textStyle: const TextStyle(
+                    fontFamily: _font, fontWeight: FontWeight.w600),
+              ),
+              onPressed: onAction,
+              child: Text(action!),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

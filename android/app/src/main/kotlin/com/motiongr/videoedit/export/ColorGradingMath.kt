@@ -1,280 +1,191 @@
 package com.motiongr.videoedit.export
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
-
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Shared color grading math utilities to ensure consistency between
- * Canvas (CPU) and GL shader (GPU) implementations.
- * 
- * All parameters are in the same ranges as ColorGradingSpec:
- * - brightness: -1.0 to 1.0
- * - contrast: 0.0 to 2.0 (1.0 = neutral)
- * - saturation: 0.0 to 2.0 (1.0 = neutral)
- * - temperature: -1.0 to 1.0
- * - tint: -1.0 to 1.0
- * - exposure: -1.0 to 1.0 (EV stops)
- * - vignette: 0.0 to 1.0
- * - highlights: -1.0 to 1.0
- * - shadows: -1.0 to 1.0
- * - fade: 0.0 to 1.0
- * - sepia: 0.0 to 1.0
- * - brilliance: -1.0 to 1.0
- * - clarity: -1.0 to 1.0
+ * CPU implementation of the exact same pipeline as ColorGradingEffect's shader.
+ * Use for thumbnails / still previews so they match the exported video.
+ * Clarity & sharpen use a downscale-blur approximation of the shader's 9-tap blur.
  */
 object ColorGradingMath {
 
-    /** Luminance weights (Rec. 709 / sRGB) */
-    private const val LUM_R = 0.2126f
-    private const val LUM_G = 0.7152f
-    private const val LUM_B = 0.0722f
+    private const val LR = 0.2126f
+    private const val LG = 0.7152f
+    private const val LB = 0.0722f
 
-    /** Data class holding all precomputed color grading parameters */
-    data class Params(
-        // Saturation matrix (3x3, row-major for CPU, column-major for GPU)
-        val satMatrix: FloatArray, // 9 elements: [sr, sg, sb, srg, sgg, sbg, srb, sgb, sbb]
-        // Per-channel scale (RGB)
-        val scaleR: Float,
-        val scaleG: Float,
-        val scaleB: Float,
-        // Contrast
-        val contrastFactor: Float,
-        val contrastTranslate: Float, // for 0-255 range (CPU only)
-        // Brightness offset (0-1 range for GPU, 0-255 for CPU)
-        val brightnessOffset: Float,
-        val brightnessOffset255: Float, // for 0-255 range (CPU only)
-        // Vignette
-        val vignetteStrength: Float,
-        // Fade
-        val fadeFactor: Float,
-        // Highlights/Shadows (for future GPU support)
-        val highlights: Float,
-        val shadows: Float,
-        // Sepia
-        val sepia: Float,
-    )
-
-    /**
-     * Compute all color grading parameters from ColorGradingSpec.
-     * Returns Params that can be used by both CPU (Canvas) and GPU (GL) implementations.
-     */
-    fun computeParams(cg: ColorGradingSpec): Params {
-        // 1. Saturation matrix (luminance-based)
-        val saturationFactor = cg.saturation.toFloat().coerceIn(0f, 2f)
-        val sr = (1.0f - saturationFactor) * LUM_R + saturationFactor
-        val sg = (1.0f - saturationFactor) * LUM_G
-        val sb = (1.0f - saturationFactor) * LUM_B
-        val srg = (1.0f - saturationFactor) * LUM_R
-        val sgg = (1.0f - saturationFactor) * LUM_G + saturationFactor
-        val sbg = (1.0f - saturationFactor) * LUM_B
-        val srb = (1.0f - saturationFactor) * LUM_R
-        val sgb = (1.0f - saturationFactor) * LUM_G
-        val sbb = (1.0f - saturationFactor) * LUM_B + saturationFactor
-
-        val satMatrix = floatArrayOf(sr, sg, sb, srg, sgg, sbg, srb, sgb, sbb)
-
-        // 2. Contrast (combined with clarity)
-        // clarity: -1 to 1, adds local contrast
-        val effectiveContrast = (cg.contrast + cg.clarity * 0.3).toFloat().coerceIn(0.5f, 2f)
-        val contrastFactor = effectiveContrast
-        // For CPU (0-255 range): contrast translate = (-0.5 * scale + 0.5) * 255
-        val contrastTranslate = (-0.5f * contrastFactor + 0.5f) * 255f
-
-        // 3. Brightness (combined with brilliance)
-        // brilliance: -1 to 1, adds perceptual brightness
-        val effectiveBrightness = (cg.brightness + cg.brilliance * 0.3).toFloat().coerceIn(-1f, 1f)
-        val brightnessOffset = effectiveBrightness // 0-1 range for GPU
-        val brightnessOffset255 = (effectiveBrightness * 255.0).toFloat().coerceIn(-128f, 128f) // 0-255 for CPU
-
-        // 4. Exposure gain
-        val gain = 2.0.pow(cg.exposure.toDouble()).toFloat()
-
-        // 5. Temperature and tint with fade and sepia
-        // fade: 0 to 1, reduces overall intensity
-        val fadeFactor = (1.0f - 0.15f * cg.fade.toFloat()).coerceIn(0f, 1f)
-        val sepia = cg.sepia.toFloat().coerceIn(0f, 1f)
-
-        // Temperature: -1 (cool/blue) to 1 (warm/red)
-        // Tint: -1 (green) to 1 (magenta) - affects green channel
-        val tempR = (gain * (1.0f + 0.25f * cg.temperature.toFloat() + 0.2f * sepia) * fadeFactor).coerceAtLeast(0f)
-        val tempG = (gain * (1.0f - 0.25f * cg.tint.toFloat()) * fadeFactor).coerceAtLeast(0f)
-        val tempB = (gain * (1.0f - 0.25f * cg.temperature.toFloat() - 0.2f * sepia) * fadeFactor).coerceAtLeast(0f)
-
-        // 6. Vignette
-        val vignetteStrength = cg.vignette.toFloat().coerceIn(0f, 1f)
-
-        // 7. Highlights/Shadows (for future GPU support)
-        val highlights = cg.highlights.toFloat().coerceIn(-1f, 1f)
-        val shadows = cg.shadows.toFloat().coerceIn(-1f, 1f)
-
-        return Params(
-            satMatrix = satMatrix,
-            scaleR = tempR,
-            scaleG = tempG,
-            scaleB = tempB,
-            contrastFactor = contrastFactor,
-            contrastTranslate = contrastTranslate,
-            brightnessOffset = brightnessOffset,
-            brightnessOffset255 = brightnessOffset255,
-            vignetteStrength = vignetteStrength,
-            fadeFactor = fadeFactor,
-            highlights = highlights,
-            shadows = shadows,
-            sepia = sepia
-        )
+    private fun luma(r: Float, g: Float, b: Float) = LR * r + LG * g + LB * b
+    private fun c01(x: Float) = if (x < 0f) 0f else if (x > 1f) 1f else x
+    private fun mix(a: Float, b: Float, t: Float) = a + (b - a) * t
+    private fun smoothstep(e0: Float, e1: Float, x: Float): Float {
+        val t = c01((x - e0) / (e1 - e0))
+        return t * t * (3f - 2f * t)
     }
+    private fun fract(x: Float) = x - floor(x)
 
-    /**
-     * Build a 4x4 column-major matrix for GPU (GL shader).
-     * This matches the format expected by GlMatrixTransformation.
-     */
-    fun buildGpuMatrix(params: Params): FloatArray {
-        val matrix = FloatArray(16)
+    fun applyToBitmap(src: Bitmap, grade: ColorGrade): Bitmap {
+        val g = grade.coerced()
+        val w = src.width
+        val h = src.height
+        if (w <= 0 || h <= 0 || g.isNeutral()) return src
 
-        // Extract saturation matrix elements (row-major in params, need column-major for GPU)
-        // params.satMatrix is [sr, sg, sb, srg, sgg, sbg, srb, sgb, sbb] (row-major 3x3)
-        val sr = params.satMatrix[0]
-        val sg = params.satMatrix[1]
-        val sb = params.satMatrix[2]
-        val srg = params.satMatrix[3]
-        val sgg = params.satMatrix[4]
-        val sbg = params.satMatrix[5]
-        val srb = params.satMatrix[6]
-        val sgb = params.satMatrix[7]
-        val sbb = params.satMatrix[8]
+        val px = IntArray(w * h)
+        src.getPixels(px, 0, w, 0, 0, w, h)
 
-        // Column-major order for OpenGL ES:
-        // [0, 4, 8, 12]
-        // [1, 5, 9, 13]
-        // [2, 6, 10, 14]
-        // [3, 7, 11, 15]
+        val wide = if (abs(g.clarity) > 0.001f) blurPixels(src, 8) else null
+        val narrow = if (g.sharpen > 0.001f) blurPixels(src, 2) else null
 
-        // R column (input R -> output RGB)
-        matrix[0] = sr * params.scaleR * params.contrastFactor
-        matrix[1] = srg * params.scaleR * params.contrastFactor
-        matrix[2] = srb * params.scaleR * params.contrastFactor
-        matrix[3] = 0.0f
+        val gain = g.linearGain()
+        val aspect = w.toFloat() / h
+        val vigNorm = sqrt((0.5f * aspect) * (0.5f * aspect) + 0.25f)
+        val hueAngle = g.hue * Math.PI.toFloat()
+        val hueCos = cos(hueAngle)
+        val hueSin = sin(hueAngle)
 
-        // G column (input G -> output RGB)
-        matrix[4] = sg * params.scaleG * params.contrastFactor
-        matrix[5] = sgg * params.scaleG * params.contrastFactor
-        matrix[6] = sbg * params.scaleG * params.contrastFactor
-        matrix[7] = 0.0f
+        for (y in 0 until h) {
+            val v = (y + 0.5f) / h
+            for (x in 0 until w) {
+                val i = y * w + x
+                val p = px[i]
+                val a = p ushr 24
+                val sr = ((p shr 16) and 0xFF) / 255f
+                val sg = ((p shr 8) and 0xFF) / 255f
+                val sb = (p and 0xFF) / 255f
+                var r = sr
+                var gg = sg
+                var b = sb
 
-        // B column (input B -> output RGB)
-        matrix[8] = sb * params.scaleB * params.contrastFactor
-        matrix[9] = sbg * params.scaleB * params.contrastFactor
-        matrix[10] = sbb * params.scaleB * params.contrastFactor
-        matrix[11] = 0.0f
+                // 1. detail
+                if (wide != null) {
+                    val l0 = luma(sr, sg, sb)
+                    val mid = 4f * l0 * (1f - l0)
+                    val k = g.clarity * 1.6f * mid
+                    val q = wide[i]
+                    r += (sr - ((q shr 16) and 0xFF) / 255f) * k
+                    gg += (sg - ((q shr 8) and 0xFF) / 255f) * k
+                    b += (sb - (q and 0xFF) / 255f) * k
+                }
+                if (narrow != null) {
+                    val k = g.sharpen * 2.5f
+                    val q = narrow[i]
+                    r += (sr - ((q shr 16) and 0xFF) / 255f) * k
+                    gg += (sg - ((q shr 8) and 0xFF) / 255f) * k
+                    b += (sb - (q and 0xFF) / 255f) * k
+                }
+                r = c01(r); gg = c01(gg); b = c01(b)
 
-        // Brightness offset (same for all channels)
-        matrix[12] = params.brightnessOffset
-        matrix[13] = params.brightnessOffset
-        matrix[14] = params.brightnessOffset
-        matrix[15] = 1.0f
+                // 2. exposure + WB (linear)
+                r = c01(r.pow(2.2f) * gain[0]).pow(1f / 2.2f)
+                gg = c01(gg.pow(2.2f) * gain[1]).pow(1f / 2.2f)
+                b = c01(b.pow(2.2f) * gain[2]).pow(1f / 2.2f)
 
-        return matrix
-    }
+                // 3. brightness
+                val bo = g.brightness * 0.4f
+                r += bo; gg += bo; b += bo
 
-    /**
-     * Apply color grading to a bitmap using CPU (Canvas) path.
-     * Uses the unified params for consistency with GPU.
-     */
-    fun applyToBitmap(bitmap: Bitmap, params: Params): Bitmap {
-        val w = bitmap.width
-        val h = bitmap.height
-        if (w <= 0 || h <= 0) return bitmap
+                // 4. shadows / highlights / brilliance
+                var l = luma(c01(r), c01(gg), c01(b))
+                val sm = 1f - smoothstep(0f, 0.55f, l)
+                val hm = smoothstep(0.45f, 1f, l)
+                val lift = g.shadows * 0.30f * sm + g.highlights * 0.30f * hm +
+                    g.brilliance * (0.25f * sm - 0.15f * hm)
+                r = c01(r + lift); gg = c01(gg + lift); b = c01(b + lift)
 
-        val output = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
+                // 5. contrast
+                r = c01((r - 0.5f) * g.contrast + 0.5f)
+                gg = c01((gg - 0.5f) * g.contrast + 0.5f)
+                b = c01((b - 0.5f) * g.contrast + 0.5f)
 
-        // Build ColorMatrix for CPU path (row-major, 0-255 range)
-        val cm = android.graphics.ColorMatrix()
+                // 6. saturation + vibrance
+                l = luma(r, gg, b)
+                r = mix(l, r, g.saturation)
+                gg = mix(l, gg, g.saturation)
+                b = mix(l, b, g.saturation)
+                val mx = max(r, max(gg, b))
+                val mn = min(r, min(gg, b))
+                val vf = 1f + g.vibrance * (1f - (mx - mn))
+                l = luma(r, gg, b)
+                r = mix(l, r, vf); gg = mix(l, gg, vf); b = mix(l, b, vf)
 
-        // 1. Saturation (already in satMatrix, but ColorMatrix.setSaturation is simpler)
-        cm.setSaturation(params.satMatrix[0]) // This only works for uniform saturation
+                // 7. hue
+                if (abs(g.hue) > 0.001f) {
+                    val k = 0.57735027f
+                    val dot = k * (r + gg + b)
+                    val cx = k * b - k * gg
+                    val cy = k * r - k * b
+                    val cz = k * gg - k * r
+                    val omc = 1f - hueCos
+                    val nr = r * hueCos + cx * hueSin + k * dot * omc
+                    val ng = gg * hueCos + cy * hueSin + k * dot * omc
+                    val nb = b * hueCos + cz * hueSin + k * dot * omc
+                    r = nr; gg = ng; b = nb
+                }
 
-        // Actually, we need to build the full matrix manually for non-uniform saturation
-        // ColorMatrix is 4x5 row-major:
-        // [ m0, m1, m2, m3, m4 ]
-        // [ m5, m6, m7, m8, m9 ]
-        // [ m10,m11,m12,m13,m14]
-        // [ m15,m16,m17,m18,m19]
-        // Last row is [0,0,0,1,0]
+                // 8. sepia
+                if (g.sepia > 0.001f) {
+                    val sr2 = 0.393f * r + 0.769f * gg + 0.189f * b
+                    val sg2 = 0.349f * r + 0.686f * gg + 0.168f * b
+                    val sb2 = 0.272f * r + 0.534f * gg + 0.131f * b
+                    r = mix(r, sr2, g.sepia); gg = mix(gg, sg2, g.sepia); b = mix(b, sb2, g.sepia)
+                }
 
-        // Build combined matrix: Saturation * Contrast * ColorScale
-        // Using row-major order for ColorMatrix
-        val sr = params.satMatrix[0]
-        val sg = params.satMatrix[1]
-        val sb = params.satMatrix[2]
-        val srg = params.satMatrix[3]
-        val sgg = params.satMatrix[4]
-        val sbg = params.satMatrix[5]
-        val srb = params.satMatrix[6]
-        val sgb = params.satMatrix[7]
-        val sbb = params.satMatrix[8]
+                // 9. fade
+                val fk = 1f - 0.25f * g.fade
+                val fo = 0.12f * g.fade
+                r = r * fk + fo; gg = gg * fk + fo; b = b * fk + fo
+                l = luma(r, gg, b)
+                val fs = 1f - 0.2f * g.fade
+                r = mix(l, r, fs); gg = mix(l, gg, fs); b = mix(l, b, fs)
 
-        val cf = params.contrastFactor
-        val ct = params.contrastTranslate
-        val sr2 = sr * params.scaleR * cf
-        val sg2 = sg * params.scaleG * cf
-        val sb2 = sb * params.scaleB * cf
-        val srg2 = srg * params.scaleR * cf
-        val sgg2 = sgg * params.scaleG * cf
-        val sbg2 = sbg * params.scaleB * cf
-        val srb2 = srb * params.scaleR * cf
-        val sgb2 = sgb * params.scaleG * cf
-        val sbb2 = sbb * params.scaleB * cf
+                // 10. vignette
+                if (g.vignette > 0.001f) {
+                    val ux = ((x + 0.5f) / w - 0.5f) * aspect
+                    val uy = v - 0.5f
+                    val d = sqrt(ux * ux + uy * uy) / vigNorm
+                    val vv = smoothstep(0.35f, 1f, d)
+                    val m = 1f - g.vignette * 0.85f * vv * vv
+                    r *= m; gg *= m; b *= m
+                }
 
-        val bo255 = params.brightnessOffset255
+                // 11. grain
+                if (g.grain > 0.001f) {
+                    val n = fract(sin((x.toFloat() * 12.9898f) + (y.toFloat() * 78.233f)) * 43758.5453f)
+                    val lg = luma(r, gg, b)
+                    val d = (n - 0.5f) * g.grain * 0.18f * (1f - abs(2f * lg - 1f) * 0.6f)
+                    r += d; gg += d; b += d
+                }
 
-        val colorMatrix = floatArrayOf(
-            sr2, srg2, srb2, 0f, bo255 + ct,
-            sg2, sgg2, sbg2, 0f, bo255 + ct,
-            sb2, sbg2, sbb2, 0f, bo255 + ct,
-            0f, 0f, 0f, 1f, 0f
-        )
-        cm.set(colorMatrix)
-
-        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG).apply {
-            colorFilter = android.graphics.ColorMatrixColorFilter(cm)
-        }
-        canvas.drawBitmap(bitmap, 0f, 0f, paint)
-
-        // Apply vignette as radial gradient overlay
-        if (params.vignetteStrength > 0.0f) {
-            val vigVal = params.vignetteStrength
-            val cx = w / 2f
-            val cy = h / 2f
-            val radius = sqrt((cx * cx + cy * cy).toDouble()).toFloat()
-            val shader = android.graphics.RadialGradient(
-                cx, cy, radius,
-                intArrayOf(
-                    android.graphics.Color.TRANSPARENT,
-                    android.graphics.Color.argb((vigVal * 200).toInt(), 0, 0, 0)
-                ),
-                floatArrayOf(0.4f, 1.0f),
-                android.graphics.Shader.TileMode.CLAMP
-            )
-            val vigPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                this.shader = shader
+                px[i] = (a shl 24) or
+                    ((c01(r) * 255f + 0.5f).toInt() shl 16) or
+                    ((c01(gg) * 255f + 0.5f).toInt() shl 8) or
+                    (c01(b) * 255f + 0.5f).toInt()
             }
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), vigPaint)
         }
 
-        return output
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        out.setPixels(px, 0, w, 0, 0, w, h)
+        return out
     }
 
-    /**
-     * Check if color grading has any effect (all params at neutral).
-     */
-    fun isNeutral(cg: ColorGradingSpec): Boolean {
-        return cg.brightness == 0.0 && cg.contrast == 1.0 && cg.saturation == 1.0 &&
-            cg.temperature == 0.0 && cg.tint == 0.0 && cg.exposure == 0.0 &&
-            cg.vignette == 0.0 && cg.highlights == 0.0 && cg.shadows == 0.0 &&
-            cg.fade == 0.0 && cg.sepia == 0.0 && cg.brilliance == 0.0 && cg.clarity == 0.0
+    /** Cheap blur: downscale then upscale with bilinear filtering. */
+    private fun blurPixels(src: Bitmap, factor: Int): IntArray {
+        val w = src.width
+        val h = src.height
+        val small = Bitmap.createScaledBitmap(src, max(1, w / factor), max(1, h / factor), true)
+        val up = Bitmap.createScaledBitmap(small, w, h, true)
+        val arr = IntArray(w * h)
+        up.getPixels(arr, 0, w, 0, 0, w, h)
+        if (small !== src) small.recycle()
+        if (up !== small && up !== src) up.recycle()
+        return arr
     }
+
+    fun isNeutral(cg: ColorGradingSpec) = cg.toGrade().isNeutral()
 }
