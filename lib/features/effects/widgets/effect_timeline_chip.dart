@@ -12,6 +12,8 @@ class EffectTimelineChip extends StatelessWidget {
     this.isSelected = false,
     this.onToggleEnabled,
     this.onRemove,
+    this.onMoveLeft,
+    this.onMoveRight,
   });
 
   final ShaderEffectClip effectClip;
@@ -19,6 +21,19 @@ class EffectTimelineChip extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onToggleEnabled;
   final VoidCallback? onRemove;
+  final VoidCallback? onMoveLeft;
+  final VoidCallback? onMoveRight;
+
+  const EffectTimelineChip.reorderable({
+    super.key,
+    required this.effectClip,
+    required this.onTap,
+    this.isSelected = false,
+    this.onToggleEnabled,
+    this.onRemove,
+    this.onMoveLeft,
+    this.onMoveRight,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +83,28 @@ class EffectTimelineChip extends StatelessWidget {
                 PhosphorIconsRegular.bookmark,
                 color: EditorTokens.accent,
                 size: 10,
+              ),
+            ],
+            if (onMoveLeft != null) ...[
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: onMoveLeft,
+                child: const PhosphorIcon(
+                  PhosphorIconsRegular.caretLeft,
+                  color: EditorTokens.text,
+                  size: 13,
+                ),
+              ),
+            ],
+            if (onMoveRight != null) ...[
+              const SizedBox(width: 2),
+              GestureDetector(
+                onTap: onMoveRight,
+                child: const PhosphorIcon(
+                  PhosphorIconsRegular.caretRight,
+                  color: EditorTokens.text,
+                  size: 13,
+                ),
               ),
             ],
             if (onRemove != null) ...[
