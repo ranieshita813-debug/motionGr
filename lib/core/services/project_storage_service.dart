@@ -299,12 +299,12 @@ class ProjectStorageService {
       final mgrFile = File('${dir.path}/recovery_active.mgr');
       if (await mgrFile.exists()) {
         final bytes = await mgrFile.readAsBytes();
-        return extractMgrBundle(bytes);
+        return await extractMgrBundle(bytes);
       }
       final legacyFile = File('${dir.path}/recovery_active.json');
       if (await legacyFile.exists()) {
         final bytes = await legacyFile.readAsBytes();
-        return extractMgrBundle(bytes);
+        return await extractMgrBundle(bytes);
       }
     } on MissingPluginException catch (_) {
       return null;
