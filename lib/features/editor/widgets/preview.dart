@@ -435,6 +435,18 @@ class _VideoPlayerPreviewState extends State<VideoPlayerPreview> {
     try {
       await c.initialize();
       await c.setLooping(false);
+      final clip = _e.activeVideoClip;
+      final speed = (clip?.speed ?? 1.0).clamp(0.1, 10.0).toDouble();
+      final Duration local = Duration(
+        milliseconds: ((clip?.trimIn.inMilliseconds ?? 0) +
+                (_e.playhead - (clip?.start ?? Duration.zero)).inMilliseconds * speed)
+            .round(),
+      );
+      if (local > Duration.zero && local <= c.value.duration) {
+        await c.seekTo(local);
+      } else {
+        await c.seekTo(Duration.zero);
+      }
     } catch (_) {
       await c.dispose();
       if (token == _token) await _swap(null, failed: true);
